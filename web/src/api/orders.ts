@@ -9,6 +9,7 @@ import type {
   Order,
   OrderCreatePayload,
   OrderParams,
+  OrderPayment,
   OrderStatus,
   OrderUpdatePayload,
 } from '@/types/api';
@@ -40,6 +41,22 @@ export function useOrder(id: number | null) {
     queryKey: qk.order(id ?? 0),
     queryFn: () => fetchOrder(id as number),
     enabled: id !== null,
+  });
+}
+
+/** QR и реквизиты для оплаты. Сумму считает сервер (по умолчанию — остаток),
+ *  но её можно задать: предоплату берут не всегда ровно половиной. */
+export const fetchOrderPayment = (orderId: number, amount: number): Promise<OrderPayment> =>
+  request<OrderPayment>(`/orders/${orderId}/payment?amount=${encodeURIComponent(amount)}`);
+
+export function useOrderPayment(orderId: number, amount: number, enabled = true) {
+  return useQuery({
+    queryKey: qk.payment(orderId, amount),
+    queryFn: () => fetchOrderPayment(orderId, amount),
+    enabled,
+    // реквизиты меняются раз в год: перезапрашивать их при каждом
+    // возврате к вкладке незачем
+    staleTime: 10 * 60 * 1000,
   });
 }
 

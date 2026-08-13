@@ -15,6 +15,7 @@ import { formatPhone } from '@/lib/phone';
 import type { Order } from '@/types/api';
 
 import { OrderFormModal } from './OrderFormModal';
+import { PaymentModal } from './PaymentModal';
 import { PrintOrderModal } from './PrintOrderModal';
 import { orderParamRows } from './params';
 import { useDeleteOrderFlow } from './useDeleteOrderFlow';
@@ -184,6 +185,15 @@ function OrderCard({ order }: { order: Order }) {
             </div>
           )}
           <MoneyBlock order={order} />
+          {/* кнопка стоит здесь, а не в подвале: «куда платить» спрашивают,
+              глядя на сумму, и искать её в другом конце окна незачем */}
+          <button
+            className="btn btn-ghost pay-open"
+            type="button"
+            onClick={() => modal.push(<PaymentModal order={order} />, { backLabel: '← К заказу' })}
+          >
+            Куда платить — QR и реквизиты
+          </button>
         </Section>
       )}
 

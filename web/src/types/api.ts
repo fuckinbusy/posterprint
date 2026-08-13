@@ -469,6 +469,21 @@ export interface Device {
 }
 
 /* ---------------------------------------------------- макеты */
+/** Ответ GET /api/orders/{id}/payment — то, что показывают клиенту у стойки. */
+export interface OrderPayment {
+  /** есть ли что показать вообще: QR, карта или телефон */
+  available: boolean;
+  /** data:-ссылка с картинкой QR; пусто — реквизиты для него не заполнены */
+  qr: string;
+  amount: number;
+  purpose: string;
+  recipient: string;
+  requisites: { label: string; value: string }[];
+  note: string;
+  /** что недонастроено; приходит только администратору */
+  problems: string[];
+}
+
 export interface DesignInfo {
   exists: boolean;
   filename: string;

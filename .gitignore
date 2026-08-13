@@ -20,7 +20,7 @@ web/node_modules/
 web/tsconfig.tsbuildinfo
 
 # Локальные настройки инструментов
-.claude/settings.local.json
+.claude/
 .vscode/
 .idea/
 

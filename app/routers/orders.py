@@ -9,7 +9,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app import catalog, clients as clients_logic, pricing, shop
+from app import catalog, clients as clients_logic, payments, pricing, shop
 from app.logs import log as applog
 from app.security import CurrentUser, current_user, require_perm
 from app.database import get_db
@@ -440,6 +440,54 @@ def estimate_price(
         raise HTTPException(422, "Неизвестный вид работ")
     result = pricing.estimate(db, payload.template_key, payload.quantity, payload.params)
     return EstimateResponse(**result)
+
+
+@router.get("/orders/{order_id}/payment")
+def order_payment(
+    order_id: int,
+    amount: float | None = Query(default=None, ge=0, le=100_000_000,
+                                 description="Сумма к оплате; по умолчанию — остаток по заказу"),
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_perm("orders.price.view")),
+) -> dict:
+    """Что показать клиенту на вопрос «куда платить».
+
+    Право то же, что и на стоимость заказа: кто не видит цену, тому и сумму
+    к оплате называть нечем.
+    """
+    order = get_order_or_404(db, order_id)
+    config = payments.settings()
+    _, debt = payment_state(order)
+
+    # по умолчанию — сколько осталось доплатить; ноль (всё оплачено) даёт
+    # QR без суммы, клиент введёт её сам, если платит за что-то ещё
+    total = debt if amount is None else amount
+    purpose = f"Оплата заказа {order.number}"
+
+    requisites = []
+    if config["card"]:
+        requisites.append({"label": "Карта", "value": config["card"]})
+    if config["phone"]:
+        requisites.append({"label": "Перевод по номеру", "value": config["phone"]})
+
+    qr = ""
+    if payments.has_qr(config):
+        qr = payments.qr_data_uri(
+            payments.payment_string(config, amount=total, purpose=purpose), config
+        )
+
+    return {
+        "available": payments.has_anything(config),
+        "qr": qr,
+        "amount": round(total, 2),
+        "purpose": purpose,
+        "recipient": config["name"],
+        "requisites": requisites,
+        "note": config["note"],
+        # что именно недонастроено, показываем только администратору:
+        # сотруднику у стойки названия переменных из .env ничего не дают
+        "problems": payments.problems(config) if user.is_admin else [],
+    }
 
 
 @router.get("/stats", dependencies=[Depends(require_perm("finance.totals"))])

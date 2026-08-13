@@ -45,4 +45,7 @@ export const qk = {
   metrics: (days: number) => ['metrics', days] as const,
 
   design: (orderId: number) => ['design', orderId] as const,
+
+  /** QR и реквизиты для оплаты; сумма входит в ключ — на каждую свой код */
+  payment: (orderId: number, amount: number) => ['payment', orderId, amount] as const,
 };
