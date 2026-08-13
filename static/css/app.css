@@ -5258,3 +5258,19 @@ svg {
   margin-top: 10px;
   font-size: 12px;
 }
+.pay-warn {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: var(--warn, #f0b429);
+}
+.pay-hints {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  text-align: left;
+  font-size: 12px;
+  color: var(--muted);
+}
+.pay-hints li {
+  margin-bottom: 6px;
+  line-height: 1.4;
+}

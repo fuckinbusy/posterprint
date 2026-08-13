@@ -23,9 +23,20 @@ import { useToast } from '@/app/ToastProvider';
 import { Empty, Loading } from '@/components/ui';
 import { copyText } from '@/lib/clipboard';
 import { money, moneyOrZero } from '@/lib/format';
-import type { Order } from '@/types/api';
+import type { Order, OrderPayment } from '@/types/api';
 
 type AmountKind = 'debt' | 'full' | 'custom';
+
+/** Что человеку сделать с кодом. У двух режимов это разные вещи: перевод
+ *  по реквизитам подставляет всё сам, ссылка ведёт в перевод получателю. */
+function qrHint(payment: OrderPayment): string {
+  if (payment.mode === 'link') {
+    return payment.amount_in_qr
+      ? 'Наведите камеру телефона — откроется перевод с суммой'
+      : 'Наведите камеру телефона — откроется перевод';
+  }
+  return 'Наведите камеру телефона — реквизиты и сумма подставятся сами';
+}
 
 export function PaymentModal({ order }: { order: Order }) {
   const can = useCan();
@@ -121,13 +132,20 @@ export function PaymentModal({ order }: { order: Order }) {
           {payment.data.qr ? (
             <div className="pay-qr">
               <img src={payment.data.qr} alt="QR-код для оплаты" />
-              <span>Наведите камеру телефона — реквизиты и сумма подставятся сами</span>
+              <span>{qrHint(payment.data)}</span>
             </div>
           ) : (
             <div className="pay-noqr">
-              QR не показываем: банковские реквизиты заполнены не полностью.
+              QR не показываем: реквизиты для него заполнены не полностью.
               {/* карта и телефон ниже работают и без него */}
             </div>
+          )}
+
+          {/* Сумма не всегда уезжает в код: ссылка из банка часто ведёт
+              просто «на перевод мне». Тогда сотрудник называет её вслух —
+              и должен об этом знать, а не считать, что всё подставилось. */}
+          {payment.data.qr && !payment.data.amount_in_qr && amount > 0 && (
+            <p className="pay-warn">Сумму клиент вводит сам — назовите её</p>
           )}
 
           {payment.data.recipient && (
@@ -149,9 +167,19 @@ export function PaymentModal({ order }: { order: Order }) {
 
           {payment.data.note && <p className="pay-note">{payment.data.note}</p>}
 
-          <p className="pay-purpose">
-            Назначение платежа: {payment.data.purpose}
-          </p>
+          {payment.data.mode === 'gost' && (
+            <p className="pay-purpose">Назначение платежа: {payment.data.purpose}</p>
+          )}
+
+          {/* советы приходят только администратору — сотруднику они
+              ничего не объясняют, а место занимают */}
+          {payment.data.hints.length > 0 && (
+            <ul className="pay-hints">
+              {payment.data.hints.map((hint) => (
+                <li key={hint}>{hint}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </ModalShell>

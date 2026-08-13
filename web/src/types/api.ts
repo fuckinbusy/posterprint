@@ -473,15 +473,21 @@ export interface Device {
 export interface OrderPayment {
   /** есть ли что показать вообще: QR, карта или телефон */
   available: boolean;
+  /** 'gost' — платёж по реквизитам, 'link' — ссылка на перевод из банка */
+  mode: 'gost' | 'link';
   /** data:-ссылка с картинкой QR; пусто — реквизиты для него не заполнены */
   qr: string;
   amount: number;
+  /** попала ли сумма внутрь кода — иначе её называет сотрудник */
+  amount_in_qr: boolean;
   purpose: string;
   recipient: string;
   requisites: { label: string; value: string }[];
   note: string;
   /** что недонастроено; приходит только администратору */
   problems: string[];
+  /** не ошибки, но стоит знать; тоже только администратору */
+  hints: string[];
 }
 
 export interface DesignInfo {

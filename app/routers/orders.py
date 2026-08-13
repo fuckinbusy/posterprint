@@ -473,20 +473,28 @@ def order_payment(
     qr = ""
     if payments.has_qr(config):
         qr = payments.qr_data_uri(
-            payments.payment_string(config, amount=total, purpose=purpose), config
+            payments.payload(config, amount=total, purpose=purpose), config
         )
+
+    # в режиме ссылки сумма попадает в QR, только если в ссылке нашлось для
+    # неё место: иначе сотрудник должен назвать её вслух, и интерфейс обязан
+    # об этом сказать, а не делать вид, что всё подставится само
+    amount_in_qr = config["mode"] != "link" or payments.AMOUNT_SLOT in config["link"]
 
     return {
         "available": payments.has_anything(config),
+        "mode": config["mode"],
         "qr": qr,
         "amount": round(total, 2),
+        "amount_in_qr": bool(qr) and amount_in_qr,
         "purpose": purpose,
         "recipient": config["name"],
         "requisites": requisites,
         "note": config["note"],
-        # что именно недонастроено, показываем только администратору:
+        # что недонастроено и о чём стоит знать — только администратору:
         # сотруднику у стойки названия переменных из .env ничего не дают
         "problems": payments.problems(config) if user.is_admin else [],
+        "hints": payments.hints(config) if user.is_admin else [],
     }
 
 

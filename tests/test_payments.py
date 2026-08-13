@@ -31,9 +31,15 @@ import pytest
 
 from app import payments
 
+"""Реквизиты, у которых контрольный ключ реально сходится с БИК.
+
+Корсчёт и БИК — настоящие, сбербанковские; расчётный счёт выдуман, но его
+девятая цифра подобрана так, чтобы ключ сошёлся. Иначе проверка из 579-П
+завернула бы собственные тестовые данные.
+"""
 GOOD = {
     "name": "ООО Ромашка",
-    "account": "40702810500000000001",
+    "account": "40702810200000000001",
     "bank": "Сбербанк",
     "bic": "044525225",
     "corr_account": "30101810400000000225",
@@ -43,7 +49,11 @@ GOOD = {
     "phone": "",
     "note": "",
     "encoding": "utf8",
+    "link": "",
+    "mode": "gost",
 }
+
+LINK = {**GOOD, "mode": "link", "link": "https://www.tbank.ru/rm/abcdef"}
 
 
 def fields(payload: str) -> dict[str, str]:
@@ -124,17 +134,130 @@ def test_кривой_реквизит_ловится_до_показа_клие
     assert payments.problems({**GOOD, field: value}), f"{field}={value} прошло проверку"
 
 
+def empty_config(**over) -> dict:
+    base = {k: "" for k in GOOD}
+    base.update(encoding="utf8", mode="gost")
+    base.update(over)
+    return base
+
+
 def test_без_qr_но_с_картой_показывать_есть_что():
     """Карта и телефон работают сами по себе — QR им не нужен."""
-    only_card = {k: ("utf8" if k == "encoding" else "") for k in GOOD}
-    only_card["card"] = "2202 2002 1234 5678"
+    only_card = empty_config(card="2202 2002 1234 5678")
     assert payments.has_qr(only_card) is False
     assert payments.has_anything(only_card) is True
 
 
 def test_совсем_пустая_настройка_ничего_не_обещает():
-    empty = {k: ("utf8" if k == "encoding" else "") for k in GOOD}
-    assert payments.has_anything(empty) is False
+    assert payments.has_anything(empty_config()) is False
+
+
+# ------------------------------------------------------------------ ключ счёта
+def test_контрольный_ключ_сходится_у_настоящих_реквизитов():
+    """Проверено на трёх банках: ключ считается из БИК, и это ловит опечатку."""
+    assert payments.account_key_ok("30101810400000000225", "044525225")  # Сбербанк
+    assert payments.account_key_ok("30101810700000000187", "044525187")  # ВТБ
+    assert payments.account_key_ok("30101810200000000593", "044525593")  # Альфа
+
+
+def test_корсчёт_чужого_банка_ловится_по_последним_цифрам():
+    """Ключ корсчёта считается от 5-6 цифр БИК и подмены банка внутри
+    региона не замечает: у Сбербанка и ВТБ они одинаковые. Ловит другое
+    правило — последние три цифры корсчёта повторяют последние три БИК."""
+    сбер_корсчёт, втб_бик = "30101810400000000225", "044525187"
+    assert payments.account_key_ok(сбер_корсчёт, втб_бик) is True   # ключ молчит
+    found = payments.problems({**GOOD, "corr_account": сбер_корсчёт, "bic": втб_бик})
+    assert any("от разных банков" in p for p in found)
+
+
+def test_опечатка_в_счёте_ловится():
+    good = GOOD["account"]
+    broken = good[:5] + str((int(good[5]) + 1) % 10) + good[6:]
+    assert payments.account_key_ok(good, GOOD["bic"]) is True
+    assert payments.account_key_ok(broken, GOOD["bic"]) is False
+
+
+def test_несходящийся_счёт_попадает_в_проблемы():
+    bad = {**GOOD, "account": "40702810500000000001"}   # ключ не тот
+    found = " ".join(payments.problems(bad))
+    assert "не сходится с БИК" in found
+    assert payments.has_qr(bad) is False
+
+
+def test_про_ключ_не_говорим_пока_бик_не_заполнен():
+    """Иначе к «БИК не из 9 цифр» приедет ещё и «ключ не сошёлся»."""
+    found = payments.problems({**GOOD, "bic": "0445"})
+    assert any("БИК" in p and "9 цифр" in p for p in found)
+    assert not any("не сходится" in p for p in found)
+
+
+# ------------------------------------------------------------------ счёт физлица
+def test_счёт_физлица_не_ошибка_но_о_нём_предупреждаем():
+    """Из-за него банк отвечает «недопустимый номер счёта» — а понять это
+    по ответу банка невозможно."""
+    account = "40817810" + "0" * 12
+    # подбираем верный ключ, чтобы претензия осталась ровно одна — по 40817
+    for digit in "0123456789":
+        candidate = account[:8] + digit + account[9:]
+        if payments.account_key_ok(candidate, GOOD["bic"]):
+            account = candidate
+            break
+
+    config = {**GOOD, "account": account}
+    assert payments.problems(config) == []          # формально всё верно
+    assert any("40817" in h for h in payments.hints(config))
+    assert any("POSTER_PAY_LINK" in h for h in payments.hints(config))
+
+
+# ------------------------------------------------------------------ режим ссылки
+def test_ссылка_уходит_в_qr_как_есть():
+    assert payments.payload(LINK, amount=700) == "https://www.tbank.ru/rm/abcdef"
+
+
+def test_сумма_подставляется_в_место_для_неё():
+    config = {**LINK, "link": "https://www.tbank.ru/rm/abcdef?amount={amount}"}
+    assert payments.payload(config, amount=700).endswith("?amount=700")
+    # дробные рубли сохраняются, лишние нули — нет
+    assert payments.payload(config, amount=350.5).endswith("?amount=350.5")
+    assert payments.payload(config, amount=700.00).endswith("?amount=700")
+
+
+def test_без_суммы_параметр_из_ссылки_убирается():
+    """«?amount=» пустым некоторые банки принимают за ноль."""
+    config = {**LINK, "link": "https://www.tbank.ru/rm/abcdef?amount={amount}"}
+    assert payments.payload(config, amount=0) == "https://www.tbank.ru/rm/abcdef"
+
+
+def test_ссылке_нужен_протокол():
+    assert payments.problems({**LINK, "link": "tbank.ru/rm/abcdef"})
+    assert payments.problems({**LINK, "link": ""})
+    assert payments.problems(LINK) == []
+
+
+def test_режим_выбирается_сам_если_не_задан(monkeypatch):
+    """Вставил ссылку — заработало, читать про режимы не пришлось."""
+    for name in ("POSTER_PAY_MODE", "POSTER_PAY_LINK"):
+        monkeypatch.delenv(name, raising=False)
+    assert payments.settings()["mode"] == "gost"
+
+    monkeypatch.setenv("POSTER_PAY_LINK", "https://www.tbank.ru/rm/abcdef")
+    assert payments.settings()["mode"] == "link"
+
+    monkeypatch.setenv("POSTER_PAY_MODE", "gost")
+    assert payments.settings()["mode"] == "gost"
+
+
+def test_в_режиме_ссылки_реквизиты_счёта_не_требуются():
+    """Ссылку выдал банк — проверять в ней нечего, кроме протокола."""
+    only_link = empty_config(mode="link", link="https://qr.nspk.ru/AS100012")
+    assert payments.problems(only_link) == []
+    assert payments.has_qr(only_link) is True
+
+
+def test_если_в_ссылке_нет_места_для_суммы_об_этом_говорим():
+    assert any("сумм" in h for h in payments.hints(LINK))
+    with_slot = {**LINK, "link": "https://www.tbank.ru/rm/abcdef?amount={amount}"}
+    assert payments.hints(with_slot) == []
 
 
 # ------------------------------------------------------------------ сам QR
