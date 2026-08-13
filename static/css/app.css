@@ -1,0 +1,4769 @@
+/* =========================================================
+   ПОСТЕР · внутренняя система заказов
+   Палитра и шрифты — как на сайте: тёмный «цех» + зелёный спот.
+   ========================================================= */
+:root {
+  --ink: #0a0b0a;
+  --panel: #101210;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --text: #e9ebe6;
+  --muted: #969c90;
+  --green: #3cc707;
+  --green-deep: #1c5e10;
+  --green-glow: rgba(60, 199, 7, 0.3);
+  --red: #e5484d;
+  --r: 14px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --topbar-h: 70px;
+}
+
+* {
+  box-sizing: border-box;
+}
+[hidden] {
+  display: none !important;
+}
+/* Главный переключатель для всего нативного: раскрывающиеся списки,
+   календарь в поле даты, стрелки у числовых полей, полосы прокрутки,
+   крестик в поиске. Без него браузер рисует их светлыми, и на тёмном
+   фоне они выглядят чужими — а иногда просто не видны. */
+html {
+  color-scheme: dark;
+}
+html,
+body {
+  height: 100%;
+}
+
+/* ---------- нативные элементы под стиль приложения ---------- */
+/* Полосы прокрутки: тонкие и в цвет рамок. Там, где полоса не нужна
+   совсем (вкладки, фильтры), стоит своё правило с классом — оно сильнее. */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Список, который раскрывает браузер. Стилизуется он ограниченно, но
+   фон и цвет текста задать можно — иначе он белый посреди тёмного окна. */
+option {
+  background: var(--panel);
+  color: var(--text);
+}
+option:checked {
+  background: var(--green-deep);
+}
+
+/* Крестик очистки в полях поиска — по умолчанию тёмный и на тёмном не виден */
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  opacity: 0.5;
+  background: currentColor;
+  /* префикс нужен Яндекс.Браузеру: он отстаёт от Chrome на несколько версий */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='black' stroke-width='2.5' stroke-linecap='round' fill='none'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E")
+    center/contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='black' stroke-width='2.5' stroke-linecap='round' fill='none'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E")
+    center/contain no-repeat;
+}
+input[type="search"]::-webkit-search-cancel-button:hover {
+  opacity: 1;
+  color: var(--green);
+}
+
+/* Автозаполнение браузера заливает поле своим жёлтым. Перекрываем тенью:
+   background у автозаполненного поля Chrome игнорирует. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px #0d0f0d inset;
+  caret-color: var(--text);
+}
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--text);
+  font-family: "Inter", system-ui, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Корень React-приложения. Раньше шапка и страницы были прямыми детьми
+   body и раскладывались его flex-контейнером; теперь между ними стоит один
+   div, и роль контейнера переходит к нему. Больше эта правка ничего не
+   меняет — все остальные стили работают как прежде. */
+#root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+::selection {
+  background: var(--green);
+  color: #06210a;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+h1,
+h2,
+h3 {
+  font-family: "Archivo", sans-serif;
+  line-height: 1.05;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+/* приводочный крест — фирменная метка */
+.reg {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  position: relative;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}
+.reg::before,
+.reg::after {
+  content: "";
+  position: absolute;
+  background: var(--green);
+}
+.reg::before {
+  left: 50%;
+  top: 0;
+  width: 1.5px;
+  height: 100%;
+  transform: translateX(-50%);
+}
+.reg::after {
+  top: 50%;
+  left: 0;
+  height: 1.5px;
+  width: 100%;
+  transform: translateY(-50%);
+}
+.reg i {
+  position: absolute;
+  inset: 18%;
+  border: 1.5px solid var(--green);
+  border-radius: 50%;
+}
+
+.spotbar {
+  display: flex;
+  height: 7px;
+  width: 120px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  border-radius: 2px;
+}
+.spotbar span {
+  flex: 1;
+}
+.spotbar span:nth-child(1) {
+  background: var(--green);
+}
+.spotbar span:nth-child(2) {
+  background: #fff;
+}
+.spotbar span:nth-child(3) {
+  background: var(--green-deep);
+}
+.spotbar span:nth-child(4) {
+  background: #000;
+}
+
+/* ---------- шапка ---------- */
+.topbar {
+  height: var(--topbar-h);
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(8, 9, 8, 0.9);
+  backdrop-filter: blur(12px);
+  z-index: 40;
+}
+.tb-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 0 0 auto;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-family: "Archivo";
+  font-weight: 900;
+  font-size: 21px;
+  letter-spacing: 0.02em;
+}
+.brand .dot {
+  color: var(--green);
+}
+.brand small {
+  font-family: "Space Mono";
+  font-weight: 400;
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  display: block;
+  margin-top: -3px;
+}
+.tb-search {
+  flex: 1 1 220px;
+  min-width: 190px;
+  max-width: 420px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.tb-search svg {
+  position: absolute;
+  left: 14px;
+  width: 17px;
+  height: 17px;
+  color: var(--muted);
+}
+.tb-search input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 11px 14px 11px 40px;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+.tb-search input::placeholder {
+  color: #6d746a;
+}
+.tb-search input:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-glow);
+}
+.tb-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+/* счётчик «в работе» — в одну строку, иначе шапка распухает */
+.counter {
+  flex: 0 0 auto;
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-transform: uppercase;
+  text-align: right;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.counter b {
+  white-space: nowrap;
+}
+.counter span {
+  white-space: nowrap;
+}
+.counter b {
+  display: block;
+  font-size: 19px;
+  color: var(--text);
+  letter-spacing: 0;
+}
+.counter em {
+  font-style: normal;
+  color: var(--green);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  border: none;
+  font-family: "Inter";
+  font-weight: 600;
+  font-size: 14px;
+  padding: 11px 18px;
+  border-radius: 10px;
+  transition:
+    transform 0.15s var(--ease),
+    box-shadow 0.2s,
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+  white-space: nowrap;
+}
+.btn svg {
+  width: 17px;
+  height: 17px;
+}
+.btn-green {
+  background: var(--green);
+  color: #06210a;
+}
+.btn-green:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px -8px var(--green-glow);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+}
+.btn-ghost:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+.btn-danger {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid rgba(229, 72, 77, 0.4);
+}
+.btn-danger:hover {
+  background: rgba(229, 72, 77, 0.12);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+  flex: 0 0 auto;
+}
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.icon-btn:hover {
+  color: var(--text);
+  border-color: var(--green);
+}
+
+/* ---------- навигация по разделам ---------- */
+/* Навигация важнее украшений: при нехватке места сначала прячем полосу-спот
+   и счётчик, а вкладки при самом узком экране прокручиваются, а не обрезаются. */
+.tb-nav {
+  display: flex;
+  gap: 3px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tb-nav::-webkit-scrollbar {
+  display: none;
+}
+.nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  flex: 0 0 auto;
+  font-family: "Inter";
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--muted);
+  border: 1px solid transparent;
+  transition:
+    color 0.16s,
+    background 0.16s,
+    border-color 0.16s;
+  white-space: nowrap;
+}
+.nav-tab svg {
+  width: 16px;
+  height: 16px;
+}
+.nav-tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+.nav-tab.active {
+  color: var(--green);
+  background: rgba(60, 199, 7, 0.1);
+  border-color: rgba(60, 199, 7, 0.28);
+}
+
+/* ---------- страницы ---------- */
+.page {
+  flex: 1;
+  min-height: 0;
+}
+.page[hidden] {
+  display: none;
+}
+.scroll-page {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.page-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 30px 22px 60px;
+}
+.page-head {
+  margin-bottom: 26px;
+}
+.page-eyebrow {
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 9px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.page-eyebrow .reg {
+  width: 12px;
+  height: 12px;
+}
+.page-head h1 {
+  font-size: 34px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.page-head .sub {
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 640px;
+  line-height: 1.55;
+}
+.page-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+/* шапка: что прячем при нехватке ширины */
+@media (max-width: 1500px) {
+  .tb-left .spotbar {
+    display: none;
+  }
+}
+@media (max-width: 1320px) {
+  .counter {
+    display: none;
+  }
+}
+/* узкий экран: вкладки остаются иконками — так они все видны,
+   а название показывается при наведении */
+@media (max-width: 1340px) {
+  .nav-tab span {
+    display: none;
+  }
+  .nav-tab {
+    padding: 9px 11px;
+  }
+  .nav-tab svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+@media (max-width: 1150px) {
+  .tb-search {
+    min-width: 150px;
+  }
+}
+
+/* ---------- фильтры ---------- */
+.filters-row {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--line);
+}
+.filters {
+  display: flex;
+  gap: 9px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1;
+  min-width: 0;
+}
+.filters::-webkit-scrollbar {
+  display: none;
+}
+.sort {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto;
+}
+.sort > span {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sort select {
+  appearance: none;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 8px 32px 8px 15px;
+  color: var(--text);
+  font-family: "Space Mono";
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  transition: border-color 0.2s;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 50%,
+    calc(100% - 12px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+.sort select:hover {
+  border-color: var(--green);
+}
+.sort select:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-glow);
+}
+.filters button {
+  font-family: "Space Mono";
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+.filters button:hover {
+  color: var(--text);
+}
+.filters button.active {
+  background: var(--green);
+  color: #06210a;
+  border-color: var(--green);
+  font-weight: 700;
+}
+
+/* ---------- доска ---------- */
+.board {
+  flex: 1;
+  display: flex;
+  gap: 16px;
+  padding: 18px 22px 22px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  align-items: stretch;
+}
+.col {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.014);
+}
+.col.drop {
+  border-color: rgba(60, 199, 7, 0.55);
+  background: rgba(60, 199, 7, 0.05);
+}
+.col-head {
+  padding: 15px 16px 13px;
+  border-bottom: 1px solid var(--line);
+}
+.col-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.col-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  flex: 0 0 auto;
+}
+.col-title {
+  font-family: "Space Mono";
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.col-count {
+  margin-left: auto;
+  font-family: "Space Mono";
+  font-size: 13px;
+  color: var(--muted);
+}
+.col-sum {
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  margin-top: 6px;
+  padding-left: 17px;
+}
+.col-sum b {
+  color: var(--green);
+  font-weight: 400;
+}
+.col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-height: 0;
+}
+.col-body::-webkit-scrollbar {
+  width: 7px;
+}
+.col-body::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+.col-empty {
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  padding: 22px 14px;
+  text-align: center;
+  font-family: "Space Mono";
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: #5f665c;
+}
+
+/* ---------- карточка-наряд ---------- */
+.card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 14px 13px 20px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.028),
+    rgba(255, 255, 255, 0.008)
+  );
+  cursor: grab;
+  transition:
+    transform 0.18s var(--ease),
+    border-color 0.2s,
+    background 0.2s;
+}
+/* перфорация по левому краю — как на отрывном наряде */
+.card::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--line-strong) 0 2px,
+    transparent 2px 7px
+  );
+}
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(60, 199, 7, 0.4);
+  background: linear-gradient(
+    180deg,
+    rgba(60, 199, 7, 0.06),
+    rgba(255, 255, 255, 0.01)
+  );
+}
+.card.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+.card.overdue {
+  border-color: rgba(229, 72, 77, 0.45);
+}
+.card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.card-num {
+  font-family: "Space Mono";
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--green);
+}
+.card-tag {
+  margin-left: auto;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 3px 7px;
+}
+.card-title {
+  font-family: "Archivo";
+  font-weight: 700;
+  font-size: 15.5px;
+  letter-spacing: -0.01em;
+  margin-bottom: 5px;
+}
+.card-sub {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.45;
+  margin-bottom: 11px;
+}
+.card-client {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  color: #c4c8c0;
+  margin-bottom: 11px;
+}
+.card-client svg {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.card-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.card-price {
+  font-family: "Space Mono";
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-price.unset {
+  color: #5f665c;
+  font-size: 13px;
+}
+.card-due {
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.card-due svg {
+  width: 13px;
+  height: 13px;
+}
+.card-due.hot {
+  color: var(--red);
+}
+/* кнопка «дальше» — часть подвала карточки: выезжает при наведении,
+   раздвигая содержимое, и ничего не перекрывает */
+.card-next {
+  flex: 0 0 auto;
+  width: 0;
+  height: 26px;
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-width: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition:
+    width 0.18s var(--ease),
+    opacity 0.14s,
+    border-color 0.16s,
+    color 0.16s;
+}
+.card-next svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+.card:hover .card-next,
+.card:focus-within .card-next {
+  width: 26px;
+  border-width: 1px;
+  opacity: 1;
+}
+.card-next:hover {
+  color: var(--green);
+  border-color: var(--green);
+  background: rgba(60, 199, 7, 0.1);
+}
+
+/* ---------- модалка ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(5, 6, 5, 0.82);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 20px;
+  overflow-y: auto;
+}
+.overlay[hidden] {
+  display: none;
+}
+.modal {
+  width: 100%;
+  max-width: 660px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  animation: pop 0.22s var(--ease);
+  margin: auto;
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal {
+    animation: none;
+  }
+}
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px 26px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-eyebrow {
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 8px;
+}
+.modal-head h2 {
+  font-size: 25px;
+  text-transform: uppercase;
+}
+.modal-head .icon-btn {
+  margin-left: auto;
+}
+.modal-body {
+  padding: 24px 26px;
+}
+.modal-foot {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 18px 26px;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.modal-foot .spacer {
+  flex: 1;
+}
+
+/* выбор шаблона — компактные строки, выровнены по вертикали */
+.tpl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.tpl {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 11px 13px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-family: "Inter";
+  transition:
+    border-color 0.16s,
+    background 0.16s,
+    transform 0.16s var(--ease);
+}
+.tpl:hover {
+  border-color: rgba(60, 199, 7, 0.5);
+  background: rgba(60, 199, 7, 0.055);
+  transform: translateX(3px);
+}
+.tpl .ic {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+  transition: border-color 0.16s;
+}
+.tpl .ic svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.6;
+}
+.tpl:hover .ic {
+  border-color: rgba(60, 199, 7, 0.5);
+}
+.tpl .txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tpl .txt b {
+  font-family: "Archivo";
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.tpl .txt span {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tpl .go {
+  flex: 0 0 auto;
+  color: #4e554b;
+  display: flex;
+  align-items: center;
+  transition:
+    color 0.16s,
+    transform 0.16s var(--ease);
+}
+.tpl .go svg {
+  width: 16px;
+  height: 16px;
+}
+.tpl:hover .go {
+  color: var(--green);
+  transform: translateX(2px);
+}
+
+/* форма */
+.form-sec {
+  margin-bottom: 26px;
+}
+.form-sec:last-child {
+  margin-bottom: 0;
+}
+.form-sec > h3 {
+  font-family: "Space Mono";
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.form-sec > h3 .reg {
+  width: 11px;
+  height: 11px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 13px;
+}
+.grid.one {
+  grid-template-columns: 1fr;
+}
+.field label {
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+}
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 11px 13px;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+.field select {
+  appearance: none;
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 50%,
+    calc(100% - 12px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+.field textarea {
+  resize: vertical;
+  min-height: 78px;
+}
+/* выбор файла в форме заказа */
+.field input[type="file"] {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.field input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 13px;
+  transition: 0.18s;
+}
+.field input[type="file"]::file-selector-button:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+/* Поле, которое не участвует в расчёте при текущем выборе. Гасим, но
+   оставляем на месте: исчезающие поля дёргают форму, и непонятно, куда
+   делось то, что только что было. */
+.field.inactive label {
+  color: #5f665c;
+}
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(0, 0, 0, 0.18);
+  border-color: var(--line);
+}
+.field.inactive .num-with-unit .unit {
+  opacity: 0.4;
+}
+.field.inactive .hint {
+  color: #f0b429;
+  opacity: 0.85;
+}
+
+/* Календарь в поле даты.
+   Браузер рисует иконку чёрной — на тёмном поле её просто не видно, и поле
+   выглядит как обычный ввод текста. Осветляем и увеличиваем область нажатия:
+   именно по ней открывается календарь. */
+.field input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.82);
+  cursor: pointer;
+  opacity: 0.75;
+  padding: 4px;
+  margin-right: -2px;
+  border-radius: 5px;
+  transition:
+    opacity 0.16s,
+    background 0.16s;
+}
+.field input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background: rgba(60, 199, 7, 0.16);
+}
+/* пустая дата иначе показывает «дд.мм.гггг» почти чёрным по чёрному */
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-glow);
+}
+/* Пояснение мелким шрифтом. Правило было привязано к .field, поэтому
+   подсказки, стоящие сами по себе, оставались без оформления и выпадали из
+   вида — например «Заказ будет записан на профиль …» в форме заказа. */
+.hint {
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: #6d746a;
+  letter-spacing: 0.04em;
+  line-height: 1.55;
+}
+.field .hint {
+  margin-top: 6px;
+}
+/* подпись об ошибке ввода — та же подсказка, но её нельзя не заметить */
+.field .hint.bad {
+  color: var(--red);
+}
+.field .hint.bad::before {
+  content: "! ";
+}
+.field input.bad,
+.field input.bad:focus {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.22);
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 11px 13px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.2s;
+  user-select: none;
+}
+.check:hover {
+  border-color: var(--green);
+}
+.check input {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 4px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  position: relative;
+}
+.check input:checked {
+  background: var(--green);
+  border-color: var(--green);
+}
+.check input:checked::after {
+  content: "";
+  position: absolute;
+  left: 4.5px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #06210a;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+/* Свечение вместо жирного контура. Chrome считает клик по галочке поводом
+   показать :focus-visible, и общее правило рисовало вокруг квадратика
+   зелёную рамку в два пикселя — она перетягивала на себя весь блок.
+   Мягкое свечение — то же, что у полей ввода. */
+.check input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--green-glow);
+}
+
+/* ---------- деньги в форме заказа ---------- */
+/* Быстрые действия, состояние оплаты и расчёт по прайсу — одна рамка.
+   Раньше это были три отдельных блока подряд, и глазу было не за что
+   зацепиться: где кончается одно и начинается другое, видно не было. */
+.money-box {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.015);
+  overflow: hidden;
+}
+.money-quick {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 13px 15px;
+}
+.money-quick .btn {
+  padding: 8px 14px;
+  font-size: 13.5px;
+}
+/* Галочка здесь — редкая пометка, а не действие. Своя рамка делала из неё
+   вторую кнопку рядом с «Оплачен полностью», и две одинаковые по весу
+   коробки спорили за внимание. Оставляем только квадратик и подпись. */
+.money-quick .check {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.money-quick .check:hover {
+  border: none;
+  color: var(--text);
+}
+/* Зато когда возврат отмечен — это заметно: деньги ушли обратно клиенту,
+   такое не должно теряться среди обычных подписей. Состояние приходит
+   классом из React, а не через :has(input:checked) — так его видно в
+   разметке и не приходится держать в голове поддержку селектора. */
+.money-quick .check.refunded {
+  color: var(--red);
+}
+.money-quick .check.refunded input {
+  background: var(--red);
+  border-color: var(--red);
+}
+.money-quick .check input:focus-visible {
+  box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.28);
+}
+
+/* итог по оплате, пока печатают: видно сразу, не дожидаясь сохранения */
+.money-state {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 9px;
+  white-space: nowrap;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.money-state b {
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+.money-state.paid {
+  color: var(--green);
+}
+.money-state.debt {
+  color: #f0b429;
+}
+.money-state.refund {
+  color: var(--red);
+}
+
+/* расчёт цены */
+.calc {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.015);
+  margin-top: 13px;
+}
+/* внутри общей рамки своя не нужна — только черта-разделитель */
+.money-box .calc {
+  border: none;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  margin-top: 0;
+  background: transparent;
+}
+/* без права менять цену быстрых действий нет, и расчёт остаётся первым —
+   тогда черта совпала бы с рамкой панели и получилась бы двойная линия */
+.money-box .calc:first-child {
+  border-top: none;
+}
+.calc-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 0;
+}
+.calc-title b {
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* пояснение под заголовком: пустой блок с одной кнопкой ничего не объяснял */
+.calc-title span {
+  display: block;
+  font-family: "Inter";
+  font-size: 12.5px;
+  color: #6d746a;
+  margin-top: 5px;
+  line-height: 1.45;
+}
+.calc-head .btn {
+  margin-left: auto;
+  padding: 8px 14px;
+  font-size: 13.5px;
+  flex: 0 0 auto;
+}
+.calc-lines {
+  margin-top: 14px;
+  display: none;
+}
+.calc-lines.show {
+  display: block;
+}
+/* подпись читаемым шрифтом, сумма — моноширинным: колонка цифр выравнивается */
+.calc-line {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  font-family: "Inter";
+  font-size: 13.5px;
+  color: #c4c8c0;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.calc-line span:last-child {
+  margin-left: auto;
+  font-family: "Space Mono";
+  font-size: 13.5px;
+  color: var(--text);
+  white-space: nowrap;
+}
+.calc-line.total {
+  border-bottom: none;
+  border-top: 1px solid var(--line-strong);
+  margin-top: 5px;
+  padding-top: 11px;
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--text);
+}
+.calc-line.total span:last-child {
+  color: var(--green);
+  font-size: 17px;
+  font-weight: 700;
+}
+.calc-note {
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: #6d746a;
+  margin-top: 9px;
+  line-height: 1.55;
+}
+
+/* лента событий */
+.feed {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.feed li {
+  position: relative;
+  padding: 9px 0 9px 24px;
+  border-bottom: 1px dashed var(--line);
+  font-size: 14px;
+  color: #c4c8c0;
+}
+.feed li:last-child {
+  border-bottom: none;
+}
+.feed li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 15px;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--green);
+  transform: rotate(45deg);
+}
+.feed time {
+  display: block;
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: #6d746a;
+  margin-top: 3px;
+  letter-spacing: 0.05em;
+}
+
+/* строка статуса в карточке заказа */
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.status-pill {
+  font-family: "Space Mono";
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: 0.2s;
+}
+.status-pill:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--green);
+}
+.status-pill.current {
+  border-color: currentColor;
+  font-weight: 700;
+}
+.status-pill:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 18px;
+  font-size: 14px;
+}
+.kv dt {
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-top: 3px;
+}
+.kv dd {
+  margin: 0;
+  color: #dfe2db;
+}
+.kv dd a:hover {
+  color: var(--green);
+}
+
+/* ---------- экран выбора профиля ---------- */
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+.gate[hidden] {
+  display: none;
+}
+.gate-box {
+  width: 100%;
+  max-width: 620px;
+  text-align: center;
+  margin: auto;
+}
+.gate-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: "Archivo";
+  font-weight: 900;
+  font-size: 30px;
+  letter-spacing: 0.02em;
+  margin-bottom: 16px;
+}
+.gate-brand .dot {
+  color: var(--green);
+}
+.gate-box .spotbar {
+  margin: 0 auto 30px;
+  width: 150px;
+}
+.gate-title {
+  font-size: 38px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.gate-sub {
+  color: var(--muted);
+  font-size: 14.5px;
+  margin: 0 0 32px;
+}
+.gate-pass {
+  max-width: 340px;
+  margin: 0 auto;
+  text-align: left;
+}
+.gate-pass[hidden] {
+  display: none;
+}
+.gate-pass-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.gate-pass-row .btn {
+  flex: 1;
+  justify-content: center;
+}
+.gate-pass-err {
+  font-family: "Space Mono";
+  font-size: 13px;
+  color: var(--red);
+  margin-top: 10px;
+  letter-spacing: 0.04em;
+}
+.gate-pass-err[hidden] {
+  display: none;
+}
+
+/* ---------- чип профиля в шапке ---------- */
+.profile-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px 14px;
+  font-family: "Space Mono";
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+.profile-chip:hover {
+  color: var(--text);
+  border-color: var(--green);
+}
+.pc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: var(--muted);
+  flex: 0 0 auto;
+}
+.profile-chip.admin .pc-dot {
+  background: var(--green);
+}
+.profile-chip.admin {
+  color: var(--text);
+}
+
+/* ---------- панель метрик ---------- */
+.modal.wide {
+  max-width: 900px;
+}
+.mx-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+.mx-tabs button {
+  font-family: "Space Mono";
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  padding: 8px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: 0.2s;
+}
+.mx-tabs button:hover {
+  color: var(--text);
+}
+.mx-tabs button.active {
+  background: var(--green);
+  color: #06210a;
+  border-color: var(--green);
+  font-weight: 700;
+}
+/* Плитки метрик: сколько поместится, столько и в ряд. Жёсткие четыре
+   колонки ломались, как только показателей стало пять. */
+.mx-hero {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.mx-cell {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 15px;
+  background: rgba(255, 255, 255, 0.015);
+}
+.mx-cell .k {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 9px;
+  line-height: 1.4;
+}
+.mx-cell .v {
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 23px;
+  letter-spacing: -0.02em;
+}
+.mx-cell .v small {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 4px;
+}
+.mx-cell.accent .v {
+  color: var(--green);
+}
+.mx-cell.warn .v {
+  color: var(--red);
+}
+.mx-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 130px;
+  padding: 12px 0 0;
+  border-bottom: 1px solid var(--line);
+}
+.mx-bar {
+  flex: 1;
+  min-width: 2px;
+  background: var(--green-deep);
+  border-radius: 2px 2px 0 0;
+  position: relative;
+  transition: background 0.15s;
+}
+.mx-bar.has {
+  background: var(--green);
+}
+.mx-bar:hover {
+  background: #fff;
+}
+.mx-axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: #6d746a;
+  margin-top: 8px;
+  letter-spacing: 0.05em;
+}
+.mx-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.mx-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 14px;
+}
+.mx-list li:last-child {
+  border-bottom: none;
+}
+.mx-list .nm {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mx-list .ct {
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.mx-list .sm {
+  font-family: "Space Mono";
+  font-size: 14px;
+  color: var(--green);
+  min-width: 90px;
+  text-align: right;
+}
+.mx-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 26px;
+}
+
+/* кнопки-входы в отдельные окна */
+.mx-open {
+  display: block;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 15px;
+  background: rgba(255, 255, 255, 0.015);
+  color: var(--text);
+  cursor: pointer;
+  font-family: "Inter";
+  transition:
+    transform 0.16s var(--ease),
+    border-color 0.2s,
+    background 0.2s;
+}
+.mx-open:hover {
+  transform: translateY(-2px);
+  border-color: rgba(60, 199, 7, 0.45);
+  background: rgba(60, 199, 7, 0.055);
+}
+.mx-open .k {
+  display: block;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+.mx-open .v {
+  display: block;
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 23px;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+.mx-open .v small {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 5px;
+}
+.mx-open .go {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+.mx-open .go svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* итог и рейтинг в отдельном окне */
+.mx-sum {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.015);
+}
+.mx-sum span {
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.mx-sum b {
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 24px;
+  color: var(--green);
+  letter-spacing: -0.02em;
+}
+.mx-sum .cnt {
+  margin-left: auto;
+}
+.mx-rank {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.mx-rank-row {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+}
+.mx-rank-row .i {
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  color: #5f665c;
+  width: 20px;
+  flex: 0 0 auto;
+  padding-top: 3px;
+  text-align: right;
+}
+.mx-rank-row .body {
+  flex: 1;
+  min-width: 0;
+}
+.mx-rank-row .line {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 7px;
+}
+.mx-rank-row .nm {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+  font-weight: 500;
+}
+.mx-rank-row .sm {
+  font-family: "Space Mono";
+  font-size: 14px;
+  color: var(--green);
+  flex: 0 0 auto;
+}
+.mx-rank-row .track {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.mx-rank-row .track span {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  border-radius: 3px;
+}
+.mx-rank-row .meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 7px;
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: #6d746a;
+  letter-spacing: 0.04em;
+}
+.mx-empty {
+  font-family: "Space Mono";
+  font-size: 13px;
+  color: #5f665c;
+  letter-spacing: 0.06em;
+  padding: 14px 0;
+}
+
+.gate-device {
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #5f665c;
+  margin: -18px 0 26px;
+}
+.gate-card.locked {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+.gate-card.locked:hover {
+  transform: none;
+  border-color: var(--line);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0.006)
+  );
+}
+.gate-card .lock.pin {
+  color: #f0b429;
+}
+
+/* ---------- страница устройств ---------- */
+.dv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.dv-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 15px 17px;
+  background: rgba(255, 255, 255, 0.015);
+}
+.dv-card.current {
+  border-color: rgba(60, 199, 7, 0.4);
+  background: rgba(60, 199, 7, 0.05);
+}
+.dv-ic {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+}
+.dv-ic svg {
+  width: 19px;
+  height: 19px;
+}
+.dv-main {
+  flex: 1;
+  min-width: 180px;
+}
+.dv-main b {
+  display: block;
+  font-family: "Archivo";
+  font-weight: 700;
+  font-size: 15.5px;
+  margin-bottom: 4px;
+}
+.dv-main .meta {
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.dv-bound {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+}
+.dv-tag {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--green);
+  border: 1px solid rgba(60, 199, 7, 0.3);
+  border-radius: 5px;
+  padding: 3px 8px;
+}
+.dv-tag.free {
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+/* выбор устройств в профиле */
+.dev-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.dev-pick[hidden] {
+  display: none;
+}
+.dev-opt {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.dev-opt:hover {
+  border-color: var(--green);
+}
+.dev-opt input {
+  appearance: none;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 5px;
+  cursor: pointer;
+  position: relative;
+}
+.dev-opt input:checked {
+  background: var(--green);
+  border-color: var(--green);
+}
+.dev-opt input:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1.5px;
+  width: 4px;
+  height: 9px;
+  border: solid #06210a;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.dev-opt .txt b {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+}
+.dev-opt .txt span {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.dev-opt.now {
+  border-color: rgba(60, 199, 7, 0.35);
+}
+.dev-opt.now .txt b::after {
+  content: " · этот компьютер";
+  color: var(--green);
+  font-weight: 400;
+  font-size: 12.5px;
+}
+.mode-row {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.mode-btn {
+  flex: 1;
+  min-width: 150px;
+  text-align: left;
+  padding: 13px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  font-family: "Inter";
+  transition: 0.18s;
+}
+.mode-btn b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.mode-btn span {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.mode-btn.on {
+  border-color: var(--green);
+  background: rgba(60, 199, 7, 0.08);
+}
+.mode-btn.on b {
+  color: var(--green);
+}
+
+.gate-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  text-align: left;
+}
+.gate-card {
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 20px 18px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0.006)
+  );
+  color: var(--text);
+  cursor: pointer;
+  font-family: "Inter";
+  transition:
+    transform 0.18s var(--ease),
+    border-color 0.2s,
+    background 0.2s;
+}
+.gate-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(60, 199, 7, 0.5);
+  background: linear-gradient(
+    180deg,
+    rgba(60, 199, 7, 0.07),
+    rgba(255, 255, 255, 0.01)
+  );
+}
+.gate-card .av {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  border: 1px solid var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--green);
+}
+.gate-card.admin .av {
+  background: rgba(60, 199, 7, 0.12);
+  border-color: rgba(60, 199, 7, 0.4);
+}
+.gate-card b {
+  display: block;
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 16px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.gate-card .desc {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.45;
+  display: block;
+}
+.gate-card .lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 11px;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5f665c;
+}
+.gate-card .lock svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* ---------- страница сотрудников ---------- */
+.st-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.st-card {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 16px 17px;
+  background: rgba(255, 255, 255, 0.015);
+  transition: border-color 0.18s;
+}
+.st-card:hover {
+  border-color: var(--line-strong);
+}
+.st-card.off {
+  opacity: 0.5;
+}
+.st-top {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  flex-wrap: wrap;
+}
+.st-av {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--green);
+}
+.st-name {
+  flex: 1;
+  min-width: 0;
+}
+.st-name b {
+  display: block;
+  font-family: "Archivo";
+  font-weight: 700;
+  font-size: 16px;
+}
+.st-name span {
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+.st-badge {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 8px;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.st-badge.on {
+  color: var(--green);
+  border-color: rgba(60, 199, 7, 0.35);
+}
+.st-badge.warn {
+  color: #f0b429;
+  border-color: rgba(240, 180, 41, 0.35);
+}
+.st-actions {
+  display: flex;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+.st-perms {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px dashed var(--line);
+}
+.st-perm {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 3px 8px;
+}
+.st-perm.danger {
+  color: #f0b429;
+  border-color: rgba(240, 180, 41, 0.3);
+}
+.st-none {
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: #5f665c;
+  letter-spacing: 0.05em;
+}
+
+/* редактор прав */
+.perm-group {
+  margin-bottom: 22px;
+}
+.perm-group h4 {
+  font-family: "Space Mono";
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin: 0 0 11px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.perm-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.perm-row:hover {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.014);
+}
+.perm-row input {
+  appearance: none;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 5px;
+  cursor: pointer;
+  position: relative;
+  transition: 0.15s;
+}
+.perm-row input:checked {
+  background: var(--green);
+  border-color: var(--green);
+}
+.perm-row input:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1.5px;
+  width: 4px;
+  height: 9px;
+  border: solid #06210a;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.perm-row .txt b {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+.perm-row .txt span {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.perm-row.danger .txt b {
+  color: #f0b429;
+}
+.perm-presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.perm-presets button {
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: 0.2s;
+}
+.perm-presets button:hover {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+/* ---------- конструктор видов работ ---------- */
+.icon-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.icon-pick {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.16s;
+}
+.icon-pick svg {
+  width: 19px;
+  height: 19px;
+}
+.icon-pick:hover {
+  color: var(--text);
+  border-color: var(--green);
+}
+.icon-pick.on {
+  color: var(--green);
+  border-color: var(--green);
+  background: rgba(60, 199, 7, 0.1);
+}
+
+.wk-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wk-field {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 13px 14px;
+  background: rgba(255, 255, 255, 0.014);
+}
+.wk-field.has-warn {
+  border-color: rgba(240, 180, 41, 0.35);
+}
+/* встроенное поле количества — его нельзя убрать или переставить */
+.wk-field-fixed {
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.022);
+}
+.wk-fixed-tag {
+  flex: 0 0 auto;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 8px;
+}
+.wk-kind-hint b {
+  color: var(--text);
+  font-weight: 500;
+}
+.wk-field-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+}
+.wk-num {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: var(--muted);
+}
+.wk-kind {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.wk-kind > span {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.wk-kind select {
+  background-color: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14px;
+  width: 100%;
+  cursor: pointer;
+}
+.wk-kind select:focus {
+  outline: none;
+  border-color: var(--green);
+}
+.wk-kind-hint {
+  font-family: "Inter";
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 7px 0 0;
+}
+.wk-unit-note {
+  grid-column: 1/-1;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: #6d746a;
+  letter-spacing: 0.03em;
+  line-height: 1.5;
+  margin-top: 2px;
+}
+.wk-warn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 11px;
+}
+.wk-warn span {
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: #f0b429;
+  letter-spacing: 0.03em;
+  padding-left: 14px;
+  position: relative;
+}
+.wk-warn span::before {
+  content: "!";
+  position: absolute;
+  left: 3px;
+  font-weight: 700;
+}
+/* переключатель «включено сразу» — не растягивается и не вылезает */
+/* переключатель «да/нет» — фиксированный размер.
+   Селекторы с .wk-cell, иначе общее правило .wk-cell input{width:100%}
+   растягивает переключатель на всю ячейку. */
+.wk-cell .wk-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 37px;
+  min-width: 0;
+  overflow: hidden;
+}
+.wk-cell .wk-toggle input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 38px;
+  min-width: 38px;
+  max-width: 38px;
+  height: 21px;
+  flex: 0 0 38px;
+  padding: 0;
+  margin: 0;
+  border-radius: 11px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--line-strong);
+  position: relative;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+}
+.wk-cell .wk-toggle input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition:
+    left 0.18s var(--ease),
+    background 0.18s;
+}
+.wk-cell .wk-toggle input[type="checkbox"]:checked {
+  background: rgba(60, 199, 7, 0.22);
+  border-color: var(--green);
+}
+.wk-cell .wk-toggle input[type="checkbox"]:checked::after {
+  left: 19px;
+  background: var(--green);
+}
+.wk-cell .wk-toggle input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+.wk-cell .wk-toggle > label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wk-cell .wk-toggle input[type="checkbox"]:checked + label {
+  color: var(--green);
+}
+.wk-cell select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.wk-test {
+  display: flex;
+  align-items: flex-end;
+  gap: 11px;
+  flex-wrap: wrap;
+}
+.wk-test .wk-cell {
+  flex: 0 0 130px;
+}
+.wk-test input {
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14px;
+  width: 100%;
+}
+.wk-test input:focus {
+  outline: none;
+  border-color: var(--green);
+}
+#wkTestOut {
+  margin-top: 14px;
+}
+
+/* число с единицей измерения в форме заказа */
+.num-with-unit {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.num-with-unit input {
+  padding-right: 44px;
+}
+.num-with-unit .unit {
+  position: absolute;
+  right: 13px;
+  pointer-events: none;
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+/* встроенная форма создания раздела или позиции прайса */
+.wk-quick {
+  margin-top: 12px;
+  padding: 13px;
+  border: 1px dashed rgba(60, 199, 7, 0.4);
+  border-radius: 10px;
+  background: rgba(60, 199, 7, 0.04);
+}
+.wk-quick-title {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 11px;
+}
+.wk-quick-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.wk-quick-row .wk-cell {
+  flex: 1;
+  min-width: 150px;
+}
+.wk-quick-row input,
+.wk-quick-row select {
+  background-color: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14px;
+  width: 100%;
+}
+.wk-quick-row input:focus,
+.wk-quick-row select:focus {
+  outline: none;
+  border-color: var(--green);
+}
+.wk-quick-row .btn {
+  flex: 0 0 auto;
+  padding: 9px 15px;
+  font-size: 13.5px;
+}
+.wk-quick-hint {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: #6d746a;
+  letter-spacing: 0.03em;
+  margin-top: 9px;
+}
+.wk-label {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14.5px;
+  font-weight: 500;
+  padding: 5px 0;
+}
+.wk-label:focus {
+  outline: none;
+  border-bottom-color: var(--green);
+}
+.wk-field-top select {
+  flex: 0 0 auto;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.wk-field-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.wk-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.wk-cell.wide {
+  grid-column: span 2;
+}
+.wk-cell > span {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.wk-cell select,
+.wk-cell input {
+  background-color: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14px;
+  width: 100%;
+}
+.wk-cell select:focus,
+.wk-cell input:focus {
+  outline: none;
+  border-color: var(--green);
+}
+
+/* Своя стрелка у всех выпадающих списков приложения.
+   Раньше она была только у трёх из семи — остальные показывали браузерную,
+   и списки в конструкторе выглядели чужими рядом с полями формы. */
+.wk-cell select,
+.wk-kind select,
+.wk-quick-row select,
+.pr-add select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding-right: 30px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) 50%,
+    calc(100% - 10px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+.wk-cell select:hover,
+.wk-kind select:hover,
+.wk-quick-row select:hover,
+.pr-add select:hover {
+  border-color: var(--green);
+}
+
+.st-perm.muted {
+  opacity: 0.55;
+}
+
+/* ---------- макет заказа ---------- */
+.dz-loading {
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  padding: 14px 0;
+}
+.dz-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 11px;
+  text-align: center;
+  padding: 28px 20px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
+}
+.dz-empty.droppable {
+  cursor: default;
+}
+.dz-empty.over,
+.dz-card.over {
+  border-color: var(--green);
+  background: rgba(60, 199, 7, 0.07);
+}
+.dz-empty .ic {
+  width: 34px;
+  height: 34px;
+  color: #5f665c;
+}
+.dz-empty .ic svg {
+  width: 100%;
+  height: 100%;
+  stroke-width: 1.4;
+}
+.dz-empty b {
+  font-family: "Archivo";
+  font-weight: 700;
+  font-size: 15px;
+  text-transform: uppercase;
+}
+.dz-empty .hint {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.dz-empty .btn {
+  margin-top: 4px;
+}
+
+.dz-card {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.014);
+  transition:
+    border-color 0.18s,
+    background 0.18s;
+}
+.dz-preview {
+  flex: 0 0 auto;
+  width: 210px;
+  height: 150px;
+  border-radius: 9px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--line-strong);
+  background: repeating-conic-gradient(
+      rgba(255, 255, 255, 0.045) 0% 25%,
+      transparent 0% 50%
+    )
+    50%/16px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-in;
+}
+.dz-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.dz-preview.none {
+  cursor: default;
+  flex-direction: column;
+  gap: 9px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.dz-preview.none .ic {
+  width: 30px;
+  height: 30px;
+  color: #4e554b;
+}
+.dz-preview.none .ic svg {
+  width: 100%;
+  height: 100%;
+  stroke-width: 1.4;
+}
+.dz-nopreview {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: #6d746a;
+  letter-spacing: 0.05em;
+  text-align: center;
+  padding: 0 10px;
+}
+.dz-zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: rgba(10, 11, 10, 0.85);
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.16s;
+}
+.dz-zoom svg {
+  width: 15px;
+  height: 15px;
+}
+.dz-preview:hover .dz-zoom {
+  opacity: 1;
+}
+
+.dz-meta {
+  flex: 1;
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.dz-meta > b {
+  font-size: 14.5px;
+  font-weight: 600;
+  word-break: break-all;
+}
+.dz-facts {
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.dz-note {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: #f0b429;
+  letter-spacing: 0.02em;
+  line-height: 1.55;
+  padding-left: 14px;
+  position: relative;
+  margin-top: 3px;
+}
+.dz-note::before {
+  content: "!";
+  position: absolute;
+  left: 3px;
+  font-weight: 700;
+}
+.dz-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.dz-actions .btn {
+  padding: 9px 14px;
+  font-size: 13px;
+}
+.dz-actions .btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* увеличение превью */
+.dz-light {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  background: rgba(5, 6, 5, 0.94);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  cursor: zoom-out;
+}
+.dz-light img {
+  max-width: 96vw;
+  max-height: 86vh;
+  object-fit: contain;
+  border-radius: 8px;
+  background: repeating-conic-gradient(
+      rgba(255, 255, 255, 0.05) 0% 25%,
+      transparent 0% 50%
+    )
+    50%/20px 20px;
+}
+.dz-light-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 96vw;
+  margin-bottom: 14px;
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+.dz-light-bar button {
+  margin-left: auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+}
+.dz-light-bar button:hover {
+  color: var(--text);
+  border-color: var(--green);
+}
+
+/* ---------- переключатель страниц ---------- */
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.pg-num,
+.pg-arrow {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+}
+.pg-num:hover,
+.pg-arrow:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--green);
+}
+.pg-num.on {
+  background: var(--green);
+  color: #06210a;
+  border-color: var(--green);
+  font-weight: 700;
+}
+.pg-arrow svg {
+  width: 15px;
+  height: 15px;
+}
+.pg-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.pg-gap {
+  color: #5f665c;
+  padding: 0 2px;
+  font-family: "Space Mono";
+  font-size: 12.5px;
+}
+.pg-info {
+  margin-left: auto;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: #6d746a;
+  letter-spacing: 0.04em;
+}
+#clOrdersPager {
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+/* ---------- раздел «Клиенты» ---------- */
+.cl-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.cl-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 230px;
+  max-width: 420px;
+}
+.cl-search svg {
+  position: absolute;
+  left: 14px;
+  width: 17px;
+  height: 17px;
+  color: var(--muted);
+}
+.cl-search input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 11px 14px 11px 40px;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+.cl-search input:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-glow);
+}
+.cl-sorts {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.cl-sorts button {
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: 0.2s;
+}
+.cl-sorts button:hover {
+  color: var(--text);
+}
+.cl-sorts button.active {
+  background: var(--green);
+  color: #06210a;
+  border-color: var(--green);
+  font-weight: 700;
+}
+.cl-summary {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 13px 16px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.015);
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.cl-summary b {
+  color: var(--text);
+  font-weight: 400;
+  font-size: 14px;
+}
+
+.cl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cl-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.012);
+  color: var(--text);
+  cursor: pointer;
+  font-family: "Inter";
+  transition:
+    border-color 0.16s,
+    background 0.16s,
+    transform 0.16s var(--ease);
+}
+.cl-row:hover {
+  transform: translateX(3px);
+  border-color: rgba(60, 199, 7, 0.45);
+  background: rgba(60, 199, 7, 0.05);
+}
+.cl-av {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--green);
+}
+.cl-av.big {
+  width: 54px;
+  height: 54px;
+  font-size: 21px;
+  border-radius: 13px;
+}
+.cl-main {
+  flex: 1;
+  min-width: 0;
+}
+.cl-main b {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cl-main .meta {
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cl-nums {
+  flex: 0 0 auto;
+  text-align: right;
+  min-width: 74px;
+}
+.cl-nums .n {
+  display: block;
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 17px;
+}
+.cl-nums .l {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.cl-badge {
+  flex: 0 0 auto;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--green);
+  border: 1px solid rgba(60, 199, 7, 0.3);
+  border-radius: 6px;
+  padding: 4px 9px;
+}
+.cl-sum {
+  flex: 0 0 auto;
+  min-width: 96px;
+  text-align: right;
+  font-family: "Space Mono";
+  font-size: 13.5px;
+  color: var(--text);
+}
+.cl-when {
+  flex: 0 0 auto;
+  min-width: 56px;
+  text-align: right;
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: #6d746a;
+}
+
+/* карточка клиента */
+.cl-card-top {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+.cl-card-stats {
+  display: flex;
+  gap: 26px;
+  flex-wrap: wrap;
+}
+.cl-stat b {
+  display: block;
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 19px;
+  line-height: 1.2;
+}
+.cl-stat span {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: var(--muted);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.cl-stat.accent b {
+  color: var(--green);
+}
+.cl-orders li {
+  cursor: pointer;
+  transition: background 0.15s;
+  border-radius: 7px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.cl-orders li:hover {
+  background: rgba(60, 199, 7, 0.07);
+}
+.cl-orders .ttl em {
+  display: block;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.client-linked #clientOpen {
+  margin-left: 0;
+  color: var(--green);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: "Space Mono";
+  font-size: 12px;
+}
+.client-linked #clientOpen[hidden] {
+  display: none;
+}
+.client-linked #clientUnlink {
+  margin-left: auto;
+}
+
+/* ---------- страница прайса ---------- */
+/* плитки разделов — точка входа, как выбор шаблона при создании заказа */
+.pr-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 13px;
+}
+/* ---------- выбор раздела и позиции прайса ---------- */
+/* Кнопка вместо двух выпадашек: показывает, что выбрано, вместе с ценой.
+   В списке этого не было видно — ни цены, ни единицы, ни вложенности. */
+.price-ref {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  padding: 9px 12px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 13.5px;
+  line-height: 1.35;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition:
+    border-color 0.16s,
+    background 0.16s;
+}
+.price-ref:hover {
+  border-color: var(--green);
+  background: rgba(60, 199, 7, 0.05);
+}
+.price-ref .path {
+  font-family: "Space Mono";
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.price-ref .item {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+}
+.price-ref .item em {
+  font-style: normal;
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  color: var(--green);
+}
+.price-ref .item em.warn {
+  color: #f0b429;
+  margin-left: 0;
+}
+.price-ref.empty .path {
+  color: #6d746a;
+}
+
+/* окно выбора: плитки чуть плотнее, чем на странице прайса */
+.pr-tiles.pick {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 11px;
+}
+.pr-tiles.pick .pr-tile {
+  padding: 14px 14px;
+}
+.pick-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pick-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+  font-family: "Inter";
+  font-size: 14px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.pick-item:hover {
+  border-color: rgba(60, 199, 7, 0.5);
+  background: rgba(60, 199, 7, 0.055);
+}
+.pick-item.on {
+  border-color: var(--green);
+  background: rgba(60, 199, 7, 0.1);
+}
+.pick-item .nm {
+  flex: 1;
+  min-width: 0;
+}
+.pick-item .nm b {
+  display: block;
+  font-weight: 600;
+}
+.pick-item .key {
+  display: block;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: #5f665c;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+.pick-item .val {
+  flex: 0 0 auto;
+  font-family: "Space Mono";
+  font-size: 14px;
+  color: var(--green);
+  letter-spacing: 0.02em;
+}
+
+/* подразделы внутри раздела-родителя */
+.pr-sub {
+  margin-bottom: 26px;
+}
+.pr-sub h2,
+.pr-sub-title {
+  font-family: "Space Mono";
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin: 0 0 13px;
+}
+.pr-sub-title {
+  margin-top: 26px;
+}
+/* плитка раздела, у которого внутри есть подразделы */
+.pr-tile .off-cnt.own {
+  color: var(--muted);
+}
+.pr-tile {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  padding: 18px 17px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.015);
+  color: var(--text);
+  cursor: pointer;
+  font-family: "Inter";
+  transition:
+    transform 0.16s var(--ease),
+    border-color 0.18s,
+    background 0.18s;
+}
+.pr-tile:hover {
+  transform: translateY(-3px);
+  border-color: rgba(60, 199, 7, 0.45);
+  background: rgba(60, 199, 7, 0.055);
+}
+.pr-tile .top {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 13px;
+}
+.pr-tile .ic {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+  transition: border-color 0.18s;
+}
+.pr-tile .ic svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.6;
+}
+.pr-tile:hover .ic {
+  border-color: rgba(60, 199, 7, 0.5);
+}
+.pr-tile .unit {
+  margin-left: auto;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 3px 7px;
+  flex: 0 0 auto;
+}
+.pr-tile b {
+  font-family: "Archivo";
+  font-weight: 700;
+  font-size: 15px;
+  text-transform: uppercase;
+  line-height: 1.2;
+  margin-bottom: 7px;
+  letter-spacing: -0.005em;
+}
+.pr-tile .desc {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.45;
+  flex: 1;
+  margin-bottom: 14px;
+}
+.pr-tile .foot {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.pr-tile .cnt {
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 19px;
+}
+.pr-tile .cnt-label {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.pr-tile .off-cnt {
+  margin-left: auto;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: #f0b429;
+  letter-spacing: 0.06em;
+}
+
+/* открытый раздел прайса */
+.pr-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0;
+  margin-bottom: 16px;
+  transition: color 0.16s;
+}
+.pr-back svg {
+  width: 15px;
+  height: 15px;
+  transform: rotate(180deg);
+}
+.pr-back:hover {
+  color: var(--green);
+}
+.pr-note {
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  color: #6d746a;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  border-left: 2px solid var(--line-strong);
+  padding-left: 12px;
+  margin-bottom: 22px;
+}
+.pr-rows {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 8px;
+}
+.pr-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.pr-row:hover {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.014);
+}
+.pr-row.off {
+  opacity: 0.45;
+}
+/* режим только для чтения — без полей ввода */
+.pr-row.read {
+  cursor: default;
+}
+.pr-row.read:hover {
+  border-color: transparent;
+  background: transparent;
+}
+.pr-row.read .nm b {
+  display: block;
+  font-size: 14px;
+  font-weight: 400;
+  padding: 4px 0;
+}
+.pr-row.read .val-read {
+  flex: 0 0 auto;
+  min-width: 118px;
+  text-align: right;
+  font-family: "Space Mono";
+  font-size: 14px;
+  color: var(--green);
+  letter-spacing: 0.02em;
+}
+.pr-row .nm {
+  flex: 1;
+  min-width: 0;
+}
+.pr-row .nm input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14px;
+  padding: 4px 0;
+  border-bottom: 1px solid transparent;
+}
+.pr-row .nm input:focus {
+  outline: none;
+  border-bottom-color: var(--green);
+}
+.pr-row .key {
+  display: block;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  color: #5f665c;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+/* позицию держит вид работ — удалить нельзя, и это видно без наведения */
+.pr-row .key .locked-by {
+  font-style: normal;
+  color: #f0b429;
+  margin-left: 4px;
+}
+.pr-row .val {
+  width: 104px;
+  flex: 0 0 auto;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-family: "Space Mono";
+  font-size: 14px;
+  text-align: right;
+}
+/* почему раздел нельзя удалить — рядом с выключенной кнопкой */
+.pr-note.locked {
+  border-left-color: #f0b429;
+  color: #f0b429;
+  background: rgba(240, 180, 41, 0.07);
+  padding: 9px 12px;
+  border-radius: 0 8px 8px 0;
+}
+.pr-row .val:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-glow);
+}
+.pr-row .val.saved {
+  border-color: var(--green);
+}
+/* за что берётся цена — у каждой позиции своё. Показываем только единицу,
+   расшифровка «— за штуку» разворачивается в самой выпадашке */
+.pr-row .unit-pick {
+  width: 98px;
+  flex: 0 0 auto;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 8px 22px 8px 10px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 13px) 50%,
+    calc(100% - 8px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+.pr-row .unit-pick:hover {
+  color: var(--text);
+  border-color: var(--green);
+}
+.pr-row .unit-pick:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-glow);
+}
+.pr-act {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: none;
+  color: #5f665c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.15s;
+}
+.pr-act svg {
+  width: 15px;
+  height: 15px;
+}
+.pr-act:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.pr-act.del:hover {
+  color: var(--red);
+  border-color: rgba(229, 72, 77, 0.4);
+}
+.pr-act:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+.pr-act:disabled:hover {
+  color: #5f665c;
+  border-color: transparent;
+}
+.pr-add {
+  display: flex;
+  gap: 9px;
+  align-items: flex-end;
+  padding: 14px 12px;
+  margin-top: 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 11px;
+}
+.pr-add[hidden] {
+  display: none;
+}
+.pr-add .field {
+  flex: 1;
+  margin: 0;
+}
+.pr-add .field.small {
+  flex: 0 0 118px;
+}
+.pr-add input,
+.pr-add select {
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14px;
+}
+.pr-add input:focus,
+.pr-add select:focus {
+  outline: none;
+  border-color: var(--green);
+}
+.pr-add .btn {
+  padding: 9px 15px;
+  font-size: 13.5px;
+}
+
+/* ---------- признак оплаты ---------- */
+.pay {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid currentColor;
+  line-height: 1;
+}
+.pay i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+.pay-paid {
+  color: var(--green);
+}
+.pay-partial {
+  color: #f0b429;
+}
+.pay-none {
+  color: #8a9182;
+}
+.pay-refunded {
+  color: var(--red);
+}
+/* возврат — «погашенный» штамп, с диагональю */
+.pay-refunded {
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 5px,
+    rgba(229, 72, 77, 0.14) 5px 7px
+  );
+}
+/* цветная метка на левом крае карточки — видно оплату не читая текст */
+.card.pay-mark::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+}
+.card.mark-paid::after {
+  background: var(--green);
+}
+.card.mark-partial::after {
+  background: #f0b429;
+}
+.card.mark-none::after {
+  background: rgba(255, 255, 255, 0.13);
+}
+.card.mark-refunded::after {
+  background: var(--red);
+}
+.card-foot .card-due {
+  margin-left: auto;
+}
+
+/* строка оплаты в карточке заказа */
+.pay-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+/* Деньги по заказу — плитками, как в метриках: суммой торгуются и суммой
+   рассчитываются, её нельзя прятать в предложение мелким шрифтом. */
+.pay-split {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pay-cell {
+  flex: 1 1 150px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 13px 15px;
+  background: rgba(255, 255, 255, 0.015);
+}
+.pay-cell span {
+  display: block;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.pay-cell b {
+  font-family: "Archivo";
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.pay-cell.paid b {
+  color: var(--green);
+}
+/* долг — единственное, ради чего в этот блок обычно и смотрят */
+.pay-cell.debt {
+  border-color: rgba(240, 180, 41, 0.45);
+  background: rgba(240, 180, 41, 0.08);
+}
+.pay-cell.debt b {
+  color: #f0b429;
+}
+.pay-cell.refund {
+  border-color: rgba(229, 72, 77, 0.4);
+  background: rgba(229, 72, 77, 0.08);
+}
+.pay-cell.refund b {
+  color: var(--red);
+}
+
+/* причина отмены — под кнопками статуса в карточке заказа */
+.cancel-note {
+  margin-top: 13px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  border: 1px solid rgba(229, 72, 77, 0.35);
+  background: rgba(229, 72, 77, 0.07);
+  color: #dfe2db;
+}
+.cancel-note span {
+  display: block;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 6px;
+}
+
+/* готовые причины отмены — нажал и не печатаешь */
+.cancel-presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.cancel-presets button {
+  font-family: "Inter";
+  font-size: 13.5px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  transition: 0.18s;
+}
+.cancel-presets button:hover {
+  color: var(--text);
+  border-color: var(--red);
+}
+.cancel-presets button.active {
+  background: rgba(229, 72, 77, 0.14);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* долг на карточке доски — отдельной полосой, а не ещё одним элементом
+   в подвале: там уже тесно, и число потерялось бы среди прочего */
+.card-debt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(240, 180, 41, 0.12);
+  border: 1px solid rgba(240, 180, 41, 0.35);
+  color: #f0b429;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.card-debt b {
+  margin-left: auto;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+/* быстрые действия с деньгами в форме */
+/* ---------- поиск клиента в форме заказа ---------- */
+.client-search {
+  position: relative;
+}
+.client-drop {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 60;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  padding: 5px;
+  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.8);
+  max-height: 262px;
+  overflow-y: auto;
+}
+.client-drop[hidden] {
+  display: none;
+}
+.client-opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 11px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-family: "Inter";
+  transition: background 0.13s;
+}
+.client-opt:hover,
+.client-opt.on {
+  background: rgba(60, 199, 7, 0.12);
+}
+.client-opt b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.client-opt span {
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.client-opt .cnt {
+  color: var(--green);
+}
+.client-drop .none {
+  padding: 10px 11px;
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  color: #6d746a;
+  letter-spacing: 0.05em;
+}
+.client-linked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+  font-family: "Space Mono";
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--green);
+}
+.client-linked[hidden] {
+  display: none;
+}
+.client-linked button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: "Space Mono";
+  font-size: 12px;
+  text-decoration: underline;
+  padding: 0;
+  margin-left: auto;
+}
+.client-linked button:hover {
+  color: var(--red);
+}
+
+/* ---------- карточка клиента ---------- */
+.cl-orders {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.cl-orders li {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 14px;
+}
+.cl-orders li:last-child {
+  border-bottom: none;
+}
+.cl-orders .num {
+  font-family: "Space Mono";
+  font-size: 13px;
+  color: var(--green);
+  flex: 0 0 auto;
+}
+.cl-orders .ttl {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cl-orders .st {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cl-orders .pr {
+  font-family: "Space Mono";
+  font-size: 13.5px;
+  min-width: 78px;
+  text-align: right;
+}
+
+/* ---------- окно подтверждения ---------- */
+/* Поверх обычных окон: подтверждать приходится и внутри открытой формы. */
+.confirm-overlay {
+  z-index: 180;
+  align-items: center;
+  padding: 24px;
+}
+.confirm-modal {
+  max-width: 460px;
+  margin: 0;
+}
+.confirm-modal .modal-head {
+  padding-bottom: 14px;
+}
+.confirm-modal .modal-head h2 {
+  font-size: 22px;
+}
+.confirm-modal .modal-body {
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+.confirm-text {
+  font-size: 15px;
+  color: #c4c8c0;
+  line-height: 1.55;
+  margin: 0;
+}
+.confirm-text + .confirm-text {
+  margin-top: 11px;
+}
+.confirm-text b {
+  color: var(--text);
+}
+.confirm-note {
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: #f0b429;
+  letter-spacing: 0.03em;
+  line-height: 1.55;
+  margin-top: 14px;
+  padding-left: 14px;
+  position: relative;
+}
+.confirm-note::before {
+  content: "!";
+  position: absolute;
+  left: 3px;
+  font-weight: 700;
+}
+
+/* ---------- контекстное меню карточки ---------- */
+.ctx {
+  position: fixed;
+  z-index: 150;
+  min-width: 212px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.75);
+  animation: ctxin 0.12s var(--ease);
+}
+.ctx[hidden] {
+  display: none;
+}
+@keyframes ctxin {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ctx {
+    animation: none;
+  }
+}
+.ctx-head {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--green);
+  padding: 9px 11px 6px;
+}
+.ctx-num {
+  font-family: "Space Mono";
+  font-size: 13px;
+  color: var(--muted);
+  padding: 2px 11px 9px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 5px;
+  letter-spacing: 0.04em;
+}
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 11px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.13s,
+    color 0.13s;
+}
+.ctx-item svg {
+  width: 15px;
+  height: 15px;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.ctx-item:hover {
+  background: rgba(60, 199, 7, 0.12);
+  color: var(--green);
+}
+.ctx-item:hover svg {
+  color: var(--green);
+}
+.ctx-item.danger:hover {
+  background: rgba(229, 72, 77, 0.14);
+  color: var(--red);
+}
+.ctx-item.danger:hover svg {
+  color: var(--red);
+}
+.ctx-item:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.ctx-item:disabled:hover {
+  background: transparent;
+  color: var(--text);
+}
+.ctx-sep {
+  height: 1px;
+  background: var(--line);
+  margin: 5px 0;
+}
+.ctx-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  flex: 0 0 auto;
+}
+
+/* ---------- тосты ---------- */
+.toasts {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.toast {
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--green);
+  border-radius: 10px;
+  background: rgba(16, 18, 16, 0.97);
+  padding: 13px 18px;
+  font-size: 14px;
+  max-width: 340px;
+  animation: slide 0.22s var(--ease);
+}
+.toast.err {
+  border-left-color: var(--red);
+}
+@keyframes slide {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+/* ---------- адаптив ---------- */
+@media (max-width: 900px) {
+  .tb-left .spotbar,
+  .counter {
+    display: none;
+  }
+  .topbar {
+    gap: 14px;
+    padding: 0 14px;
+  }
+  .board {
+    padding: 14px;
+    gap: 12px;
+  }
+  .col {
+    flex: 0 0 84vw;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .modal-head,
+  .modal-body,
+  .modal-foot {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .card-next {
+    width: 26px;
+    border-width: 1px;
+    opacity: 1;
+  }
+  .tb-nav {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .tb-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .nav-tab {
+    padding: 8px 11px;
+    font-size: 13.5px;
+  }
+  .page-inner {
+    padding: 22px 14px 50px;
+  }
+  .page-head h1 {
+    font-size: 26px;
+  }
+  .pr-tiles {
+    grid-template-columns: 1fr;
+  }
+  .cl-sum,
+  .cl-when {
+    display: none;
+  }
+  .dz-preview {
+    width: 100%;
+    height: 180px;
+  }
+  .pg-info {
+    width: 100%;
+    margin: 8px 0 0;
+    text-align: center;
+  }
+  .cl-tools {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .wk-field-body {
+    grid-template-columns: 1fr;
+  }
+  .wk-cell.wide {
+    grid-column: span 1;
+  }
+  .pr-add {
+    flex-wrap: wrap;
+  }
+  .pr-add .field.small {
+    flex: 1;
+  }
+  .filters-row {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .sort {
+    width: 100%;
+  }
+  .sort select {
+    flex: 1;
+  }
+  .gate-device {
+    font-family: "Space Mono";
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: #5f665c;
+    margin: -18px 0 26px;
+  }
+  .gate-card.locked {
+    opacity: 0.42;
+    cursor: not-allowed;
+  }
+  .gate-card.locked:hover {
+    transform: none;
+    border-color: var(--line);
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.025),
+      rgba(255, 255, 255, 0.006)
+    );
+  }
+  .gate-card .lock.pin {
+    color: #f0b429;
+  }
+
+  /* ---------- страница устройств ---------- */
+  .dv-list {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+  .dv-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    padding: 15px 17px;
+    background: rgba(255, 255, 255, 0.015);
+  }
+  .dv-card.current {
+    border-color: rgba(60, 199, 7, 0.4);
+    background: rgba(60, 199, 7, 0.05);
+  }
+  .dv-ic {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    border-radius: 10px;
+    border: 1px solid var(--line-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--green);
+  }
+  .dv-ic svg {
+    width: 19px;
+    height: 19px;
+  }
+  .dv-main {
+    flex: 1;
+    min-width: 180px;
+  }
+  .dv-main b {
+    display: block;
+    font-family: "Archivo";
+    font-weight: 700;
+    font-size: 15.5px;
+    margin-bottom: 4px;
+  }
+  .dv-main .meta {
+    font-family: "Space Mono";
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .dv-bound {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 0 0 auto;
+  }
+  .dv-tag {
+    font-family: "Space Mono";
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--green);
+    border: 1px solid rgba(60, 199, 7, 0.3);
+    border-radius: 5px;
+    padding: 3px 8px;
+  }
+  .dv-tag.free {
+    color: var(--muted);
+    border-color: var(--line);
+  }
+
+  /* выбор устройств в профиле */
+  .dev-pick {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .dev-pick[hidden] {
+    display: none;
+  }
+  .dev-opt {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+  }
+  .dev-opt:hover {
+    border-color: var(--green);
+  }
+  .dev-opt input {
+    appearance: none;
+    width: 17px;
+    height: 17px;
+    flex: 0 0 auto;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 5px;
+    cursor: pointer;
+    position: relative;
+  }
+  .dev-opt input:checked {
+    background: var(--green);
+    border-color: var(--green);
+  }
+  .dev-opt input:checked::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 1.5px;
+    width: 4px;
+    height: 9px;
+    border: solid #06210a;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .dev-opt .txt b {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .dev-opt .txt span {
+    font-family: "Space Mono";
+    font-size: 11.5px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .dev-opt.now {
+    border-color: rgba(60, 199, 7, 0.35);
+  }
+  .dev-opt.now .txt b::after {
+    content: " · этот компьютер";
+    color: var(--green);
+    font-weight: 400;
+    font-size: 12.5px;
+  }
+  .mode-row {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+  }
+  .mode-btn {
+    flex: 1;
+    min-width: 150px;
+    text-align: left;
+    padding: 13px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    color: var(--text);
+    font-family: "Inter";
+    transition: 0.18s;
+  }
+  .mode-btn b {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .mode-btn span {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .mode-btn.on {
+    border-color: var(--green);
+    background: rgba(60, 199, 7, 0.08);
+  }
+  .mode-btn.on b {
+    color: var(--green);
+  }
+
+  .gate-list {
+    grid-template-columns: 1fr;
+  }
+  .gate-title {
+    font-size: 29px;
+  }
+  .mx-hero {
+    grid-template-columns: 1fr 1fr;
+  }
+  .mx-cols {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  #metricsBtn span,
+  #newOrderBtn {
+    font-size: 14px;
+  }
+  .profile-chip {
+    padding: 8px 11px;
+  }
+}

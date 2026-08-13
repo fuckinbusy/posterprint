@@ -1,0 +1,30 @@
+# Секреты и локальные настройки
+.env
+.secret
+
+# Данные: база, бэкапы, макеты заказов, логи — здесь данные клиентов,
+# в репозиторий им нельзя
+poster.db
+poster.db-wal
+poster.db-shm
+backups/
+designs/
+logs/
+
+# Окружение и кэши
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+web/node_modules/
+web/tsconfig.tsbuildinfo
+
+# Локальные настройки инструментов
+.claude/settings.local.json
+.vscode/
+.idea/
+
+# Собранный фронтенд (static/dist) НЕ игнорируется намеренно: сервер отдаёт
+# именно его, и на рабочем компьютере Node.js может не быть вовсе.
+# А вот карты исходников — по 2 МБ на каждую сборку, и для работы не нужны.
+static/dist/**/*.map
