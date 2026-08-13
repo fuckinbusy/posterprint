@@ -9,7 +9,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app import catalog, clients as clients_logic, pricing
+from app import catalog, clients as clients_logic, pricing, shop
 from app.logs import log as applog
 from app.security import CurrentUser, current_user, require_perm
 from app.database import get_db
@@ -120,6 +120,9 @@ def get_order_or_404(db: Session, order_id: int) -> Order:
 def get_catalog(db: Session = Depends(get_db)) -> dict:
     return {
         "templates": catalog.all_templates(db),
+        # реквизиты мастерской для шапки квитанции: справочник, который
+        # читается один раз вместе с остальными
+        "shop": shop.details(),
         "statuses": [
             {"key": status.value, **STATUS_META[status]} for status in OrderStatus
         ],

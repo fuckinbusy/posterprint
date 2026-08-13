@@ -15,6 +15,8 @@ import { formatPhone } from '@/lib/phone';
 import type { Order } from '@/types/api';
 
 import { OrderFormModal } from './OrderFormModal';
+import { PrintOrderModal } from './PrintOrderModal';
+import { orderParamRows } from './params';
 import { useDeleteOrderFlow } from './useDeleteOrderFlow';
 
 export function OrderCardModal({ orderId }: { orderId: number }) {
@@ -43,25 +45,8 @@ function OrderCard({ order }: { order: Order }) {
   const template = catalog?.templates.find((t) => t.key === order.template_key);
   const allowed = statuses.allowedFrom(order.status);
 
-  /* Состав заказа: показываем только заполненное — пустые поля в списке
-   * из полутора десятков параметров только мешают читать.
-   *
-   * Ноль здесь — то же самое, что снятая галочка: «люверсы не нужны»,
-   * «проклейки нет». Расчёт такое поле пропускает (см. contributes() в
-   * app/pricing.py), а карточка показывала «Люверсы, шт: 0» рядом с
-   * настоящими параметрами.
-   *
-   * Единицу измерения дописываем к размерам: «Ширина: 2» без «м» читается
-   * как что угодно, а на карточке доски то же самое написано как «2×3 м». */
-  const paramRows: [string, string][] = (template?.fields ?? [])
-    .map((field) => ({ field, value: order.params?.[field.key] ?? null }))
-    .filter(({ value }) => value !== undefined && value !== null && value !== '' && value !== false)
-    .filter(({ value }) => !(typeof value === 'number' && value === 0) && value !== '0')
-    .map(({ field, value }): [string, string] => {
-      if (typeof value === 'boolean') return [field.label, 'да'];
-      const isSize = ['width', 'height', 'length'].includes(field.pricing_role);
-      return [field.label, isSize && field.unit ? `${value} ${field.unit}` : String(value)];
-    });
+  // состав заказа — общий сборщик: то же самое печатается в наряде
+  const paramRows = orderParamRows(template, order);
 
   const workRows: [string, string][] = [
     ['Вид', template ? template.title : order.template_key],
@@ -86,6 +71,13 @@ function OrderCard({ order }: { order: Order }) {
           )}
           <div className="spacer" />
           <ModalBackButton />
+          <button
+            className="btn btn-ghost"
+            type="button"
+            onClick={() => modal.push(<PrintOrderModal order={order} />, { backLabel: '← К заказу' })}
+          >
+            Печать
+          </button>
           {can('orders.edit') && (
             <button
               className="btn btn-ghost"

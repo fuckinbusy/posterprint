@@ -4767,3 +4767,332 @@ svg {
     padding: 8px 11px;
   }
 }
+
+/* ---------- печать: квитанция клиенту и наряд в цех ---------- */
+/* Лист выглядит одинаково на экране и на бумаге: белая бумага, чёрный текст.
+   Отдельного предпросмотра нет — то, что видно в окне, и печатается. */
+.print-switch {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.print-switch button {
+  font-family: "Space Mono";
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  padding: 8px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: 0.2s;
+}
+.print-switch button:hover {
+  color: var(--text);
+}
+.print-switch button.active {
+  background: var(--green);
+  color: #06210a;
+  border-color: var(--green);
+  font-weight: 700;
+}
+.print-hint {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.print-sheet {
+  background: #fff;
+  color: #111;
+  border-radius: 6px;
+  padding: 24px 26px;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.print-sheet b {
+  color: #000;
+}
+
+.ps-shop {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 2px solid #111;
+}
+.ps-shop b {
+  font-family: Archivo, Inter, sans-serif;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.ps-shop span {
+  font-size: 12.5px;
+  color: #444;
+}
+
+.ps-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+.ps-title span {
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #444;
+}
+.ps-title b {
+  font-family: "Space Mono", monospace;
+  font-size: 22px;
+}
+.ps-sub {
+  font-size: 12.5px;
+  color: #555;
+  margin-bottom: 14px;
+}
+/* отменённый заказ печатается редко и обычно по ошибке — пусть это будет
+   видно с порога, а не читается между строк */
+.ps-stamp {
+  display: inline-block;
+  margin: 4px 0 12px;
+  padding: 4px 10px;
+  border: 2px solid #111;
+  border-radius: 4px;
+  font-family: "Space Mono", monospace;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* наряд: номер и срок крупно — по ним его находят на столе */
+.ps-work-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #111;
+}
+.ps-work-head span {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #555;
+}
+.ps-work-head b {
+  font-family: "Space Mono", monospace;
+  font-size: 26px;
+  line-height: 1.1;
+}
+.ps-due {
+  text-align: right;
+}
+.ps-due b {
+  font-size: 20px;
+}
+.ps-name {
+  font-family: Archivo, Inter, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 14px 0 10px;
+}
+
+.ps-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 16px;
+}
+.ps-table th,
+.ps-table td {
+  border-bottom: 1px solid #d8d8d8;
+  padding: 6px 0;
+  text-align: left;
+  vertical-align: top;
+}
+.ps-table th {
+  width: 42%;
+  font-weight: 500;
+  color: #555;
+  font-size: 13px;
+}
+.ps-table td {
+  font-weight: 600;
+}
+
+.ps-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 7px 0;
+  border-bottom: 1px solid #d8d8d8;
+}
+.ps-line span {
+  font-size: 13px;
+  color: #555;
+}
+.ps-line.big b {
+  font-size: 17px;
+}
+
+/* деньги: «к доплате» — то, ради чего клиент в квитанцию и смотрит */
+.ps-money {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 16px 0 12px;
+}
+.ps-money > div {
+  flex: 1 1 120px;
+  border: 1px solid #cfcfcf;
+  border-radius: 6px;
+  padding: 9px 11px;
+}
+.ps-money span {
+  display: block;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #555;
+}
+.ps-money b {
+  font-size: 17px;
+}
+.ps-money .big {
+  border-color: #111;
+  border-width: 2px;
+}
+.ps-money .big b {
+  font-size: 22px;
+}
+
+.ps-notes {
+  margin: 12px 0;
+}
+.ps-notes span {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #555;
+}
+.ps-notes p {
+  margin: 3px 0 0;
+  white-space: pre-wrap;
+}
+
+/* место, куда цех ставит галочки шариковой ручкой */
+.ps-marks {
+  margin: 18px 0 10px;
+}
+.ps-marks span {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #555;
+}
+.ps-marks div {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.ps-marks i {
+  font-style: normal;
+  font-size: 13px;
+  color: #333;
+}
+
+.ps-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid #d8d8d8;
+  font-size: 12.5px;
+  color: #444;
+}
+.ps-sign {
+  white-space: nowrap;
+}
+.ps-printed {
+  margin-top: 10px;
+  font-size: 10.5px;
+  color: #888;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  /* Страница у нас тёмная, бумага — белая. Обычно браузер фоны не печатает,
+     но у кого-то включено «печатать фон», и без этого сброса из принтера
+     выехал бы чёрный лист. */
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* На бумагу уходит только лист. Прячем не видимостью, а display:none —
+     иначе невидимые блоки занимают место и печатаются пустые страницы. */
+  #root > *:not(.overlay) {
+    display: none !important;
+  }
+  .overlay[hidden] {
+    display: none !important;
+  }
+  .overlay {
+    display: block !important;
+    position: static !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: none !important;
+    backdrop-filter: none !important;
+  }
+  /* Окно распрямляем в обычный поток: с position:fixed и max-height длинный
+     заказ обрезался бы по высоте экрана вместо переноса на вторую страницу. */
+  .modal {
+    max-width: none !important;
+    width: auto !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    animation: none !important;
+    box-shadow: none !important;
+  }
+  .modal-head,
+  .modal-foot,
+  .print-switch,
+  .print-hint {
+    display: none !important;
+  }
+  .modal-body {
+    padding: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .print-sheet {
+    padding: 0 !important;
+    border-radius: 0 !important;
+    font-size: 12pt;
+  }
+  /* строки таблицы не должны разрываться посередине между страницами */
+  .ps-table tr,
+  .ps-line,
+  .ps-money {
+    break-inside: avoid;
+  }
+}

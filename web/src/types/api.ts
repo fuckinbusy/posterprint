@@ -146,8 +146,18 @@ export interface FormTemplate {
   fields: FormField[];
 }
 
+/** Реквизиты мастерской из .env — шапка квитанции. Любое поле может быть
+ *  пустым: печать от этого не ломается, просто строки не будет. */
+export interface ShopDetails {
+  name: string;
+  phone: string;
+  address: string;
+  note: string;
+}
+
 export interface Catalog {
   templates: FormTemplate[];
+  shop: ShopDetails;
   statuses: StatusMeta[];
   /** из какого статуса в какие можно перейти */
   transitions: Record<OrderStatus, OrderStatus[]>;
