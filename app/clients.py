@@ -19,21 +19,14 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import phones
 from app.models import Client, Order
 
 
-def normalize_phone(raw: str | None) -> str:
-    """Оставляет только цифры и приводит российские номера к виду 7XXXXXXXXXX.
-
-    Нужно, чтобы +7 918 111-22-33, 8(918)1112233 и 89181112233 считались
-    одним и тем же клиентом.
-    """
-    digits = re.sub(r"\D", "", raw or "")
-    if len(digits) == 11 and digits.startswith("8"):
-        digits = "7" + digits[1:]
-    if len(digits) == 10:
-        digits = "7" + digits
-    return digits
+# Правило переехало в app/phones.py: тот же вид номера понадобился платёжным
+# ссылкам, а тянуть ради него логику клиентов с моделями и базой незачем.
+# Имя здесь оставлено — по нему функцию зовут из роутера.
+normalize_phone = phones.normalize_phone
 
 
 def find_by_phone(db: Session, phone: str | None) -> Client | None:

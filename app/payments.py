@@ -60,8 +60,15 @@ ENCODINGS = {"utf8": ("2", "utf-8"), "win1251": ("1", "cp1251")}
 # способ оплаты: платёж по реквизитам или ссылка из банка
 MODES = ("gost", "link")
 
-# место для суммы в ссылке: POSTER_PAY_LINK=https://…/pay?amount={amount}
+# Места, которые подставляются в ссылку.
+#
+#   {amount} — сумма заказа в рублях: …/pay?amount={amount}
+#   {phone}  — номер получателя из POSTER_PAY_PHONE, в виде 79881603218.
+#              Именно так его ждут банки: у Сбербанка это
+#              …/choise_bank?requisiteNumber={phone}&bankCode=100000000111
+#              Нужен вид +7988… — пишите в ссылке «+{phone}».
 AMOUNT_SLOT = "{amount}"
+PHONE_SLOT = "{phone}"
 
 # Веса разрядов для контрольного ключа счёта (579-П, приложение 9).
 # Считается по 23 цифрам: три цифры из БИК плюс сам счёт.
@@ -152,6 +159,22 @@ def _link_problems(config: dict) -> list[str]:
         return found
     if not re.match(r"^https?://", link):
         return ["ссылка должна начинаться с http:// или https:// (POSTER_PAY_LINK)"]
+
+    # В ссылке стоит {phone}, а подставлять нечего — клиент уедет на страницу
+    # банка с пустым номером и переводить будет некому.
+    if PHONE_SLOT in link:
+        from app.phones import normalize_phone
+
+        digits = normalize_phone(config["phone"])
+        if not digits:
+            return [
+                "в ссылке есть {phone}, но номер не указан — заполните POSTER_PAY_PHONE"
+            ]
+        if len(digits) != 11:
+            return [
+                f"номер получателя не похож на телефон ({len(digits)} цифр вместо 11) — "
+                "проверьте POSTER_PAY_PHONE"
+            ]
     return []
 
 
@@ -255,24 +278,33 @@ def payload(config: dict, *, amount: float = 0.0, purpose: str = "") -> str:
     место), в режиме реквизитов — платёжная строка по ГОСТ.
     """
     if config["mode"] == "link":
-        return link_with_amount(config["link"], amount)
+        return fill_link(config["link"], amount=amount, phone=config["phone"])
     return payment_string(config, amount=amount, purpose=purpose)
 
 
-def link_with_amount(link: str, amount: float) -> str:
-    """Подставляет сумму в ссылку, если в ней есть {amount}.
+def fill_link(link: str, *, amount: float = 0.0, phone: str = "") -> str:
+    """Подставляет в ссылку сумму и номер получателя.
 
-    Пишем рубли, а не копейки: в адресах банков сумма человеческая. Целое
+    Номер приводим к тому виду, в каком его ждут банки, — 79881603218. Это
+    то же правило, по которому система узнаёт клиента по телефону
+    (app/phones.py), так что «+7 988 160-32-18» из настроек и номер в ссылке
+    всегда совпадут, как бы его ни записали.
+
+    Сумму пишем в рублях, а не в копейках: в адресах она человеческая. Целое
     число оставляем целым — «700», а не «700.0»: некоторые банки на дробной
     части спотыкаются.
     """
-    if AMOUNT_SLOT not in link:
-        return link
+    from app.phones import normalize_phone
+
+    filled = link.replace(PHONE_SLOT, normalize_phone(phone))
+
+    if AMOUNT_SLOT not in filled:
+        return filled
     if not amount or amount <= 0:
-        # места для суммы нет смысла оставлять пустым — убираем и сам параметр
-        return re.sub(r"[?&][^?&=]+=\{amount\}", "", link).replace(AMOUNT_SLOT, "")
+        # пустое «?amount=» часть банков принимает за ноль — убираем целиком
+        return re.sub(r"[?&][^?&=]+=\{amount\}", "", filled).replace(AMOUNT_SLOT, "")
     shown = f"{amount:.2f}".rstrip("0").rstrip(".")
-    return link.replace(AMOUNT_SLOT, shown)
+    return filled.replace(AMOUNT_SLOT, shown)
 
 
 def has_anything(config: dict) -> bool:

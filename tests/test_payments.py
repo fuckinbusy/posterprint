@@ -228,6 +228,43 @@ def test_без_суммы_параметр_из_ссылки_убирается
     assert payments.payload(config, amount=0) == "https://www.tbank.ru/rm/abcdef"
 
 
+SBER = (
+    "https://www.sberbank.ru/ru/choise_bank"
+    "?requisiteNumber={phone}&bankCode=100000000111"
+)
+
+
+def test_номер_подставляется_в_том_виде_как_ждёт_банк():
+    """Сбербанк ждёт 79881603218 — без плюса, скобок и восьмёрки."""
+    expected = (
+        "https://www.sberbank.ru/ru/choise_bank"
+        "?requisiteNumber=79881603218&bankCode=100000000111"
+    )
+    for written in ("+7 (988) 160-32-18", "89881603218", "79881603218", "9881603218"):
+        assert payments.fill_link(SBER, phone=written) == expected, written
+
+
+def test_номер_с_плюсом_если_банк_просит_его():
+    """Отдельного места под +7 не нужно: плюс пишется в самой ссылке."""
+    link = payments.fill_link("https://bank/pay?to=+{phone}", phone="8 988 160-32-18")
+    assert link == "https://bank/pay?to=+79881603218"
+
+
+def test_ссылка_с_номером_и_суммой_разом():
+    config = {**LINK, "link": SBER + "&amount={amount}", "phone": "+7 (988) 160-32-18"}
+    assert payments.payload(config, amount=700) == (
+        "https://www.sberbank.ru/ru/choise_bank"
+        "?requisiteNumber=79881603218&bankCode=100000000111&amount=700"
+    )
+
+
+def test_место_для_номера_без_самого_номера_это_ошибка():
+    """Иначе клиент уедет на страницу банка с пустым номером."""
+    assert payments.problems({**LINK, "link": SBER, "phone": ""})
+    assert payments.problems({**LINK, "link": SBER, "phone": "123"})
+    assert payments.problems({**LINK, "link": SBER, "phone": "+7 988 160-32-18"}) == []
+
+
 def test_ссылке_нужен_протокол():
     assert payments.problems({**LINK, "link": "tbank.ru/rm/abcdef"})
     assert payments.problems({**LINK, "link": ""})
