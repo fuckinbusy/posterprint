@@ -14,28 +14,28 @@
    ровно половиной, поэтому её можно переключить или ввести свою: пересчёт
    идёт на сервере, каждая сумма — свой код. */
 
-import { useState } from 'react';
+import { useState } from "react";
 
-import { useOrderPayment } from '@/api/orders';
-import { useCan } from '@/app/AuthProvider';
-import { ModalBackButton, ModalShell } from '@/app/ModalProvider';
-import { useToast } from '@/app/ToastProvider';
-import { Empty, Loading } from '@/components/ui';
-import { copyText } from '@/lib/clipboard';
-import { money, moneyOrZero } from '@/lib/format';
-import type { Order, OrderPayment } from '@/types/api';
+import { useOrderPayment } from "@/api/orders";
+import { useCan } from "@/app/AuthProvider";
+import { ModalBackButton, ModalShell } from "@/app/ModalProvider";
+import { useToast } from "@/app/ToastProvider";
+import { Empty, Loading } from "@/components/ui";
+import { copyText } from "@/lib/clipboard";
+import { money, moneyOrZero } from "@/lib/format";
+import type { Order, OrderPayment } from "@/types/api";
 
-type AmountKind = 'debt' | 'full' | 'custom';
+type AmountKind = "debt" | "full" | "custom";
 
 /** Что человеку сделать с кодом. У двух режимов это разные вещи: перевод
  *  по реквизитам подставляет всё сам, ссылка ведёт в перевод получателю. */
 function qrHint(payment: OrderPayment): string {
-  if (payment.mode === 'link') {
+  if (payment.mode === "link") {
     return payment.amount_in_qr
-      ? 'Наведите камеру телефона — откроется перевод с суммой'
-      : 'Наведите камеру телефона — откроется перевод';
+      ? "Наведите камеру телефона — откроется перевод с суммой"
+      : "Наведите камеру телефона — откроется перевод";
   }
-  return 'Наведите камеру телефона — реквизиты и сумма подставятся сами';
+  return "Наведите камеру телефона — реквизиты и сумма подставятся сами";
 }
 
 export function PaymentModal({ order }: { order: Order }) {
@@ -44,16 +44,30 @@ export function PaymentModal({ order }: { order: Order }) {
 
   // остаток может быть нулём (заказ оплачен) — тогда начинаем с полной суммы:
   // показывать клиенту код на ноль рублей бессмысленно
-  const [kind, setKind] = useState<AmountKind>(order.debt > 0 ? 'debt' : 'full');
-  const [custom, setCustom] = useState('');
+  const [kind, setKind] = useState<AmountKind>(
+    order.debt > 0 ? "debt" : "full",
+  );
+  const [custom, setCustom] = useState("");
 
   const amount =
-    kind === 'debt' ? order.debt : kind === 'full' ? order.price : Number(custom || 0);
+    kind === "debt"
+      ? order.debt
+      : kind === "full"
+        ? order.price
+        : Number(custom || 0);
 
-  const payment = useOrderPayment(order.id, Math.max(amount, 0), can('orders.price.view'));
+  const payment = useOrderPayment(
+    order.id,
+    Math.max(amount, 0),
+    can("orders.price.view"),
+  );
 
   const copy = async (value: string) => {
-    toast((await copyText(value)) ? 'Скопировано' : 'Скопировать не вышло — выделите вручную');
+    toast(
+      (await copyText(value))
+        ? "Скопировано"
+        : "Скопировать не вышло — выделите вручную",
+    );
   };
 
   return (
@@ -70,29 +84,29 @@ export function PaymentModal({ order }: { order: Order }) {
       <div className="pay-amount">
         <div className="pay-kinds">
           <button
-            className={kind === 'debt' ? 'active' : ''}
+            className={kind === "debt" ? "active" : ""}
             type="button"
             disabled={order.debt <= 0}
-            onClick={() => setKind('debt')}
+            onClick={() => setKind("debt")}
           >
-            Остаток {order.debt > 0 ? money(order.debt) : '—'}
+            Остаток {order.debt > 0 ? money(order.debt) : "—"}
           </button>
           <button
-            className={kind === 'full' ? 'active' : ''}
+            className={kind === "full" ? "active" : ""}
             type="button"
-            onClick={() => setKind('full')}
+            onClick={() => setKind("full")}
           >
-            Вся сумма {money(order.price) || '—'}
+            Вся сумма {money(order.price) || "—"}
           </button>
           <button
-            className={kind === 'custom' ? 'active' : ''}
+            className={kind === "custom" ? "active" : ""}
             type="button"
-            onClick={() => setKind('custom')}
+            onClick={() => setKind("custom")}
           >
             Своя
           </button>
         </div>
-        {kind === 'custom' && (
+        {kind === "custom" && (
           <input
             type="number"
             min={0}
@@ -118,7 +132,9 @@ export function PaymentModal({ order }: { order: Order }) {
               ))}
             </ul>
           )}
-          <span className="pay-where">Заполняются в файле .env рядом с программой.</span>
+          <span className="pay-where">
+            Заполняются в файле .env рядом с программой.
+          </span>
         </Empty>
       )}
 
@@ -126,7 +142,7 @@ export function PaymentModal({ order }: { order: Order }) {
         <div className="pay-show">
           <div className="pay-sum">
             <span>К оплате</span>
-            <b>{amount > 0 ? moneyOrZero(amount) : 'сумму введёт клиент'}</b>
+            <b>{amount > 0 ? moneyOrZero(amount) : "сумму введёт клиент"}</b>
           </div>
 
           {payment.data.qr ? (
@@ -167,8 +183,10 @@ export function PaymentModal({ order }: { order: Order }) {
 
           {payment.data.note && <p className="pay-note">{payment.data.note}</p>}
 
-          {payment.data.mode === 'gost' && (
-            <p className="pay-purpose">Назначение платежа: {payment.data.purpose}</p>
+          {payment.data.mode === "gost" && (
+            <p className="pay-purpose">
+              Назначение платежа: {payment.data.purpose}
+            </p>
           )}
 
           {/* советы приходят только администратору — сотруднику они

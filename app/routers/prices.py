@@ -1,7 +1,7 @@
 """HTTP-ручки страницы «Прайс»: разделы и позиции.
 
 Разделы и цены живут в базе и настраиваются администратором. Стартовый набор —
-в app/price_catalog.py и app/seed_catalog.py. Расчёт — в app/pricing.py.
+в app/seed_catalog.py. Расчёт — в app/pricing.py.
 """
 
 from __future__ import annotations
@@ -518,6 +518,6 @@ def delete_price(
 @router.post("/restore-defaults")
 def restore_defaults(db: Session = Depends(get_db), user: CurrentUser = EDIT) -> dict:
     """Возвращает недостающие стандартные позиции. Уже настроенные цены не трогает."""
-    added = pricing.seed_defaults(db, only_missing=True)
+    added = pricing.seed_defaults(db)
     applog.info("Прайс: восстановлено стандартных позиций: %s · %s", added, user.name)
     return {"added": added}

@@ -1,9 +1,36 @@
-"""Первичное наполнение: разделы прайса и виды работ.
+"""Стартовый каталог: разделы прайса, позиции и виды работ.
 
-Заливается в базу при первом запуске. Дальше всё правится через интерфейс —
-этот файл только стартовая точка, менять его для новых видов работ не нужно.
+Одно место на всё. Раньше данные лежали в двух файлах — разделы и виды работ
+здесь, цены в `price_catalog.py`, — и правка в одном месте оставляла второе
+со старыми цифрами. Тот файл убран, всё описано ниже.
 
-Роли полей (pricing_role) описаны в app/pricing.py.
+Заливается в **пустую** базу при первом запуске (`app/main.py`, `seed_if_empty`)
+и вручную скриптом:
+
+    python -m scripts.seed_workshop          # дозалить недостающее
+    python -m scripts.seed_workshop --wipe   # стереть всё и залить заново
+
+Отсюда же берёт данные кнопка «Восстановить недостающие» на странице прайса:
+позиция, удалённая по ошибке, возвращается с прежним ключом, и расчёт снова
+её находит.
+
+Цены здесь — образец, а не прайс мастерской: их правят в интерфейсе, и
+перезапускать сервер для этого не нужно.
+
+Как из ролей полей собираются разные работы
+--------------------------------------------
+Формул под виды работ нет, расчёт один на всех (`app/pricing.py`), разницу
+задаёт роль поля:
+
+* печать баннера — площадь × цена материала, плюс периметр на проклейку
+  и обрезку, плюс люверсы поштучно;
+* фрезеровка и продажа рулонов — длина × цена за погонный метр;
+* продажа листов — цена листа × количество;
+* визитки — цена по ступеням тиража, а бумага и стороны идут коэффициентами.
+
+Порядок полей значим: коэффициент умножает всё, что стоит ВЫШЕ него. У визиток
+поэтому бумага и стороны идут сразу за тиражом (умножают печать), а доплаты за
+скругление и ламинацию — ниже, их коэффициенты уже не трогают.
 """
 
 from __future__ import annotations
@@ -11,131 +38,283 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import PriceGroup, Template, TemplateField
-from app.price_catalog import PRICE_GROUPS
+from app.models import PriceGroup, PriceItem, Template, TemplateField
+
+# ---------------------------------------------------------------- прайс
+# (ключ, название, подсказка, единица по умолчанию, иконка, родитель, позиции)
+# позиция: (ключ, название, цена, единица)
+#
+# Ключ позиции — то, по чему расчёт находит цену; он же попадает в данные
+# заказа. Название рядом можно править свободно, ключ — нет.
+PRICE_GROUPS: list[tuple] = [
+    ("materialy", "Материалы", "Из чего печатаем", "₽/м²", "roll", "", []),
+    (
+        "banner_print", "Баннер", "Материал для печати баннеров", "₽/м²", "roll", "materialy",
+        [
+            ("Баннер 440г", "Баннер 440 г", 100, "₽/м²"),
+            ("Баннер 580г", "Баннер 580 г", 120, "₽/м²"),
+        ],
+    ),
+    (
+        "samokleyka_print", "Самоклейка", "Плёнка для печати", "₽/м²", "roll", "materialy",
+        [
+            ("Oracal 641 глянец", "Oracal 641 глянец", 250, "₽/м²"),
+            ("Oracal 641 мат", "Oracal 641 матовая", 250, "₽/м²"),
+            ("Oracal 3641 литая", "Oracal 3641 литая", 450, "₽/м²"),
+            ("Перфорированная", "Перфорированная (сетка на стекло)", 380, "₽/м²"),
+            ("Прозрачная", "Прозрачная", 320, "₽/м²"),
+        ],
+    ),
+    (
+        # раздел намеренно смешанный: проклейка идёт за погонный метр,
+        # а люверсы за штуку — единица у каждой позиции своя
+        "dop_obrabotka", "Доп обработка", "Что делаем с готовой печатью",
+        "₽/пог.м", "blade", "",
+        [
+            ("Проклейка", "Проклейка по периметру", 80, "₽/пог.м"),
+            ("Обрезка", "Обрезка по периметру", 25, "₽/пог.м"),
+            ("Люверсы", "Люверсы", 30, "₽/шт"),
+            ("Плоттерная резка", "Плоттерная резка по контуру", 15, "₽/пог.м"),
+            ("Ручная обрезка", "Ручная обрезка", 30, "₽/пог.м"),
+        ],
+    ),
+    (
+        "frezerovka", "Фрезеровка", "Рез по погонному метру", "₽/пог.м", "blade", "",
+        [
+            ("Дерево", "Дерево (фанера, МДФ)", 150, "₽/пог.м"),
+            ("ПВХ", "ПВХ", 200, "₽/пог.м"),
+            ("Акрил", "Акрил", 250, "₽/пог.м"),
+            ("Металл", "Металл", 400, "₽/пог.м"),
+        ],
+    ),
+    ("prodazha", "Продажа материалов", "Материал без работы", "₽/пог.м", "roll", "", []),
+    (
+        "banner_rulon", "Баннер в рулоне", "Продажа метражом", "₽/пог.м", "roll", "prodazha",
+        [
+            ("Баннер 440г", "Баннер 440 г, ширина 3.2 м", 220, "₽/пог.м"),
+            ("Баннер 580г", "Баннер 580 г, ширина 3.2 м", 280, "₽/пог.м"),
+        ],
+    ),
+    (
+        "samokleyka_rulon", "Самоклейка в рулоне", "Продажа метражом",
+        "₽/пог.м", "roll", "prodazha",
+        [
+            ("Oracal 641 глянец", "Oracal 641 глянец, 1.0 м", 190, "₽/пог.м"),
+            ("Oracal 641 мат", "Oracal 641 матовая, 1.0 м", 190, "₽/пог.м"),
+            ("Oracal 3641 литая", "Oracal 3641 литая, 1.37 м", 340, "₽/пог.м"),
+            ("Прозрачная", "Прозрачная, 1.0 м", 240, "₽/пог.м"),
+        ],
+    ),
+    (
+        "listovye", "Листовые материалы", "Продажа листами", "₽/лист", "doc", "prodazha",
+        [
+            ("Фанера 6 мм", "Фанера 6 мм, 1520×1520", 1400, "₽/лист"),
+            ("МДФ 3 мм", "МДФ 3 мм, 2070×1400", 900, "₽/лист"),
+            ("ПВХ 3 мм", "ПВХ вспененный 3 мм, 2050×3050", 2600, "₽/лист"),
+            ("ПВХ 5 мм", "ПВХ вспененный 5 мм, 2050×3050", 3900, "₽/лист"),
+            ("Акрил 3 мм", "Акрил прозрачный 3 мм, 2050×3050", 7200, "₽/лист"),
+            ("Оцинковка 0.5 мм", "Оцинковка 0.5 мм, 1250×2500", 2100, "₽/лист"),
+        ],
+    ),
+    (
+        # ключи-числа: по ним расчёт выбирает ступень под тираж заказа
+        "vizitki_tirazh", "Визитки · тираж", "Чем больше тираж, тем дешевле штука",
+        "₽/шт", "card", "",
+        [
+            ("100", "от 100 шт", 12, "₽/шт"),
+            ("500", "от 500 шт", 6, "₽/шт"),
+            ("1000", "от 1000 шт", 4, "₽/шт"),
+            ("5000", "от 5000 шт", 3, "₽/шт"),
+        ],
+    ),
+    (
+        "vizitki_bumaga", "Визитки · бумага", "Коэффициент к печати", "×", "card", "",
+        [
+            ("Мелованная 300", "Мелованная 300 г", 1, "×"),
+            ("Дизайнерская", "Дизайнерская", 1.6, "×"),
+            ("Крафт", "Крафт", 1.3, "×"),
+        ],
+    ),
+    (
+        "vizitki_storony", "Визитки · стороны", "Коэффициент к печати", "×", "card", "",
+        [
+            ("Односторонняя", "Односторонняя", 1, "×"),
+            ("Двусторонняя", "Двусторонняя", 1.8, "×"),
+        ],
+    ),
+    (
+        "vizitki_dop", "Визитки · доп работы", "Считается за каждую визитку",
+        "₽/шт", "card", "",
+        [
+            ("Скругление углов", "Скругление углов", 1.5, "₽/шт"),
+            ("Ламинация", "Ламинация матовая", 2, "₽/шт"),
+            ("Тиснение", "Тиснение фольгой", 4, "₽/шт"),
+        ],
+    ),
+]
 
 # ---------------------------------------------------------------- виды работ
-# (ключ, заголовок, метка, подсказка, иконка, подпись количества, поля)
-# поле: (ключ, подпись, тип, источник, раздел прайса, роль, умолчание, доп.)
+# поле: (ключ, подпись, тип, источник, раздел, роль, умолчание, обязательное, extra)
+F = dict  # extra: price_item, unit, options
+
 TEMPLATES: list[dict] = [
     {
-        "key": "print_color",
-        "title": "Печать цветная",
-        "short": "Цвет",
-        "hint": "Листовая цифровая печать в цвете",
+        "key": "banner_print",
+        "title": "Печать баннера",
+        "short": "Баннер",
+        "hint": "Печать на баннерной ткани с обработкой",
         "icon": "printer",
-        "quantity_label": "Тираж, оттисков",
+        "quantity_label": "Количество, шт",
         "fields": [
-            ("format", "Формат", "select", "price", "print_color_sheet", "per_unit", "A4", {}),
-            ("sides", "Стороны", "select", "price", "sides_k", "multiplier", "Односторонняя", {}),
-            ("paper", "Бумага", "select", "price", "paper", "per_unit", "Мелованная 130 г", {}),
-            ("lamination", "Ламинация", "select", "price", "lamination", "per_unit", "", {}),
-            ("trim", "Резка в размер", "bool", "price", "work", "per_order", "",
-             {"price_item": "trim"}),
+            ("material", "Материал", "select", "price", "banner_print", "per_sqm",
+             "Баннер 440г", True, F()),
+            ("width", "Ширина", "number", "list", "", "width", "0", True, F(unit="м")),
+            ("height", "Высота", "number", "list", "", "height", "0", True, F(unit="м")),
+            ("gluing", "Проклейка по периметру", "bool", "price", "dop_obrabotka", "per_m",
+             "", False, F(price_item="Проклейка")),
+            ("cutting", "Обрезка по периметру", "bool", "price", "dop_obrabotka", "per_m",
+             "", False, F(price_item="Обрезка")),
+            ("grommets", "Люверсы, шт", "number", "price", "dop_obrabotka", "per_unit",
+             "0", False, F(price_item="Люверсы")),
         ],
     },
     {
-        "key": "print_bw",
-        "title": "Печать Ч/Б",
-        "short": "Ч/Б",
-        "hint": "Чёрно-белая печать, копии, документы",
-        "icon": "doc",
-        "quantity_label": "Тираж, оттисков",
+        "key": "sticker_print",
+        "title": "Печать самоклейки",
+        "short": "Самоклейка",
+        "hint": "Печать на плёнке, при необходимости с резкой",
+        "icon": "printer",
+        "quantity_label": "Количество, шт",
         "fields": [
-            ("format", "Формат", "select", "price", "print_bw_sheet", "per_unit", "A4", {}),
-            ("sides", "Стороны", "select", "price", "sides_k", "multiplier", "Односторонняя", {}),
-            ("paper", "Бумага", "select", "price", "paper", "per_unit", "Офисная 80 г", {}),
-            ("binding", "Скрепление", "select", "price", "binding", "per_order", "", {}),
+            ("material", "Материал", "select", "price", "samokleyka_print", "per_sqm",
+             "Oracal 641 глянец", True, F()),
+            ("width", "Ширина", "number", "list", "", "width", "0", True, F(unit="м")),
+            ("height", "Высота", "number", "list", "", "height", "0", True, F(unit="м")),
+            # обе резки можно включить разом — это разные работы
+            ("plotter_cut", "Плоттерная резка", "bool", "price", "dop_obrabotka", "per_m",
+             "", False, F(price_item="Плоттерная резка")),
+            ("hand_cut", "Ручная обрезка", "bool", "price", "dop_obrabotka", "per_m",
+             "", False, F(price_item="Ручная обрезка")),
         ],
     },
     {
-        "key": "plotter_cut",
-        "title": "Плоттерная резка",
-        "short": "Резка",
-        "hint": "Плёнка, буквы, наклейки без печати",
+        "key": "milling",
+        "title": "Фрезеровка",
+        "short": "Фрезер",
+        "hint": "Рез на фрезерном станке, считается по длине реза",
         "icon": "blade",
-        "quantity_label": "Количество, шт",
+        "quantity_label": "Количество деталей, шт",
         "fields": [
-            ("material", "Материал", "select", "price", "material_sqm", "per_sqm",
-             "Oracal 641 глянцевая", {}),
-            ("width_mm", "Ширина, мм", "number", "list", "", "width", "300", {}),
-            ("height_mm", "Высота, мм", "number", "list", "", "height", "300", {}),
-            ("cutting", "Резка", "bool", "price", "work", "per_sqm", "1",
-             {"price_item": "cut_sqm"}),
-            ("setup", "Приладка", "bool", "price", "work", "per_unit", "1",
-             {"price_item": "cut_setup"}),
-            ("weeding", "Выборка (прополка)", "bool", "price", "work", "per_sqm", "1",
-             {"price_item": "weeding_sqm"}),
-            ("transfer", "Монтажная плёнка", "bool", "price", "work", "per_sqm", "1",
-             {"price_item": "transfer_sqm"}),
-            ("mounting", "Оклейка на объекте", "bool", "price", "work", "per_sqm", "",
-             {"price_item": "mounting_sqm"}),
+            ("material", "Материал", "select", "price", "frezerovka", "per_length",
+             "Дерево", True, F()),
+            ("cut_length", "Длина реза", "number", "list", "", "length", "0", True, F(unit="м")),
         ],
     },
     {
-        "key": "plotter_print",
-        "title": "Плоттерная печать",
-        "short": "Широкоформат",
-        "hint": "Наклейки, баннеры, плёнка на стекло",
+        "key": "banner_roll",
+        "title": "Баннер на продажу",
+        "short": "Баннер м",
+        "hint": "Материал метражом, без печати",
         "icon": "roll",
-        "quantity_label": "Количество, шт",
+        "quantity_label": "Количество отрезов, шт",
         "fields": [
-            ("product", "Изделие", "select", "list", "", "none", "Наклейка",
-             {"options": ["Наклейка", "Баннер", "Плёнка на стекло", "Постер"]}),
-            ("material", "Материал", "select", "price", "material_sqm", "per_sqm",
-             "Самоклейка моно", {}),
-            ("width_mm", "Ширина, мм", "number", "list", "", "width", "1000", {}),
-            ("height_mm", "Высота, мм", "number", "list", "", "height", "700", {}),
-            ("finish", "Обработка края", "select", "price", "finish_per_m", "per_m", "", {}),
-            ("contour", "Контурная резка", "bool", "price", "work", "per_sqm", "",
-             {"price_item": "contour_sqm"}),
-            ("lamination", "Ламинация", "bool", "price", "work", "per_sqm", "",
-             {"price_item": "wide_lamination_sqm"}),
+            ("material", "Вид баннера", "select", "price", "banner_rulon", "per_length",
+             "Баннер 440г", True, F()),
+            ("length", "Длина отреза", "number", "list", "", "length", "0", True, F(unit="м")),
         ],
     },
     {
-        "key": "business_cards",
+        "key": "sticker_roll",
+        "title": "Самоклейка на продажу",
+        "short": "Плёнка м",
+        "hint": "Плёнка метражом, без печати",
+        "icon": "roll",
+        "quantity_label": "Количество отрезов, шт",
+        "fields": [
+            ("material", "Вид плёнки", "select", "price", "samokleyka_rulon", "per_length",
+             "Oracal 641 глянец", True, F()),
+            ("length", "Длина отреза", "number", "list", "", "length", "0", True, F(unit="м")),
+        ],
+    },
+    {
+        "key": "sheet_sale",
+        "title": "Листовой материал на продажу",
+        "short": "Лист",
+        "hint": "Фанера, ПВХ, акрил, металл — целыми листами",
+        "icon": "doc",
+        "quantity_label": "Количество листов, шт",
+        "fields": [
+            ("material", "Материал", "select", "price", "listovye", "per_unit",
+             "ПВХ 3 мм", True, F()),
+        ],
+    },
+    {
+        "key": "cards",
         "title": "Визитки",
         "short": "Визитки",
-        "hint": "Стандарт 90×50 и дизайнерские",
+        "hint": "Стандарт 90×50, цена зависит от тиража",
         "icon": "card",
         "quantity_label": "Тираж, шт",
         "fields": [
-            ("size", "Размер", "select", "list", "", "none", "90×50 мм",
-             {"options": ["90×50 мм", "85×55 мм", "50×50 мм"]}),
-            ("tier", "Цена по тиражу", "select", "price", "cards_base", "step_per_unit", "", {}),
-            ("paper", "Бумага", "select", "price", "cards_paper_k", "multiplier",
-             "Мелованная 300 г", {}),
-            ("sides", "Стороны", "select", "price", "cards_sides_k", "multiplier", "Двусторонняя", {}),
-            ("lamination", "Ламинация", "select", "price", "cards_lamination", "per_unit", "", {}),
-            ("round_corners", "Скругление углов", "bool", "price", "work", "per_unit", "",
-             {"price_item": "cards_corners"}),
+            # порядок значим: коэффициенты умножают то, что выше них
+            ("tier", "Цена по тиражу", "select", "price", "vizitki_tirazh", "step_per_unit",
+             "100", True, F()),
+            ("paper", "Бумага", "select", "price", "vizitki_bumaga", "multiplier",
+             "Мелованная 300", True, F()),
+            ("sides", "Стороны", "select", "price", "vizitki_storony", "multiplier",
+             "Односторонняя", True, F()),
+            # ниже коэффициентов: доплаты за штуку, умножать их на бумагу незачем
+            ("corners", "Скругление углов", "bool", "price", "vizitki_dop", "per_unit",
+             "", False, F(price_item="Скругление углов")),
+            ("lamination", "Ламинация", "bool", "price", "vizitki_dop", "per_unit",
+             "", False, F(price_item="Ламинация")),
+            ("foil", "Тиснение фольгой", "bool", "price", "vizitki_dop", "per_unit",
+             "", False, F(price_item="Тиснение")),
+            ("size", "Размер", "select", "list", "", "none", "90×50 мм", False,
+             F(options=["90×50 мм", "85×55 мм", "50×50 мм"])),
         ],
     },
 ]
 
 
+def default_items() -> dict[str, list[tuple[str, str, float, str]]]:
+    """Позиции по разделам — то, что восстанавливает кнопка «Восстановить
+    недостающие» и заливает первый запуск."""
+    return {group[0]: group[6] for group in PRICE_GROUPS if group[6]}
+
+
 def seed_price_groups(db: Session) -> int:
-    """Заводит разделы прайса. Стартовые помечаются системными —
-    их нельзя удалить, потому что на них ссылаются виды работ."""
+    """Заводит разделы прайса. Существующие не трогает."""
     existing = {g.key for g in db.scalars(select(PriceGroup)).all()}
     added = 0
-    for order, group in enumerate(PRICE_GROUPS):
-        if group["key"] in existing:
+    for order, (key, title, hint, unit, icon, parent, _items) in enumerate(PRICE_GROUPS):
+        if key in existing:
             continue
-        db.add(
-            PriceGroup(
-                key=group["key"],
-                title=group["title"],
-                hint=group.get("hint", ""),
-                unit=group.get("unit", "₽"),
-                kind=group.get("kind", "money"),
-                icon=group.get("icon", "printer"),
-                sort_order=order,
-                system=True,
-            )
-        )
+        db.add(PriceGroup(
+            key=key, title=title, hint=hint, unit=unit, icon=icon,
+            parent_key=parent, sort_order=order,
+            # раздел-коэффициент рисуется иначе: там не рубли, а множитель
+            kind="factor" if unit == "×" else "money",
+        ))
         added += 1
+    if added:
+        db.commit()
+    return added
+
+
+def seed_price_items(db: Session) -> int:
+    """Заводит позиции. Цены существующих не трогает — их правил человек."""
+    existing = {(i.group_key, i.item_key) for i in db.scalars(select(PriceItem)).all()}
+    added = 0
+    for group_key, rows in default_items().items():
+        for pos, (item_key, title, value, unit) in enumerate(rows):
+            if (group_key, item_key) in existing:
+                continue
+            db.add(PriceItem(
+                group_key=group_key, item_key=item_key, title=title,
+                value=float(value), unit=unit, sort_order=pos,
+            ))
+            added += 1
     if added:
         db.commit()
     return added
@@ -149,45 +328,25 @@ def seed_templates(db: Session) -> int:
         if item["key"] in existing:
             continue
         template = Template(
-            key=item["key"],
-            title=item["title"],
-            short=item["short"],
-            hint=item["hint"],
-            icon=item["icon"],
-            quantity_label=item["quantity_label"],
-            sort_order=order,
+            key=item["key"], title=item["title"], short=item["short"],
+            hint=item["hint"], icon=item["icon"],
+            quantity_label=item["quantity_label"], sort_order=order,
         )
         db.add(template)
         db.flush()
 
-        # обязательные поля — те, без которых заказ бессмысленен (материал, формат).
-        # остальные списки можно оставить пустыми: «без ламинации», «без скрепления»
-        required_roles = {"per_unit", "per_sqm", "step_per_unit", "multiplier", "width", "height"}
-        optional_keys = {"lamination", "finish", "binding"}
-
-        for pos, (key, label, ftype, source, group, role, default, extra) in enumerate(item["fields"]):
-            is_required = (
-                ftype in ("select", "number")
-                and role in required_roles
-                and key not in optional_keys
-            )
-            db.add(
-                TemplateField(
-                    template_id=template.id,
-                    key=key,
-                    label=label,
-                    type=ftype,
-                    source=source,
-                    price_group=group,
-                    options=extra.get("options", []),
-                    default_value=str(default),
-                    pricing_role=role,
-                    price_item=extra.get("price_item", ""),
-                    sort_order=pos,
-                    unit="мм",
-                    required=is_required,
-                )
-            )
+        for pos, (key, label, ftype, source, group, role, default, required, extra) in enumerate(
+            item["fields"]
+        ):
+            db.add(TemplateField(
+                template_id=template.id,
+                key=key, label=label, type=ftype, source=source,
+                price_group=group, pricing_role=role, default_value=default,
+                required=required, sort_order=pos,
+                price_item=extra.get("price_item", ""),
+                unit=extra.get("unit", "мм"),
+                options=extra.get("options", []),
+            ))
         added += 1
     if added:
         db.commit()

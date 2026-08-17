@@ -49,7 +49,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import PriceItem
-from app.price_catalog import DEFAULTS
 
 # служебный раздел с общими правилами расчёта
 WORK_GROUP = "work"
@@ -67,27 +66,20 @@ def load_rates(db: Session) -> dict[str, dict[str, float]]:
     return rates
 
 
-def seed_defaults(db: Session, *, only_missing: bool = True) -> int:
-    """Заполняет прайс значениями по умолчанию (см. app/price_catalog.py)."""
-    existing = {(i.group_key, i.item_key) for i in db.scalars(select(PriceItem)).all()}
-    added = 0
-    for group_key, items in DEFAULTS.items():
-        for order, (item_key, title, value) in enumerate(items):
-            if only_missing and (group_key, item_key) in existing:
-                continue
-            db.add(
-                PriceItem(
-                    group_key=group_key,
-                    item_key=item_key,
-                    title=title,
-                    value=float(value),
-                    sort_order=order,
-                )
-            )
-            added += 1
-    if added:
-        db.commit()
-    return added
+def seed_defaults(db: Session) -> int:
+    """Возвращает в прайс позиции, которых в нём нет.
+
+    Стоит за кнопкой «Восстановить недостающие»: позиция, удалённая по
+    ошибке, возвращается с прежним ключом — и расчёт снова её находит.
+    Цены уже существующих позиций не трогает, их правил человек.
+
+    Данные — те же, что заливаются в пустую базу (app/seed_catalog.py).
+    Раньше у кнопки был свой список в price_catalog.py, и она возвращала
+    цены, которых в каталоге давно не было.
+    """
+    from app.seed_catalog import seed_price_items
+
+    return seed_price_items(db)
 
 
 # ---------------------------------------------------------------- помощники

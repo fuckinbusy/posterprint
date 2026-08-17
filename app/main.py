@@ -184,9 +184,8 @@ def seed_if_empty() -> None:
     """
     from sqlalchemy import select
 
-    from app import pricing
     from app.models import PriceGroup, PriceItem, Template
-    from app.seed_catalog import seed_price_groups, seed_templates
+    from app.seed_catalog import seed_price_groups, seed_price_items, seed_templates
 
     db = SessionLocal()
     try:
@@ -198,8 +197,8 @@ def seed_if_empty() -> None:
             return
 
         groups = seed_price_groups(db)
+        items = seed_price_items(db)
         works = seed_templates(db)
-        items = pricing.seed_defaults(db, only_missing=True)
         print(
             f"[i] База пустая — залит стартовый каталог: разделов прайса {groups}, "
             f"позиций {items}, видов работ {works}."
