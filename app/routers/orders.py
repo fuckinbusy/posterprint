@@ -81,11 +81,25 @@ def payment_state(order: Order) -> tuple[str, float]:
 MAX_EVENTS = 50
 
 
-def to_out(order: Order, user: CurrentUser | None = None, db: Session | None = None) -> OrderOut:
+def to_out(
+    order: Order,
+    user: CurrentUser | None = None,
+    db: Session | None = None,
+    templates: dict[str, dict] | None = None,
+) -> OrderOut:
     """Собирает ответ. Поля, закрытые правами, не просто прячутся в интерфейсе —
-    они вообще не уходят с сервера."""
+    они вообще не уходят с сервера.
+
+    templates — шаблоны, прочитанные один раз на весь список (см. list_orders):
+    без них описание каждого заказа ходило бы в базу отдельно.
+    """
     data = OrderOut.model_validate(order)
-    data.summary = catalog.describe(db, order.template_key, order.params or {}) if db else ""
+    if templates is not None:
+        data.summary = catalog.describe_template(templates.get(order.template_key), order.params or {})
+    elif db is not None:
+        data.summary = catalog.describe(db, order.template_key, order.params or {})
+    else:
+        data.summary = ""
     if len(data.events) > MAX_EVENTS:
         data.events = data.events[:MAX_EVENTS]   # они уже отсортированы, свежие первыми
     data.payment, data.debt = payment_state(order)
@@ -174,15 +188,19 @@ def list_orders(
     # порядок доски: сначала то, что горит по сроку; заказы без срока — в конец
     by_due = (Order.due_date.is_(None), Order.due_date, Order.created_at.desc())
 
+    # шаблоны нужны каждой карточке для описания состава — читаем один раз,
+    # включая скрытые: у старых заказов вид работ мог быть уже спрятан
+    templates = {t["key"]: t for t in catalog.all_templates(db, include_hidden=True)}
+
     if q:
         # У поиска свой потолок: по короткому запросу вроде «а» иначе приедут
         # все заказы за годы. Если упёрлись — человек уточнит запрос.
         rows = list(db.scalars(base().order_by(*by_due).limit(SEARCH_LIMIT)).all())
-        return [to_out(o, user, db) for o in rows]
+        return [to_out(o, user, db, templates) for o in rows]
 
     if status is not None:
         rows = list(db.scalars(base().order_by(*by_due)).all())
-        return [to_out(o, user, db) for o in rows]
+        return [to_out(o, user, db, templates) for o in rows]
 
     # Заказы в работе отдаём все — их всегда обозримое число.
     # А «Выдан» и «Отменён» копятся годами: без ограничения доска через год
@@ -205,10 +223,29 @@ def list_orders(
         ).all()
     )
 
-    return [to_out(o, user, db) for o in active + closed]
+    return [to_out(o, user, db, templates) for o in active + closed]
 
 
 MAX_NUMBER_ATTEMPTS = 8
+
+# поля заказа, куда можно записать пустоту
+NULLABLE_FIELDS = {"due_date", "client_id"}
+
+# то, что закрыто правом «стоимость: правка»
+MONEY_FIELDS = {"price", "prepaid", "refunded"}
+
+
+def require_money_rights(user: CurrentUser, fields: set[str]) -> None:
+    """Стоимость, внесённое и возврат меняет только тот, кому это разрешено.
+
+    Раньше право orders.price.edit существовало в справочнике, но ни одна
+    ручка его не спрашивала: профиль с одним orders.edit мог переписать
+    цену вслепую — ответ ему её даже не показывал.
+    """
+    if fields & MONEY_FIELDS and not user.can("orders.price.edit"):
+        raise HTTPException(
+            403, "Менять стоимость и оплату может только тот, у кого есть право на правку цены"
+        )
 
 
 @router.post("/orders", response_model=OrderOut, status_code=201)
@@ -220,6 +257,7 @@ def create_order(
     template = catalog.get_template(db, payload.template_key)
     if template is None:
         raise HTTPException(422, "Неизвестный вид работ")
+    require_money_rights(user, payload.model_fields_set)
 
     params = {**catalog.default_params(db, payload.template_key), **(payload.params or {})}
 
@@ -232,7 +270,7 @@ def create_order(
         order = Order(
             number=next_number(db),
             template_key=payload.template_key,
-            status=payload.status.value,
+            status=OrderStatus.new.value,
             title=payload.title.strip() or template["title"],
             client_name=payload.client_name.strip(),
             client_phone=payload.client_phone.strip(),
@@ -301,6 +339,11 @@ def update_order(
     changes = payload.model_dump(exclude_unset=True)
     # «Принял» проставляется автоматически по профилю — из формы не принимаем
     changes.pop("manager", None)
+    # Явный null допустим только там, где колонка его принимает. Для остальных
+    # это «поле не трогали», а не «запиши пустоту»: иначе {"title": null}
+    # ронял запрос в 500 на NOT NULL.
+    changes = {k: v for k, v in changes.items() if v is not None or k in NULLABLE_FIELDS}
+    require_money_rights(user, set(changes))
 
     if "template_key" in changes and not catalog.exists(db, changes["template_key"]):
         raise HTTPException(422, "Неизвестный шаблон заказа")

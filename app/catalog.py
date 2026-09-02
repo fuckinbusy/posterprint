@@ -117,7 +117,17 @@ def default_params(db: Session, template_key: str) -> dict:
 
 def describe(db: Session, template_key: str, params: dict) -> str:
     """Короткая строка для карточки заказа: «1000×700 мм · Наклейка · Самоклейка»."""
-    template = get_template(db, template_key)
+    return describe_template(get_template(db, template_key), params)
+
+
+def describe_template(template: dict | None, params: dict) -> str:
+    """То же, но по уже загруженному шаблону.
+
+    Список заказов зовёт это на каждую карточку; загружать шаблон заново для
+    каждой — это отдельный запрос на заказ плюс по запросу на каждое поле
+    из прайса. При двухстах заказах на доске выходило больше тысячи запросов
+    на одно открытие. Шаблоны читают один раз и раздают сюда.
+    """
     if not template:
         return ""
 

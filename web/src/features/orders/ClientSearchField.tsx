@@ -71,8 +71,9 @@ export function ClientSearchField({
     if (!open || items.length === 0) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
+      // вверх из исходного положения (−1) не должно прыгать на первый пункт
       setCursor((prev) =>
-        e.key === 'ArrowDown' ? Math.min(prev + 1, items.length - 1) : Math.max(prev - 1, 0),
+        e.key === 'ArrowDown' ? Math.min(prev + 1, items.length - 1) : Math.max(prev - 1, -1),
       );
     }
     if (e.key === 'Enter' && cursor >= 0) {

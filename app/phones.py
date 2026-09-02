@@ -21,7 +21,13 @@ def normalize_phone(raw: str | None) -> str:
     одним и тем же клиентом. В этом же виде номер ждут платёжные ссылки
     банков: `requisiteNumber=79881603218`.
     """
-    digits = re.sub(r"\D", "", raw or "")
+    text = (raw or "").strip()
+    digits = re.sub(r"\D", "", text)
+    # Иностранный номер — записан через «+» и не с 7/8: правила российской
+    # нумерации к нему не применяем. Иначе десятизначный «+49 151 …»
+    # превращался бы в «749151…» — формально верный, но чужой номер.
+    if text.startswith("+") and digits and digits[0] not in "78":
+        return digits
     if len(digits) == 11 and digits.startswith("8"):
         digits = "7" + digits[1:]
     if len(digits) == 10:

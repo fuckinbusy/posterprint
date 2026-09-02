@@ -9,7 +9,7 @@ import {
   usePermissionCatalog,
   useStaffMutation,
 } from '@/api/staff';
-import { ModalShell, useModalFrame } from '@/app/ModalProvider';
+import { ModalShell, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { Empty, Field, Loading, Section } from '@/components/ui';
 import type {
@@ -98,6 +98,11 @@ function StaffEditor({
   );
   const [saving, setSaving] = useState(false);
 
+  const snapshot = () =>
+    JSON.stringify([name, note, password, mode, [...allowed].sort(), [...granted].sort()]);
+  const [initialJson] = useState(snapshot);
+  const markClean = useUnsavedGuard(snapshot() !== initialJson);
+
   const toggle = <T,>(set: Set<T>, value: T): Set<T> => {
     const next = new Set(set);
     if (next.has(value)) next.delete(value);
@@ -134,6 +139,7 @@ function StaffEditor({
     try {
       await save.mutateAsync(payload);
       toast(isNew ? `Профиль «${payload.name}» создан` : 'Сохранено');
+      markClean();
       frame.close();
     } catch (e) {
       toastError(e);
@@ -247,8 +253,8 @@ function StaffEditor({
           }
         >
           <input
-            type="text"
-            autoComplete="off"
+            type="password"
+            autoComplete="new-password"
             value={password}
             placeholder={isNew ? 'Пусто — вход без пароля' : 'Пусто — оставить прежний'}
             onChange={(e) => setPassword(e.target.value)}

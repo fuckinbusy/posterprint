@@ -15,12 +15,20 @@ from __future__ import annotations
 
 import re
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import phones
 from app.models import Client, Order
+
+# Что считаем «суммой заказов» клиента. Отменённые и заказы с возвратом —
+# это деньги, которых не было: раньше клиент с одним отменённым заказом на
+# сто тысяч возглавлял список «по сумме», а в метриках у него был ноль.
+COUNTED_PRICE = case(
+    (and_(Order.status != "cancelled", Order.refunded.is_(False)), Order.price),
+    else_=0.0,
+)
 
 
 # Правило переехало в app/phones.py: тот же вид номера понадобился платёжным
@@ -92,6 +100,14 @@ def upsert(
     client: Client | None = None
     if client_id:
         client = db.get(Client, client_id)
+    # Нашли по id, а номер в заказе другой: либо клиент сменил номер, либо
+    # в форме исправили опечатку, либо это вообще другой человек. Чужой номер
+    # в найденную карточку не пишем (он мог совпасть с другой карточкой и
+    # уронить запрос в 500) — ищем по новому номеру, как для нового клиента.
+    if client is not None and phone:
+        new_norm = normalize_phone(phone)
+        if client.phone_norm and new_norm and new_norm != client.phone_norm:
+            client = None
     if client is None:
         client = find_by_phone(db, phone)
     if client is None and not phone:
@@ -118,12 +134,16 @@ def upsert(
                 return None
         return client
 
-    if name:
+    # Карточку не переписываем — только дополняем пустое. Имя в заказе — снимок
+    # на момент сделки, а имя в карточке правят в самой карточке. Раньше
+    # исправление опечатки в одном заказе переименовывало клиента во всех
+    # десяти, и в метриках он появлялся под новым именем задним числом.
+    if name and not client.name:
         client.name = name
-    if phone:
+    if phone and not client.phone:
         client.phone = phone
         client.phone_norm = normalize_phone(phone)
-    if contact:
+    if contact and not client.contact:
         client.contact = contact
     return client
 
@@ -136,7 +156,7 @@ def stats_for(db: Session, client_id: int) -> dict:
     row = db.execute(
         select(
             func.count(Order.id),
-            func.coalesce(func.sum(Order.price), 0),
+            func.coalesce(func.sum(COUNTED_PRICE), 0),
             func.max(Order.created_at),
         ).where(Order.client_id == client_id)
     ).one()
@@ -162,7 +182,7 @@ def browse(
         select(
             Order.client_id.label("cid"),
             func.count(Order.id).label("cnt"),
-            func.coalesce(func.sum(Order.price), 0).label("total"),
+            func.coalesce(func.sum(COUNTED_PRICE), 0).label("total"),
             func.max(Order.created_at).label("last"),
         )
         .where(Order.client_id.is_not(None))

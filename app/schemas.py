@@ -9,25 +9,29 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models import OrderStatus
 
 
+# Длины повторяют колонки в models.py. SQLite длину не проверяет и молча
+# примет мегабайт в поле телефона, Postgres — упадёт с 500; проверяем сами.
 class OrderBase(BaseModel):
-    title: str = ""
+    title: str = Field(default="", max_length=160)
     client_id: int | None = None
-    client_name: str = ""
-    client_phone: str = ""
-    client_contact: str = ""
+    client_name: str = Field(default="", max_length=120)
+    client_phone: str = Field(default="", max_length=40)
+    client_contact: str = Field(default="", max_length=120)
     quantity: int = Field(default=1, ge=1)
     params: dict = Field(default_factory=dict)
     price: float = Field(default=0.0, ge=0)
     prepaid: float = Field(default=0.0, ge=0)
     refunded: bool = False
     due_date: date | None = None
-    manager: str = ""
-    notes: str = ""
+    manager: str = Field(default="", max_length=80)
+    notes: str = Field(default="", max_length=4000)
 
 
 class OrderCreate(OrderBase):
+    # Статус при создании не принимается: заказ всегда начинается с «Новый».
+    # Раньше поле было, и профиль без права на смену статуса мог завести
+    # заказ сразу «Выданным» — мимо таблицы переходов и без completed_at.
     template_key: str
-    status: OrderStatus = OrderStatus.new
 
 
 class OrderUpdate(BaseModel):
@@ -36,19 +40,19 @@ class OrderUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     template_key: str | None = None
-    title: str | None = None
+    title: str | None = Field(default=None, max_length=160)
     client_id: int | None = None
-    client_name: str | None = None
-    client_phone: str | None = None
-    client_contact: str | None = None
+    client_name: str | None = Field(default=None, max_length=120)
+    client_phone: str | None = Field(default=None, max_length=40)
+    client_contact: str | None = Field(default=None, max_length=120)
     quantity: int | None = Field(default=None, ge=1)
     params: dict | None = None
     price: float | None = Field(default=None, ge=0)
     prepaid: float | None = Field(default=None, ge=0)
     refunded: bool | None = None
     due_date: date | None = None
-    manager: str | None = None
-    notes: str | None = None
+    manager: str | None = Field(default=None, max_length=80)
+    notes: str | None = Field(default=None, max_length=4000)
 
 
 class StatusUpdate(BaseModel):
@@ -108,10 +112,10 @@ class ClientOut(BaseModel):
 class ClientUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str | None = None
-    phone: str | None = None
-    contact: str | None = None
-    notes: str | None = None
+    name: str | None = Field(default=None, max_length=120)
+    phone: str | None = Field(default=None, max_length=40)
+    contact: str | None = Field(default=None, max_length=120)
+    notes: str | None = Field(default=None, max_length=4000)
 
 
 class PriceItemOut(BaseModel):

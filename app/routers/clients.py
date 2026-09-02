@@ -88,7 +88,10 @@ def clients_summary(
     ) or 0
     result: dict = {"total": total, "with_orders": with_orders}
     if user.can("finance.totals"):
-        result["revenue"] = float(db.scalar(select(func.coalesce(func.sum(Order.price), 0))) or 0)
+        # та же мерка, что и в карточке клиента: без отменённых и возвратов
+        result["revenue"] = float(
+            db.scalar(select(func.coalesce(func.sum(clients_logic.COUNTED_PRICE), 0))) or 0
+        )
     return result
 
 
@@ -158,6 +161,8 @@ def update_client(
         raise HTTPException(404, "Клиент не найден")
 
     changes = payload.model_dump(exclude_unset=True)
+    # null в PATCH — «поле не трогали», а не «запиши пустоту»: колонки NOT NULL
+    changes = {k: v for k, v in changes.items() if v is not None}
     for field, value in changes.items():
         setattr(client, field, value)
 

@@ -3,7 +3,7 @@
    Ничего умного: просто чтобы не переписывать одни и те же три строки
    в каждом разделе и не разъезжаться в классах. */
 
-import { Fragment } from 'react';
+import { Fragment, cloneElement, isValidElement, useId } from 'react';
 import type { ReactNode } from 'react';
 
 import { Reg } from './Icons';
@@ -70,10 +70,17 @@ export function Field({
   error?: ReactNode;
   children: ReactNode;
 }) {
+  // Подпись привязываем к полю сами: htmlFor не передавал никто, и клик по
+  // подписи ничего не делал, а читалка не знала, как поле называется.
+  // Если внутри одно поле без id — даём ему id и связываем.
+  const autoId = useId();
+  const single = isValidElement<{ id?: string }>(children) ? children : null;
+  const id = htmlFor ?? single?.props.id ?? (single ? autoId : undefined);
+  const content = single && !single.props.id && id ? cloneElement(single, { id }) : children;
   return (
     <div className="field">
-      {label && <label htmlFor={htmlFor}>{label}</label>}
-      {children}
+      {label && <label htmlFor={id}>{label}</label>}
+      {content}
       {error ? <div className="hint bad">{error}</div> : hint && <div className="hint">{hint}</div>}
     </div>
   );

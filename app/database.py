@@ -128,7 +128,8 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "orders": {
         "completed_at": "TIMESTAMP",
         "client_id": "INTEGER",
-        "refunded": "BOOLEAN DEFAULT 0",
+        # FALSE, а не 0: Postgres не примет число в умолчании булевой колонки
+        "refunded": "BOOLEAN DEFAULT FALSE",
         "cancel_reason": "VARCHAR(300) DEFAULT ''",
     },
     "employees": {

@@ -134,14 +134,19 @@ export function WorksPage() {
                     >
                       {template.active ? <EyeIcon /> : <EyeOffIcon />}
                     </button>
-                    <button
-                      className="pr-act del"
-                      type="button"
-                      title="Удалить"
-                      onClick={() => void remove(template)}
-                    >
-                      <TrashIcon />
-                    </button>
+                    {/* По виду с заказами сервер удалять откажет — незачем
+                        предлагать кнопку, которая заведомо кончится ошибкой.
+                        Остаётся «скрыть». */}
+                    {template.orders_count === 0 && (
+                      <button
+                        className="pr-act del"
+                        type="button"
+                        title="Удалить"
+                        onClick={() => void remove(template)}
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
                   </span>
                 )}
               </div>

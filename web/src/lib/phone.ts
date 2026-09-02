@@ -15,7 +15,11 @@ export const phoneDigits = (raw: string): string => (raw || '').replace(/\D/g, '
 
 /** К виду 7XXXXXXXXXX — так же, как это делает сервер. */
 export function normalizePhone(raw: string): string {
-  let digits = phoneDigits(raw);
+  const trimmed = (raw || '').trim();
+  let digits = phoneDigits(trimmed);
+  // иностранный номер (через «+», не 7/8) российским правилам не подчиняется —
+  // иначе десятизначный «+49 151 …» получал бы семёрку спереди
+  if (trimmed.startsWith('+') && digits && digits[0] !== '7' && digits[0] !== '8') return digits;
   if (digits.length === 11 && digits.startsWith('8')) digits = `7${digits.slice(1)}`;
   if (digits.length === 10) digits = `7${digits}`;
   return digits;

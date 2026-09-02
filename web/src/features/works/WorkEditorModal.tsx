@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { usePrices } from '@/api/prices';
 import { previewTemplate, useSaveTemplate } from '@/api/templates';
 import { useConfirm } from '@/app/ConfirmProvider';
-import { ModalShell, useModalFrame } from '@/app/ModalProvider';
+import { ModalShell, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { TemplateIcon } from '@/components/Icons';
 import { Empty, Field, Section } from '@/components/ui';
@@ -108,6 +108,10 @@ export function WorkEditorModal({ template }: { template: WorkTemplate | null })
           fields: [],
         },
   );
+
+  // конструктор на пятнадцать полей терять по промаху мимо окна нельзя
+  const [initialJson] = useState(() => JSON.stringify(draft));
+  const markClean = useUnsavedGuard(JSON.stringify(draft) !== initialJson);
 
   const [quick, setQuick] = useState<QuickState | null>(null);
   const [testQty, setTestQty] = useState('1');
@@ -227,6 +231,7 @@ export function WorkEditorModal({ template }: { template: WorkTemplate | null })
         payload: { ...draft, title, fields },
       });
       toast(isNew ? `«${title}» создан` : 'Сохранено');
+      markClean();
       frame.close();
     } catch (e) {
       toastError(e);

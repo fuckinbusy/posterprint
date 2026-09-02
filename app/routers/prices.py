@@ -328,6 +328,12 @@ def create_price(
     db: Session = Depends(get_db),
     user: CurrentUser = EDIT,
 ) -> PriceItemOut:
+    # раздел должен существовать: позиция «в никуда» уходит в псевдораздел
+    # «Без раздела» и в расчёте не участвует
+    group = db.scalar(select(PriceGroup).where(PriceGroup.key == payload.group_key.strip()))
+    if group is None:
+        raise HTTPException(404, "Раздел прайса не найден")
+
     exists = db.scalar(
         select(PriceItem).where(
             PriceItem.group_key == payload.group_key,
@@ -344,8 +350,7 @@ def create_price(
         .limit(1)
     )
     # единицу не передали — берём у раздела, как было до её переезда на позицию
-    group = db.scalar(select(PriceGroup).where(PriceGroup.key == payload.group_key))
-    unit = payload.unit.strip() or (group.unit if group else "")
+    unit = payload.unit.strip() or group.unit
 
     item = PriceItem(
         group_key=payload.group_key,

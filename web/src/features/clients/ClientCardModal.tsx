@@ -11,7 +11,7 @@ import {
 } from '@/api/clients';
 import { useCan } from '@/app/AuthProvider';
 import { useConfirm } from '@/app/ConfirmProvider';
-import { ModalBackButton, ModalShell, useModal, useModalFrame } from '@/app/ModalProvider';
+import { ModalBackButton, ModalShell, useModal, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { Pager } from '@/components/Pager';
 import { Empty, Field, KeyValue, Loading, Section } from '@/components/ui';
@@ -53,6 +53,11 @@ function ClientCard({ client }: { client: Client }) {
     notes: client.notes,
   });
 
+  const [initialJson] = useState(() =>
+    JSON.stringify({ name: client.name, phone: client.phone, contact: client.contact, notes: client.notes }),
+  );
+  const markClean = useUnsavedGuard(JSON.stringify(form) !== initialJson);
+
   const history = useClientOrders(client.id, offset, can('clients.history'));
   const updateClient = useUpdateClient();
   const deleteClient = useDeleteClient();
@@ -75,6 +80,7 @@ function ClientCard({ client }: { client: Client }) {
         },
       });
       toast('Карточка сохранена');
+      markClean();
       // если пришли сюда из заказа — возвращаемся туда, иначе закрываем
       if (frame.hasParent) frame.close();
       else frame.closeAll();
@@ -102,6 +108,7 @@ function ClientCard({ client }: { client: Client }) {
     try {
       await deleteClient.mutateAsync(client.id);
       toast('Карточка удалена');
+      markClean();
       frame.closeAll();
     } catch (e) {
       toastError(e);

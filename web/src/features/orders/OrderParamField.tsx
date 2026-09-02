@@ -68,7 +68,13 @@ export function OrderParamField({ field, value, inactive, onChange }: OrderParam
             disabled={inactive}
             value={shown}
             placeholder="0"
-            onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+            onChange={(e) => {
+              // «2,5» с запятой браузер считает невалидным и отдаёт пустую
+              // строку — при этом текст в поле виден. Не затираем прежнее
+              // значение: иначе размер молча пропадал из расчёта.
+              if (e.target.validity.badInput) return;
+              onChange(e.target.value === '' ? '' : Number(e.target.value));
+            }}
           />
           {unit && <span className="unit">{unit}</span>}
         </div>

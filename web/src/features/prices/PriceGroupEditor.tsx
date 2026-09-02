@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import { createPriceGroup, updatePriceGroup, usePricesInvalidation } from '@/api/prices';
-import { ModalShell, useModalFrame } from '@/app/ModalProvider';
+import { ModalShell, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { Field, Section } from '@/components/ui';
 import type { PriceGroup, PriceGroupKind } from '@/types/api';
@@ -35,6 +35,9 @@ export function PriceGroupEditor({
   const [parent, setParent] = useState(group?.parent_key ?? parentKey);
   const [saving, setSaving] = useState(false);
 
+  const [initialJson] = useState(() => JSON.stringify([title, hint, unit, kind, parent]));
+  const markClean = useUnsavedGuard(JSON.stringify([title, hint, unit, kind, parent]) !== initialJson);
+
   const parents = possibleParents(groups, group);
   // у раздела уже есть свои подразделы — вложить его некуда, будет третий уровень
   const hasChildren = Boolean(group && groups.some((g) => g.parent_key === group.key));
@@ -59,6 +62,7 @@ export function PriceGroupEditor({
       else await updatePriceGroup(group.id as number, payload);
       toast(isNew ? `Раздел «${title.trim()}» создан` : 'Сохранено');
       invalidate();
+      markClean();
       frame.close();
     } catch (e) {
       toastError(e);

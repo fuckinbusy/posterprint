@@ -62,9 +62,12 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     [pending],
   );
 
-  // фокус на кнопку подтверждения: Enter должен срабатывать сразу
+  // Фокус — на безопасную кнопку. У обычного вопроса это «Да»: Enter
+  // подтверждает сразу. У опасного (удалить, закрыть без сохранения) —
+  // «Отмена»: раньше Enter, нажатый по инерции, удалял заказ насовсем.
   useEffect(() => {
-    if (pending) yesRef.current?.focus();
+    if (!pending) return;
+    (pending.danger ? noRef : yesRef).current?.focus();
   }, [pending]);
 
   useEffect(() => {
@@ -75,7 +78,9 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         e.stopPropagation();
         close(false);
       }
-      if (e.key === 'Enter' && document.activeElement !== noRef.current) {
+      // у опасного вопроса Enter работает только как нажатие той кнопки,
+      // на которой стоит фокус, — это делает сам браузер
+      if (e.key === 'Enter' && !pending.danger && document.activeElement !== noRef.current) {
         e.preventDefault();
         close(true);
       }

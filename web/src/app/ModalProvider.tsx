@@ -9,10 +9,26 @@
 
    Здесь окна складываются стопкой и остаются смонтированными: видно только
    верхнее, остальные скрыты. Возврат — это просто снятие верхнего, а форма
-   под ним всё это время цела вместе со всем, что в неё ввели. */
+   под ним всё это время цела вместе со всем, что в неё ввели.
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+   Несохранённое. Окно может объявить, что в нём есть несохранённый ввод
+   (useUnsavedGuard). Тогда закрытие — крестиком, Esc, кликом мимо, кнопкой
+   «Отмена» — сначала спрашивает. Раньше промах мимо окна молча стирал
+   заполненную форму заказа. */
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactNode } from 'react';
+
+import { useAuth } from './AuthProvider';
+import { useConfirm } from './ConfirmProvider';
 
 interface OpenOptions {
   /** Подпись кнопки возврата к окну, которое осталось внизу. */
@@ -30,7 +46,8 @@ interface ModalApi {
   open: (content: ReactNode) => void;
   /** Открыть поверх текущего, с возможностью вернуться назад. */
   push: (content: ReactNode, options?: OpenOptions) => void;
-  /** Заменить верхнее окно, не трогая стопку под ним. */
+  /** Заменить верхнее окно, не трогая стопку под ним. Не спрашивает про
+   *  несохранённое: так окна сменяют друг друга после удачного сохранения. */
   replace: (content: ReactNode) => void;
   /** Закрыть верхнее окно — вернуться к предыдущему. */
   close: () => void;
@@ -45,6 +62,8 @@ interface ModalFrame {
   backLabel: string;
   close: () => void;
   closeAll: () => void;
+  /** Окно сообщает, есть ли в нём несохранённое. null — снять проверку. */
+  setGuard: (guard: (() => boolean) | null) => void;
 }
 
 const ModalContext = createContext<ModalApi | null>(null);
@@ -53,10 +72,42 @@ const FrameContext = createContext<ModalFrame | null>(null);
 export function ModalProvider({ children }: { children: ReactNode }) {
   const [stack, setStack] = useState<ModalEntry[]>([]);
   const nextId = useRef(1);
+  const askConfirm = useConfirm();
+  const { session } = useAuth();
+
+  // Текущая стопка и проверки «есть несохранённое» — в ссылках: api
+  // создаётся один раз, а читать ему нужно всегда свежее.
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
+  const guards = useRef(new Map<number, () => boolean>());
+
+  /** Можно ли закрыть окна с этими id. Спрашивает один раз, даже если
+   *  несохранённое есть в нескольких — второй вопрос подряд только злит. */
+  const canLeave = useCallback(
+    async (ids: number[]): Promise<boolean> => {
+      const dirty = ids.some((id) => guards.current.get(id)?.());
+      if (!dirty) return true;
+      return askConfirm({
+        eyebrow: 'Несохранённые изменения',
+        title: 'Закрыть без сохранения?',
+        text: 'Введённое в этом окне пропадёт.',
+        yes: 'Закрыть',
+        no: 'Вернуться',
+        danger: true,
+      });
+    },
+    [askConfirm],
+  );
 
   const api = useMemo<ModalApi>(
     () => ({
-      open: (content) => setStack([{ id: nextId.current++, content, backLabel: '' }]),
+      open: (content) => {
+        void (async () => {
+          if (!(await canLeave(stackRef.current.map((e) => e.id)))) return;
+          guards.current.clear();
+          setStack([{ id: nextId.current++, content, backLabel: '' }]);
+        })();
+      },
       push: (content, options) =>
         setStack((prev) => [
           ...prev,
@@ -71,10 +122,25 @@ export function ModalProvider({ children }: { children: ReactNode }) {
                 { ...prev[prev.length - 1], id: nextId.current++, content },
               ],
         ),
-      close: () => setStack((prev) => prev.slice(0, -1)),
-      closeAll: () => setStack([]),
+      close: () => {
+        void (async () => {
+          const top = stackRef.current[stackRef.current.length - 1];
+          if (!top) return;
+          if (!(await canLeave([top.id]))) return;
+          guards.current.delete(top.id);
+          setStack((prev) => prev.filter((e) => e.id !== top.id));
+        })();
+      },
+      closeAll: () => {
+        void (async () => {
+          const ids = stackRef.current.map((e) => e.id).reverse();
+          if (!(await canLeave(ids))) return;
+          guards.current.clear();
+          setStack([]);
+        })();
+      },
     }),
-    [],
+    [canLeave],
   );
 
   // Esc закрывает верхнее окно. Слушаем в фазе всплытия: подтверждение
@@ -88,6 +154,16 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [stack.length, api]);
 
+  // Сессия кончилась — окна закрываем без вопросов: сохранить в них всё
+  // равно уже нечем. Раньше форма заказа оставалась висеть поверх экрана
+  // входа, и каждое «Сохранить» отвечало «сессия истекла».
+  useEffect(() => {
+    if (session === null) {
+      guards.current.clear();
+      setStack([]);
+    }
+  }, [session]);
+
   return (
     <ModalContext.Provider value={api}>
       {children}
@@ -99,6 +175,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
           hasParent={index > 0}
           close={api.close}
           closeAll={api.closeAll}
+          guards={guards}
         />
       ))}
     </ModalContext.Provider>
@@ -111,16 +188,27 @@ function ModalLayer({
   hasParent,
   close,
   closeAll,
+  guards,
 }: {
   entry: ModalEntry;
   isTop: boolean;
   hasParent: boolean;
   close: () => void;
   closeAll: () => void;
+  guards: React.MutableRefObject<Map<number, () => boolean>>;
 }) {
   const frame = useMemo<ModalFrame>(
-    () => ({ hasParent, backLabel: entry.backLabel, close, closeAll }),
-    [hasParent, entry.backLabel, close, closeAll],
+    () => ({
+      hasParent,
+      backLabel: entry.backLabel,
+      close,
+      closeAll,
+      setGuard: (guard) => {
+        if (guard) guards.current.set(entry.id, guard);
+        else guards.current.delete(entry.id);
+      },
+    }),
+    [hasParent, entry.backLabel, entry.id, close, closeAll, guards],
   );
 
   return (
@@ -151,6 +239,27 @@ export function useModalFrame(): ModalFrame {
   return ctx;
 }
 
+/** Окно говорит стеку: «во мне есть несохранённое».
+ *
+ *  Возвращает markClean — его зовут после удачного сохранения, прямо перед
+ *  close/closeAll: иначе окно, которое только что сохранилось, спросило бы
+ *  «закрыть без сохранения?». Отметка не сбрасывается при перерисовке. */
+export function useUnsavedGuard(dirty: boolean): () => void {
+  const frame = useModalFrame();
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const cleanRef = useRef(false);
+
+  useEffect(() => {
+    frame.setGuard(() => !cleanRef.current && dirtyRef.current);
+    return () => frame.setGuard(null);
+  }, [frame]);
+
+  return useCallback(() => {
+    cleanRef.current = true;
+  }, []);
+}
+
 /* ---------------------------------------------------- каркас окна */
 interface ModalShellProps {
   eyebrow: ReactNode;
@@ -167,11 +276,15 @@ export function ModalShell({ eyebrow, title, wide, children, foot }: ModalShellP
   const ref = useRef<HTMLDivElement>(null);
 
   // Окно открылось — уводим фокус внутрь, иначе Tab продолжит ходить по
-  // странице под ним, а читалка экрана останется снаружи.
+  // странице под ним, а читалка экрана останется снаружи. Ищем в теле, а не
+  // по всему окну: первым по порядку стоит крестик «Закрыть», и Enter сразу
+  // после открытия закрывал бы окно вместе с введённым.
   useEffect(() => {
-    const node = ref.current?.querySelector<HTMLElement>(
-      'input:not([type="hidden"]), select, textarea, button',
-    );
+    const body = ref.current?.querySelector('.modal-body');
+    const node =
+      body?.querySelector<HTMLElement>(
+        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+      ) ?? ref.current?.querySelector<HTMLElement>('.modal-foot button');
     node?.focus();
   }, []);
 

@@ -118,7 +118,25 @@ async def upload_design(
     """Загрузка макета. Прежний файл заменяется — один заказ, один макет."""
     order = _order(db, order_id)
 
-    data = await file.read()
+    # Читаем кусками и останавливаемся, как только перешагнули лимит: иначе
+    # файл на два гигабайта сначала целиком ложился в память и только потом
+    # получал отказ «больше 300 МБ».
+    chunks = bytearray()
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        chunks.extend(chunk)
+        if len(chunks) > designs.MAX_UPLOAD_BYTES:
+            applog.warning(
+                "Макет %s отклонён: больше %s МБ (файл «%s») · %s",
+                order.number, designs.MAX_UPLOAD_BYTES // 1024 // 1024,
+                file.filename or "без имени", user.name,
+            )
+            raise HTTPException(
+                422, f"Файл больше {designs.MAX_UPLOAD_BYTES // 1024 // 1024} МБ"
+            )
+    data = bytes(chunks)
     try:
         info = designs.save(order.number, file.filename or "", data)
     except ValueError as exc:

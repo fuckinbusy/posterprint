@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import catalog
 from app.database import get_db
 from app.logs import log as applog
-from app.models import Order, Template, TemplateField
+from app.models import Order, PriceGroup, PriceItem, Template, TemplateField
 from app.security import CurrentUser, require_perm
 
 router = APIRouter(
@@ -105,6 +105,25 @@ def apply_fields(db: Session, template: Template, fields: list[FieldIn]) -> None
     значения в уже созданных заказах, менять их при переименовании подписи
     нельзя.
     """
+    # Ссылки на прайс проверяем ДО того, как что-то стирать: поле, смотрящее в
+    # несуществующий раздел, в форме даёт пустой список, а в расчёте — тихо
+    # пропавшую строку. Опечатка в ключе позиции обходилась дороже всего.
+    groups = {g.key for g in db.scalars(select(PriceGroup)).all()}
+    items = {(i.group_key, i.item_key) for i in db.scalars(select(PriceItem)).all()}
+    for item in fields:
+        if item.source != "price" or not item.price_group:
+            continue
+        if item.price_group not in groups:
+            raise HTTPException(
+                422, f"Поле «{item.label or item.key}» ссылается на раздел прайса "
+                     f"«{item.price_group}», которого нет"
+            )
+        if item.price_item and (item.price_group, item.price_item) not in items:
+            raise HTTPException(
+                422, f"Поле «{item.label or item.key}» ссылается на позицию "
+                     f"«{item.price_item}», которой нет в разделе «{item.price_group}»"
+            )
+
     template.fields.clear()
     db.flush()
     used_keys: set[str] = set()

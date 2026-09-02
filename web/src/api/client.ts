@@ -98,6 +98,8 @@ async function readError(res: Response): Promise<string> {
   }
   if (res.status === 403) return 'Недостаточно прав для этого действия';
   if (res.status === 404) return 'Не найдено';
+  if (res.status === 429) return 'Слишком много попыток — подождите минуту';
+  if (res.status >= 500) return 'Ошибка на сервере. Повторите; если повторяется — к администратору';
   return 'Сервер не принял запрос';
 }
 
@@ -129,7 +131,15 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     throw new ApiError(message, res.status);
   }
 
-  return (await res.json()) as T;
+  // Ответ без тела или не-JSON (страница от прокси) — раньше выбрасывал
+  // сырой SyntaxError, и в тосте было «Unexpected token <».
+  const text = await res.text();
+  if (!text) return null as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new ApiError('Сервер ответил не тем, что ожидалось. Обновите страницу.', res.status);
+  }
 }
 
 /** Картинка превью: сервер отдаёт PNG, а не JSON.

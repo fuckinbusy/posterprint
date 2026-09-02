@@ -13,7 +13,7 @@ import { estimatePrice, useCreateOrder, useUpdateOrder } from '@/api/orders';
 import { uploadDesign } from '@/api/designs';
 import { useAuth } from '@/app/AuthProvider';
 import { useConfirm } from '@/app/ConfirmProvider';
-import { ModalShell, useModal, useModalFrame } from '@/app/ModalProvider';
+import { ModalShell, useModal, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { Reg } from '@/components/Icons';
 import { Empty, Field, Section } from '@/components/ui';
@@ -104,6 +104,11 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [designFile, setDesignFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Закрыть окно с введённым можно только через вопрос. Сравниваем со
+  // снимком на момент открытия: пока ничего не трогали, вопросов нет.
+  const [initialJson] = useState(() => JSON.stringify(initialState(template, order)));
+  const markClean = useUnsavedGuard(JSON.stringify(form) !== initialJson || designFile !== null);
   /* Ошибку по телефону показываем не на каждую набранную цифру, а когда
    * человек ушёл из поля или нажал «Сохранить»: иначе поле краснеет,
    * едва начав его заполнять. */
@@ -123,7 +128,10 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
   const setParam = (key: string, value: ParamValue) =>
     setForm((prev) => ({ ...prev, params: { ...prev.params, [key]: value } }));
 
-  const quantity = Math.max(Number(form.quantity || 0), 1);
+  // Тираж меньше единицы — не заказ. Раньше пустое поле молча превращалось
+  // в 1 и в расчёте, и при сохранении.
+  const quantity = Number(form.quantity || 0);
+  const quantityProblem = quantity >= 1 ? null : 'Укажите количество — хотя бы 1';
 
   const buildPayload = () => ({
     template_key: template.key,
@@ -148,6 +156,10 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
   });
 
   const runEstimate = async () => {
+    if (quantityProblem) {
+      toast(quantityProblem);
+      return;
+    }
     try {
       const result = await estimatePrice(template.key, quantity, form.params);
       setEstimate(result);
@@ -194,6 +206,10 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
       toast(`Проверьте телефон: ${phoneProblemInline(phoneError)}`);
       return;
     }
+    if (quantityProblem) {
+      toast(quantityProblem);
+      return;
+    }
 
     if (!(await confirmThin())) return;
 
@@ -208,6 +224,7 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
 
       const created = await createOrder.mutateAsync(buildPayload());
       toast(`${created.number} создан`);
+      markClean();
       frame.closeAll();
 
       // Макет отправляем отдельным запросом: файлу нужно имя по номеру
@@ -398,7 +415,9 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
                   step="10"
                   value={form.price}
                   placeholder="0"
-                  onChange={(e) => set('price', e.target.value)}
+                  onChange={(e) => {
+                    if (!e.target.validity.badInput) set('price', e.target.value);
+                  }}
                 />
               </Field>
               <Field label="Внесено, ₽">
@@ -408,7 +427,9 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
                   step="10"
                   value={form.prepaid}
                   placeholder="0"
-                  onChange={(e) => set('prepaid', e.target.value)}
+                  onChange={(e) => {
+                    if (!e.target.validity.badInput) set('prepaid', e.target.value);
+                  }}
                 />
               </Field>
             </>
