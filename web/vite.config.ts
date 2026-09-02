@@ -35,6 +35,11 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
+      // шрифты лежат в static/fonts и в разработке тоже приезжают с uvicorn
+      '/static/fonts': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
     },
   },
 });

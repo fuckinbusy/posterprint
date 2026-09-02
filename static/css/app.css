@@ -1776,6 +1776,8 @@ svg {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 26px;
+  /* дальше идёт «Заявки за период» — без отступа заголовок прилипал к плиткам */
+  margin-bottom: 26px;
 }
 
 /* кнопки-входы в отдельные окна */
@@ -4455,9 +4457,21 @@ svg {
   .counter {
     display: none;
   }
+  /* Шапка переносится на две строки: логотип, поиск и кнопки — в первой,
+     разделы — во второй (у .tb-nav ниже стоит order:3 и width:100%, но без
+     flex-wrap и с жёсткой высотой они не срабатывали: разделы просто уезжали
+     за край, и в другой раздел с телефона было не попасть). */
   .topbar {
-    gap: 14px;
-    padding: 0 14px;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--topbar-h);
+    gap: 10px 14px;
+    padding: 8px 14px;
+  }
+  .tb-right {
+    margin-left: 0;
+    flex: 1 1 auto;
+    justify-content: flex-end;
   }
   .board {
     padding: 14px;

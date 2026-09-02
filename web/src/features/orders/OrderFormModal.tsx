@@ -448,16 +448,19 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
                 >
                   Оплачен полностью
                 </button>
-                {/* Отмеченный возврат подсвечивается красным — состояние
-                    отдаём классом, чтобы оно было видно прямо в разметке. */}
-                <label className={form.refunded ? 'check refunded' : 'check'}>
-                  <input
-                    type="checkbox"
-                    checked={form.refunded}
-                    onChange={(e) => set('refunded', e.target.checked)}
-                  />
-                  Деньги вернули клиенту
-                </label>
+                {/* Возврат — только у существующего заказа: по заказу, который
+                    ещё не создан, возвращать нечего. Отмеченный подсвечивается
+                    красным — состояние отдаём классом, чтобы было видно в разметке. */}
+                {order && (
+                  <label className={form.refunded ? 'check refunded' : 'check'}>
+                    <input
+                      type="checkbox"
+                      checked={form.refunded}
+                      onChange={(e) => set('refunded', e.target.checked)}
+                    />
+                    Деньги вернули клиенту
+                  </label>
+                )}
                 <PaymentState
                   price={Number(form.price || 0)}
                   prepaid={Number(form.prepaid || 0)}

@@ -128,6 +128,14 @@ function PeopleTab() {
         </button>
       </div>
 
+      {(employees.data ?? []).length === 0 && (
+        <Empty>
+          Профилей пока нет. Пока их не завели, все работают под администратором —
+          и любое действие в истории заказов подписано «Администратор». Заведите
+          профиль на каждого, кто принимает заказы: тогда видно, кто что сделал.
+        </Empty>
+      )}
+
       <div className="st-list">
         {(employees.data ?? []).map((employee) => {
           const perms = employee.permissions.map(permissionTitle).filter(Boolean);

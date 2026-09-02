@@ -50,6 +50,12 @@ export function OrderParamField({ field, value, inactive, onChange }: OrderParam
     // миллиметров и получить цену в тысячу раз меньше
     const isSize = SIZE_ROLES.includes(field.pricing_role);
     const unit = isSize ? field.unit || 'мм' : '';
+    /* Ноль показываем пустым полем с подсказкой «0». Ноль здесь и значит
+     * «не задано» — расчёт такое поле пропускает, — а видимый ноль сотрудник
+     * каждый раз стирал перед вводом, иначе получал «05». */
+    const shown = value === null || value === undefined || value === '' || Number(value) === 0
+      ? ''
+      : String(value);
     return (
       <div className={inactive ? 'field inactive' : 'field'}>
         <label htmlFor={id}>{field.label}</label>
@@ -60,7 +66,8 @@ export function OrderParamField({ field, value, inactive, onChange }: OrderParam
             min="0"
             step={unit === 'м' ? 'any' : '1'}
             disabled={inactive}
-            value={String(value ?? 0)}
+            value={shown}
+            placeholder="0"
             onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
           />
           {unit && <span className="unit">{unit}</span>}

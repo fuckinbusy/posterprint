@@ -74,7 +74,9 @@ MAX_BYTES = 5 * 1024 * 1024
 BACKUP_COUNT = 5
 
 # пути, которые не логируем: их много, а пользы в логе нет
-SKIP_PREFIXES = ("/static/", "/favicon")
+# /.well-known/… дёргает сам Chrome (devtools) при каждом открытии страницы —
+# в журнале это выглядело как поток 404, за которым не видно настоящих ошибок
+SKIP_PREFIXES = ("/static/", "/favicon", "/.well-known/")
 SKIP_SUFFIXES = ("/preview",)
 
 log = logging.getLogger("poster")

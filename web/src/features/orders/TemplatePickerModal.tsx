@@ -1,5 +1,7 @@
 /* Первый шаг создания заказа: какой это вид работ. */
 
+import { useState } from 'react';
+
 import { useCatalog } from '@/api/catalog';
 import { ModalShell } from '@/app/ModalProvider';
 import { ArrowIcon, TemplateIcon } from '@/components/Icons';
@@ -7,11 +9,22 @@ import { Empty, Loading } from '@/components/ui';
 
 import { useOpenNewOrderForm } from './useOpenOrderForm';
 
+/* С какого числа видов работ показывать поиск. При четырёх-пяти плитках он
+   только занимает место, при десяти — без него листают. */
+const SEARCH_FROM = 6;
+
 export function TemplatePickerModal() {
   const catalog = useCatalog();
   const openForm = useOpenNewOrderForm();
+  const [query, setQuery] = useState('');
 
   const templates = catalog.data?.templates ?? [];
+  const needle = query.trim().toLowerCase();
+  const shown = needle
+    ? templates.filter(
+        (t) => t.title.toLowerCase().includes(needle) || t.hint.toLowerCase().includes(needle),
+      )
+    : templates;
 
   return (
     <ModalShell eyebrow="Новый заказ" title="Вид работ">
@@ -23,9 +36,30 @@ export function TemplatePickerModal() {
         </Empty>
       )}
 
-      {templates.length > 0 && (
+      {templates.length >= SEARCH_FROM && (
+        <div className="field" style={{ marginBottom: 14 }}>
+          <input
+            type="search"
+            autoFocus
+            placeholder="Найти вид работ…"
+            aria-label="Поиск по видам работ"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter по единственному совпадению — сразу в форму
+              if (e.key === 'Enter' && shown.length === 1) openForm(shown[0].key);
+            }}
+          />
+        </div>
+      )}
+
+      {templates.length > 0 && shown.length === 0 && (
+        <Empty>По запросу «{query}» ничего нет</Empty>
+      )}
+
+      {shown.length > 0 && (
         <div className="tpl-list">
-          {templates.map((template) => (
+          {shown.map((template) => (
             <button
               className="tpl"
               type="button"
