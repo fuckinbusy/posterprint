@@ -13,9 +13,12 @@ import { useOpenNewOrderForm } from './useOpenOrderForm';
    только занимает место, при десяти — без него листают. */
 const SEARCH_FROM = 6;
 
-export function TemplatePickerModal() {
+/** onPick — что делать с выбранным видом. Без него открывается форма
+ *  нового заказа; с ним — форма существующего меняет вид работ. */
+export function TemplatePickerModal({ onPick }: { onPick?: (key: string) => void } = {}) {
   const catalog = useCatalog();
-  const openForm = useOpenNewOrderForm();
+  const openNew = useOpenNewOrderForm();
+  const openForm = onPick ?? openNew;
   const [query, setQuery] = useState('');
 
   const templates = catalog.data?.templates ?? [];

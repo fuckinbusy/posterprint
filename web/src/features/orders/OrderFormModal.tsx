@@ -17,6 +17,7 @@ import { ModalShell, useModal, useModalFrame, useUnsavedGuard } from '@/app/Moda
 import { useToast } from '@/app/ToastProvider';
 import { Reg } from '@/components/Icons';
 import { Empty, Field, Section } from '@/components/ui';
+import { useMoveStatus } from '@/features/board/useMoveStatus';
 import { ClientCardModal } from '@/features/clients/ClientCardModal';
 import { money, plural } from '@/lib/format';
 import { formatPhone, phoneProblem, phoneProblemInline } from '@/lib/phone';
@@ -26,6 +27,7 @@ import { ClientSearchField } from './ClientSearchField';
 import { isDimension, neededDimensions } from './dimensions';
 import { OrderCardModal } from './OrderCardModal';
 import { OrderParamField } from './OrderParamField';
+import { TemplatePickerModal } from './TemplatePickerModal';
 
 interface OrderFormModalProps {
   templateKey: string;
@@ -50,12 +52,32 @@ interface FormState {
   notes: string;
 }
 
-function initialState(template: FormTemplate, order: Order | null): FormState {
+/* carry — то, что уже ввели в форму до смены вида работ. Переносим всё,
+   кроме параметров: их набор у нового вида другой. Совпавшие по ключу
+   (материал, ширина, высота — они у видов работ общие) переезжают. */
+function initialState(
+  template: FormTemplate,
+  order: Order | null,
+  carry: FormState | null = null,
+): FormState {
   const params: OrderParams = {};
   template.fields.forEach((field) => {
+    let carried = carry?.params?.[field.key];
+    // список у нового вида свой: «Баннер 440г» в поле «Материал» самоклейки
+    // не вариант, а мусор, который расчёт потом не найдёт в прайсе
+    if (field.type === 'select' && carried !== undefined && !field.options.includes(String(carried))) {
+      carried = undefined;
+    }
     const saved = order?.params?.[field.key];
-    params[field.key] = saved !== undefined && saved !== null ? saved : field.default;
+    params[field.key] =
+      carried !== undefined && carried !== null
+        ? carried
+        : saved !== undefined && saved !== null
+          ? saved
+          : field.default;
   });
+
+  if (carry) return { ...carry, params, title: carry.title || template.title };
 
   return {
     title: order?.title || template.title,
@@ -75,7 +97,11 @@ function initialState(template: FormTemplate, order: Order | null): FormState {
 
 export function OrderFormModal({ templateKey, order }: OrderFormModalProps) {
   const catalog = useCatalog();
-  const template = catalog.data?.templates.find((t) => t.key === templateKey);
+  // вид работ можно сменить прямо в форме: ключ живёт здесь, форма под ним
+  // пересоздаётся, а введённое переезжает через carry
+  const [activeKey, setActiveKey] = useState(templateKey);
+  const [carry, setCarry] = useState<FormState | null>(null);
+  const template = catalog.data?.templates.find((t) => t.key === activeKey);
 
   if (!template) {
     return (
@@ -90,17 +116,41 @@ export function OrderFormModal({ templateKey, order }: OrderFormModalProps) {
   }
 
   // ключ пересоздаёт форму, если сменился вид работ или заказ
-  return <OrderForm key={`${templateKey}:${order?.id ?? 'new'}`} template={template} order={order} />;
+  return (
+    <OrderForm
+      key={`${activeKey}:${order?.id ?? 'new'}`}
+      template={template}
+      order={order}
+      carry={carry}
+      onSwitchTemplate={(key, state, oldTitle) => {
+        // название, совпадающее с прежним видом работ, — автоматическое;
+        // его заменит название нового вида
+        setCarry({ ...state, title: state.title === oldTitle ? '' : state.title });
+        setActiveKey(key);
+      }}
+    />
+  );
 }
 
-function OrderForm({ template, order }: { template: FormTemplate; order: Order | null }) {
+function OrderForm({
+  template,
+  order,
+  carry,
+  onSwitchTemplate,
+}: {
+  template: FormTemplate;
+  order: Order | null;
+  carry: FormState | null;
+  onSwitchTemplate: (key: string, state: FormState, oldTitle: string) => void;
+}) {
   const { session, can } = useAuth();
   const { toast, toastError } = useToast();
   const modal = useModal();
   const frame = useModalFrame();
   const askConfirm = useConfirm();
 
-  const [form, setForm] = useState<FormState>(() => initialState(template, order));
+  const [form, setForm] = useState<FormState>(() => initialState(template, order, carry));
+  const moveStatus = useMoveStatus();
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [designFile, setDesignFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -109,6 +159,7 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
   // снимком на момент открытия: пока ничего не трогали, вопросов нет.
   const [initialJson] = useState(() => JSON.stringify(initialState(template, order)));
   const markClean = useUnsavedGuard(JSON.stringify(form) !== initialJson || designFile !== null);
+  const prepaidNow = Number(form.prepaid || 0);
   /* Ошибку по телефону показываем не на каждую набранную цифру, а когда
    * человек ушёл из поля или нажал «Сохранить»: иначе поле краснеет,
    * едва начав его заполнять. */
@@ -218,9 +269,27 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
     setSaving(true);
     try {
       if (order) {
-        const updated = await updateOrder.mutateAsync({ id: order.id, payload: buildPayload() });
+        const updated = await updateOrder.mutateAsync({
+          id: order.id,
+          payload: { ...buildPayload(), template_key: template.key },
+        });
         toast(`${updated.number} сохранён`);
+        markClean();
         modal.replace(<OrderCardModal orderId={updated.id} />);
+
+        /* Только что отметили возврат. Обычно это значит, что заказ не
+           состоялся, — предлагаем отменить, но не настаиваем: бывает, что
+           работа продолжается, а деньги вернули по другой причине. */
+        if (form.refunded && !order.refunded && updated.status !== 'cancelled' && can('orders.status')) {
+          const cancel = await askConfirm({
+            eyebrow: updated.number,
+            title: 'Перевести заказ в «Отменён»?',
+            text: 'Деньги вернули — обычно это значит, что заказ не состоялся. Можно оставить как есть, если работа продолжается.',
+            yes: 'Отменить заказ',
+            no: 'Оставить',
+          });
+          if (cancel) void moveStatus(updated, 'cancelled', { confirm: false });
+        }
         return;
       }
 
@@ -296,6 +365,31 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
       }
     >
       <Section title="Работа">
+        {/* Смена вида работ — одной строкой, чтобы не утяжелять форму.
+            Введённое переезжает: клиент, деньги, срок и совпавшие параметры. */}
+        {order && (
+          <div className="form-kind">
+            Вид работ: <b>{template.title}</b>
+            {' · '}
+            <button
+              type="button"
+              className="btn-link"
+              onClick={() =>
+                modal.push(
+                  <TemplatePickerModal
+                    onPick={(key) => {
+                      modal.close();
+                      if (key !== template.key) onSwitchTemplate(key, form, template.title);
+                    }}
+                  />,
+                  { backLabel: '← К заказу' },
+                )
+              }
+            >
+              сменить
+            </button>
+          </div>
+        )}
         <div className="grid">
           <Field label="Название заказа">
             <input
@@ -486,10 +580,15 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
                     ещё не создан, возвращать нечего. Отмеченный подсвечивается
                     красным — состояние отдаём классом, чтобы было видно в разметке. */}
                 {order && (
-                  <label className={form.refunded ? 'check refunded' : 'check'}>
+                  <label
+                    className={form.refunded ? 'check refunded' : 'check'}
+                    title={prepaidNow > 0 ? undefined : 'Внесено 0 — возвращать нечего'}
+                  >
                     <input
                       type="checkbox"
                       checked={form.refunded}
+                      // возврат — это возврат внесённого; при нуле возвращать нечего
+                      disabled={prepaidNow <= 0 && !form.refunded}
                       onChange={(e) => set('refunded', e.target.checked)}
                     />
                     Деньги вернули клиенту
@@ -594,9 +693,14 @@ function PaymentState({
   prepaid: number;
   refunded: boolean;
 }) {
-  if (refunded) return <span className="money-state refund">Деньги вернули</span>;
+  if (refunded) {
+    return <span className="money-state refund">Вернули {money(prepaid) || 'внесённое'}</span>;
+  }
   // без цены судить об оплате рано
   if (!price) return null;
+  if (prepaid > price) {
+    return <span className="money-state overpaid">Переплата {money(prepaid - price)}</span>;
+  }
 
   if (prepaid >= price) {
     return (

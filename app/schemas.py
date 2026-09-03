@@ -87,8 +87,9 @@ class OrderOut(OrderBase):
     created_at: datetime
     updated_at: datetime
     summary: str = ""
-    payment: str = "none"   # paid | partial | none | refunded | unset | hidden
+    payment: str = "none"   # paid | partial | none | refunded | overpaid | unset | hidden
     debt: float = 0.0       # сколько ещё должен клиент
+    surplus: float = 0.0    # переплата: внесли больше стоимости
     cancel_reason: str = ""
     events: list[EventOut] = Field(default_factory=list)
 

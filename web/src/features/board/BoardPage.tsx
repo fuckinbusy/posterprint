@@ -78,6 +78,7 @@ function Column({ status, orders, allOrders, loading, onContextMenu }: ColumnPro
   return (
     <section
       className={over ? 'col drop' : 'col'}
+      data-status={status.key}
       onDragOver={(e) => {
         e.preventDefault();
         setOver(true);

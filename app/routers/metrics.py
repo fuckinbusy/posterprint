@@ -53,6 +53,13 @@ def received(order: Order) -> float:
     return float(order.prepaid or 0)
 
 
+def held(order: Order) -> float:
+    """Сколько денег клиента сейчас у нас. После возврата — ничего."""
+    if order.refunded:
+        return 0.0
+    return float(order.prepaid or 0)
+
+
 def unpaid(order: Order) -> float:
     """Сколько по заказу не доплатили. Возврат долгом не считается."""
     if order.refunded:
@@ -102,8 +109,9 @@ def metrics(
     # ---- что сейчас в работе
     active = [o for o in orders if o.status in ACTIVE]
     active_sum = sum(o.price or 0 for o in active)
-    debt = sum(max((o.price or 0) - (o.prepaid or 0), 0) for o in active)
-    prepaid_held = sum(o.prepaid or 0 for o in active)
+    # после возврата внесённого нет: в кассе его не считаем, а долг — вся цена
+    debt = sum(max((o.price or 0) - held(o), 0) for o in active)
+    prepaid_held = sum(held(o) for o in active)
 
     today = date.today()
     overdue = [o for o in active if o.due_date and o.due_date < today]

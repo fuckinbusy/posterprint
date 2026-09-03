@@ -244,6 +244,11 @@ function MoneyBlock({ order }: { order: Order }) {
           <span>Возвращено клиенту</span>
           <b>{moneyOrZero(order.prepaid)}</b>
         </div>
+      ) : order.surplus > 0 ? (
+        <div className="big">
+          <span>Переплата</span>
+          <b>{moneyOrZero(order.surplus)}</b>
+        </div>
       ) : (
         <div className="big">
           <span>{settled ? 'Оплата' : 'К доплате'}</span>

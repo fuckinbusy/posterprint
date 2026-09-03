@@ -88,7 +88,14 @@ export interface MeResponse {
 export type OrderStatus = 'new' | 'confirmed' | 'in_work' | 'ready' | 'done' | 'cancelled';
 
 /** hidden — у профиля нет права видеть деньги, сервер их не прислал */
-export type PaymentState = 'paid' | 'partial' | 'none' | 'refunded' | 'unset' | 'hidden';
+export type PaymentState =
+  | 'paid'
+  | 'partial'
+  | 'none'
+  | 'refunded'
+  | 'overpaid'
+  | 'unset'
+  | 'hidden';
 
 export interface StatusMeta {
   key: OrderStatus;
@@ -198,6 +205,8 @@ export interface Order {
   payment: PaymentState;
   /** сколько ещё должен клиент */
   debt: number;
+  /** переплата: внесли больше стоимости */
+  surplus: number;
   /** почему отменили; пусто, если заказ не в статусе «Отменён» */
   cancel_reason: string;
   events: OrderEvent[];

@@ -57,23 +57,47 @@ def next_number(db: Session) -> str:
 def payment_state(order: Order) -> tuple[str, float]:
     """Возвращает (статус оплаты, остаток к доплате).
 
-    refunded — деньги вернули клиенту;
+    refunded — всё, что вносили, вернули клиенту. Внесённого больше нет:
+               если заказ ещё жив, платить за него придётся заново — долг
+               равен всей стоимости; у отменённого долга нет;
     unset    — цена ещё не проставлена, судить об оплате рано;
-    paid     — внесено не меньше суммы заказа;
+    overpaid — внесли больше стоимости, лишнее видно отдельно (surplus);
+    paid     — внесено ровно столько, сколько стоит;
     partial  — внесена часть;
     none     — не платили.
     """
     price = order.price or 0
     prepaid = order.prepaid or 0
     if order.refunded:
-        return "refunded", 0.0
+        alive = order.status != OrderStatus.cancelled.value
+        return "refunded", round(price, 2) if alive else 0.0
     if not price:
         return "unset", 0.0
+    if round(prepaid - price, 2) > 0:
+        return "overpaid", 0.0
     if prepaid >= price:
         return "paid", 0.0
     if prepaid > 0:
         return "partial", round(price - prepaid, 2)
     return "none", round(price, 2)
+
+
+def surplus_of(order: Order) -> float:
+    """Переплата: сколько внесли сверх стоимости. Ноль, если возврат или
+    недоплата."""
+    if order.refunded or not order.price:
+        return 0.0
+    return max(round((order.prepaid or 0) - order.price, 2), 0.0)
+
+
+def check_refund(refunded: bool, prepaid: float) -> None:
+    """«Вернули деньги» имеет смысл, только если что-то вносили.
+
+    Возврат при нуле внесённого раньше просто обнулял долг — и становился
+    способом бесследно списать неоплаченный заказ.
+    """
+    if refunded and (prepaid or 0) <= 0:
+        raise HTTPException(422, "Возвращать нечего: по заказу ничего не внесено")
 
 
 # сколько записей истории отдавать: заказ, походивший по статусам туда-сюда,
@@ -103,11 +127,13 @@ def to_out(
     if len(data.events) > MAX_EVENTS:
         data.events = data.events[:MAX_EVENTS]   # они уже отсортированы, свежие первыми
     data.payment, data.debt = payment_state(order)
+    data.surplus = surplus_of(order)
 
     if user is not None and not user.can("orders.price.view"):
         data.price = 0.0
         data.prepaid = 0.0
         data.debt = 0.0
+        data.surplus = 0.0
         data.payment = "hidden"
         data.refunded = False
     if user is not None and not user.can("clients.view"):
@@ -258,6 +284,7 @@ def create_order(
     if template is None:
         raise HTTPException(422, "Неизвестный вид работ")
     require_money_rights(user, payload.model_fields_set)
+    check_refund(payload.refunded, payload.prepaid)
 
     params = {**catalog.default_params(db, payload.template_key), **(payload.params or {})}
 
@@ -353,6 +380,11 @@ def update_order(
         if getattr(order, field) != value:
             changed_labels.append(field)
             setattr(order, field, value)
+
+    # проверяем итог, а не только присланное: возврат могли включить раньше,
+    # а внесённое обнулить сейчас
+    if {"refunded", "prepaid"} & set(changed_labels):
+        check_refund(order.refunded, order.prepaid)
 
     if changed_labels:
         # если правили данные клиента — обновляем и его карточку в справочнике

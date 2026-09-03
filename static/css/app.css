@@ -5403,3 +5403,65 @@ svg {
 .mx-export {
   margin-left: auto;
 }
+
+/* ---------- деньги: переплата ---------- */
+.pay-overpaid i {
+  background: #22d3ee;
+}
+.pay-cell.over {
+  border-color: rgba(34, 211, 238, 0.45);
+}
+.pay-cell.over b {
+  color: #22d3ee;
+}
+.money-state.overpaid {
+  color: #22d3ee;
+}
+
+/* ---------- смена вида работ в форме ---------- */
+.form-kind {
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.form-kind b {
+  color: var(--text);
+  font-weight: 600;
+}
+.btn-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--green);
+  cursor: pointer;
+  border-bottom: 1px dashed currentColor;
+}
+.btn-link:hover,
+.btn-link:focus-visible {
+  outline: none;
+  color: var(--text);
+}
+
+/* ---------- перетаскивание пальцем ---------- */
+/* Долгое нажатие поднимает карточку: копия едет за пальцем, колонка под
+   ним подсвечивается. Короткое касание и прокрутка работают как раньше. */
+.touch-ghost {
+  position: fixed;
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0.92;
+  transform-origin: center;
+  rotate: 1.5deg;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.65);
+}
+body.touch-dragging {
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.col.touch-over {
+  outline: 2px solid var(--green);
+  outline-offset: -2px;
+}

@@ -8,6 +8,7 @@ const LABELS: Record<PaymentState, string> = {
   partial: 'Частично',
   none: 'Не оплачен',
   refunded: 'Возврат',
+  overpaid: 'Переплата',
   unset: '',
   hidden: '',
 };
@@ -18,8 +19,10 @@ export function PayBadge({ order }: { order: Order }) {
   const label = paymentLabel(order.payment);
   if (!label) return null;
 
-  const hint =
-    order.payment === 'partial' && order.debt ? ` — остаток ${money(order.debt)}` : '';
+  let hint = '';
+  if (order.payment === 'partial' && order.debt) hint = ` — остаток ${money(order.debt)}`;
+  if (order.payment === 'overpaid' && order.surplus) hint = ` — лишние ${money(order.surplus)}`;
+  if (order.payment === 'refunded' && order.prepaid) hint = ` — вернули ${money(order.prepaid)}`;
 
   return (
     <span className={`pay pay-${order.payment}`} title={label + hint}>

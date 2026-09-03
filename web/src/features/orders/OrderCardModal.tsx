@@ -233,17 +233,21 @@ function MoneyBlock({ order }: { order: Order }) {
   ];
 
   if (order.payment === 'refunded') {
-    cells.push({
-      label: 'Вернули клиенту',
-      value: money(order.prepaid) || money(order.price) || '—',
-      tone: 'refund',
-    });
+    // вернули всё, что вносили — сколько бы это ни было
+    cells.push({ label: 'Вернули клиенту', value: money(order.prepaid) || '—', tone: 'refund' });
+    // заказ жив — платить придётся заново
+    if (order.debt) {
+      cells.push({ label: 'Осталось доплатить', value: money(order.debt), tone: 'debt' });
+    }
   } else if (order.price) {
     if (order.prepaid) {
       cells.push({ label: 'Внесено', value: money(order.prepaid), tone: 'paid' });
     }
     if (order.debt) {
       cells.push({ label: 'Осталось доплатить', value: money(order.debt), tone: 'debt' });
+    }
+    if (order.surplus) {
+      cells.push({ label: 'Переплата', value: money(order.surplus), tone: 'over' });
     }
   }
 

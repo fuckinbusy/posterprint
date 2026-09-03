@@ -1,11 +1,13 @@
 /* Карточка заказа на доске. */
 
+import { useEffect, useRef } from 'react';
+
 import { useCatalog } from '@/api/catalog';
 import { useCan } from '@/app/AuthProvider';
 import { ArrowIcon, ClockIcon, UserIcon } from '@/components/Icons';
 import { useOpenOrder } from '@/features/orders/useOpenOrder';
 import { dateRu, money, todayISO } from '@/lib/format';
-import type { Order } from '@/types/api';
+import type { Order, OrderStatus } from '@/types/api';
 
 import { PayBadge } from './payment';
 import { useMoveStatus } from './useMoveStatus';
@@ -15,6 +17,13 @@ interface OrderCardProps {
   order: Order;
   onContextMenu: (order: Order, x: number, y: number) => void;
 }
+
+/* Сколько держать палец, чтобы карточка «поднялась». Меньше — конфликт с
+   прокруткой доски, больше — кажется, что не работает. */
+const HOLD_MS = 350;
+/* Сдвиг пальца до истечения задержки, после которого это прокрутка, а не
+   удержание. */
+const SCROLL_TOLERANCE = 8;
 
 export function OrderCard({ order, onContextMenu }: OrderCardProps) {
   const can = useCan();
@@ -29,6 +38,111 @@ export function OrderCard({ order, onContextMenu }: OrderCardProps) {
   const next = statuses.forward(order.status);
   const canDrag = can('orders.status');
 
+  const ref = useRef<HTMLElement>(null);
+  // после перетаскивания пальцем следом прилетает click — его надо проглотить,
+  // иначе вместе со сменой статуса откроется и карточка
+  const swallowClick = useRef(false);
+
+  /* Перетаскивание пальцем. HTML5 drag-and-drop на сенсорных экранах не
+     работает вовсе, а доску собираются вешать на планшет в цехе.
+
+     Слушатели вешаем сами, а не через onTouchMove: React регистрирует
+     touch-события как passive, и preventDefault в них не действует — палец
+     тянул бы и карточку, и всю доску разом. */
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !canDrag) return undefined;
+
+    let timer = 0;
+    let dragging = false;
+    let ghost: HTMLElement | null = null;
+    let over: HTMLElement | null = null;
+    let start = { x: 0, y: 0 };
+
+    const clearOver = () => {
+      over?.classList.remove('touch-over');
+      over = null;
+    };
+    const finish = () => {
+      window.clearTimeout(timer);
+      ghost?.remove();
+      ghost = null;
+      el.classList.remove('dragging');
+      document.body.classList.remove('touch-dragging');
+      dragging = false;
+    };
+
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY };
+      timer = window.setTimeout(() => {
+        dragging = true;
+        const box = el.getBoundingClientRect();
+        ghost = el.cloneNode(true) as HTMLElement;
+        ghost.classList.add('touch-ghost');
+        ghost.style.width = `${box.width}px`;
+        ghost.style.left = `${box.left}px`;
+        ghost.style.top = `${box.top}px`;
+        document.body.append(ghost);
+        el.classList.add('dragging');
+        document.body.classList.add('touch-dragging');
+        // короткая отдача — понятно, что карточка поднялась
+        navigator.vibrate?.(15);
+      }, HOLD_MS);
+    };
+
+    const onMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!dragging) {
+        // палец поехал раньше срока — это прокрутка, не удержание
+        if (Math.hypot(t.clientX - start.x, t.clientY - start.y) > SCROLL_TOLERANCE) {
+          window.clearTimeout(timer);
+        }
+        return;
+      }
+      e.preventDefault();
+      if (ghost) {
+        ghost.style.transform = `translate(${t.clientX - start.x}px, ${t.clientY - start.y}px)`;
+      }
+      // призрак не ловит события (pointer-events: none), поэтому под пальцем
+      // видна настоящая колонка
+      const col = document.elementFromPoint(t.clientX, t.clientY)?.closest<HTMLElement>('.col') ?? null;
+      if (col !== over) {
+        clearOver();
+        over = col;
+        over?.classList.add('touch-over');
+      }
+    };
+
+    const onEnd = () => {
+      const target = over?.dataset.status as OrderStatus | undefined;
+      const was = dragging;
+      clearOver();
+      finish();
+      if (!was) return;
+      swallowClick.current = true;
+      if (target && target !== order.status) void moveStatus(order, target);
+    };
+
+    const onCancel = () => {
+      clearOver();
+      finish();
+    };
+
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onCancel);
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onCancel);
+      onCancel();
+    };
+  }, [canDrag, order, moveStatus]);
+
   const classes = ['card'];
   if (overdue) classes.push('overdue');
   // цветная полоска слева по состоянию оплаты
@@ -39,6 +153,7 @@ export function OrderCard({ order, onContextMenu }: OrderCardProps) {
   return (
     <article
       className={classes.join(' ')}
+      ref={ref}
       draggable={canDrag}
       tabIndex={0}
       onDragStart={(e) => {
@@ -47,7 +162,13 @@ export function OrderCard({ order, onContextMenu }: OrderCardProps) {
         e.currentTarget.classList.add('dragging');
       }}
       onDragEnd={(e) => e.currentTarget.classList.remove('dragging')}
-      onClick={() => openOrder(order.id)}
+      onClick={() => {
+        if (swallowClick.current) {
+          swallowClick.current = false;
+          return;
+        }
+        openOrder(order.id);
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
