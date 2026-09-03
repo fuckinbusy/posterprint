@@ -95,6 +95,11 @@ export function ClientSearchField({
         value={value}
         placeholder={placeholder}
         autoComplete="off"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={showDrop}
+        aria-controls={`${id}-list`}
+        aria-activedescendant={showDrop && cursor >= 0 ? `${id}-opt-${cursor}` : undefined}
         onChange={(e) => {
           onChange(e.target.value);
           setOpen(true);
@@ -112,7 +117,7 @@ export function ClientSearchField({
       {error && <div className="hint bad">{error}</div>}
 
       {showDrop && (
-        <div className="client-drop">
+        <div className="client-drop" role="listbox" id={`${id}-list`}>
           {items.length === 0 ? (
             <div className="none">Ничего не нашлось — будет заведён новый клиент</div>
           ) : (
@@ -120,6 +125,9 @@ export function ClientSearchField({
               <button
                 className={i === cursor ? 'client-opt on' : 'client-opt'}
                 type="button"
+                role="option"
+                id={`${id}-opt-${i}`}
+                aria-selected={i === cursor}
                 key={client.id}
                 onMouseDown={(e) => {
                   // не даём полю потерять фокус раньше, чем сработает выбор

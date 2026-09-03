@@ -19,15 +19,22 @@
 карточки клиентов, макеты.
 
 То, что можно потерять безвозвратно или что раздаёт доступ, пишется уровнем
-WARNING — такие строки попадают ещё и в отдельный errors.log, где их не
-приходится искать среди тысяч обычных.
+WARNING — в интерфейсе (раздел «Журнал», галочка «только проблемы») такие
+строки отфильтровываются от обычных. В отдельный errors.log попадают только
+ERROR — падения сервера, у которых есть номер ошибки. Раньше туда шли и все
+401 на неверный пароль, и каждый 404 — и файл «только с ошибками» был таким
+же шумным, как основной.
+
+poster.log ведётся уровнем INFO всегда, независимо от POSTER_LOG_LEVEL: это
+аудит — кто создал заказ, кто поменял цену, — и выключать его нельзя.
+POSTER_LOG_LEVEL управляет только тем, что печатается в консоль.
 
 Файлы лежат в logs/ и сами обрезаются: пять файлов по 5 МБ, старые
 удаляются. Диск не переполнится, даже если про логи забыть на год.
 
 Настройки в .env
 ----------------
-    POSTER_LOG_LEVEL=INFO      DEBUG — писать всё, WARNING — только проблемы
+    POSTER_LOG_LEVEL=INFO      что печатать в консоль: DEBUG, INFO, WARNING
     POSTER_LOG_DIR=./logs      куда складывать
     POSTER_LOG_REQUESTS=1      0 — не писать обычные запросы, только ошибки
     POSTER_SLOW_MS=800         с какого времени запрос считается медленным
@@ -86,7 +93,10 @@ def setup() -> None:
     """Настраивает логгер. Вызывается один раз при старте."""
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-    log.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+    console_level = getattr(logging, LOG_LEVEL, logging.INFO)
+    # сам логгер пропускает всё до INFO — файл-аудит не должен зависеть от
+    # уровня, выбранного для консоли
+    log.setLevel(min(console_level, logging.INFO))
     log.handlers.clear()
     log.propagate = False
 
@@ -103,6 +113,7 @@ def setup() -> None:
         encoding="utf-8",
         delay=True,          # файл открывается при первой записи
     )
+    file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(fmt)
     log.addHandler(file_handler)
 
@@ -114,12 +125,13 @@ def setup() -> None:
         encoding="utf-8",
         delay=True,
     )
-    error_handler.setLevel(logging.WARNING)
+    error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(fmt)
     log.addHandler(error_handler)
 
     # в консоль — то же самое, чтобы при разработке было видно сразу
     console = logging.StreamHandler()
+    console.setLevel(console_level)
     console.setFormatter(logging.Formatter("%(levelname)-7s %(message)s"))
     log.addHandler(console)
 

@@ -119,6 +119,8 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
   const neededDims = neededDimensions(template.fields, form.params);
 
   const linked = useClient(form.clientId);
+  // с какой карточкой была связь, пока имя или телефон не поправили руками
+  const [unlinked, setUnlinked] = useState<string | null>(null);
   const createOrder = useCreateOrder();
   const updateOrder = useUpdateOrder();
 
@@ -338,6 +340,7 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
             enabled={can('clients.search')}
             onChange={(value) => {
               // руками правят имя — значит это уже не выбранная карточка
+              if (form.clientId) setUnlinked(linked.data?.name || 'клиента');
               setForm((prev) => ({ ...prev, clientName: value, clientId: null }));
             }}
             onPick={(client) =>
@@ -364,6 +367,7 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
               setForm((prev) => ({ ...prev, clientPhone: formatPhone(prev.clientPhone) }));
             }}
             onChange={(value) => {
+              if (form.clientId) setUnlinked(linked.data?.name || 'клиента');
               setForm((prev) => ({ ...prev, clientPhone: value, clientId: null }));
             }}
             onPick={(client) =>
@@ -403,6 +407,15 @@ function OrderForm({ template, order }: { template: FormTemplate; order: Order |
           </div>
         )}
       </Section>
+
+        {/* Правка телефона или имени снимает связь с карточкой — молча это
+            выглядело как потеря. Говорим, что произошло и что будет дальше. */}
+        {!form.clientId && unlinked && (
+          <div className="hint" style={{ marginTop: -8, marginBottom: 16 }}>
+            Связь с карточкой «{unlinked}» снята. При сохранении карточку найдём по новому
+            номеру или заведём новую — прежняя останется как была.
+          </div>
+        )}
 
       <Section title={can('orders.price.edit') ? 'Деньги и срок' : 'Срок'}>
         <div className="grid">

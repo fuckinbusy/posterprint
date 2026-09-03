@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from './client';
 import { qk } from './keys';
 import type {
+  PriceChange,
   PriceGroupPayload,
   PriceItem,
   PriceItemCreatePayload,
@@ -54,6 +55,9 @@ export const deletePriceItem = (id: number): Promise<null> =>
  *  поимённо, сервер переключает следом — вручную это забывалось. */
 export const movePriceItem = (id: number, groupKey: string): Promise<PriceItem> =>
   request<PriceItem>(`/prices/${id}/move`, { method: 'POST', body: { group_key: groupKey } });
+
+export const fetchPriceHistory = (id: number): Promise<PriceChange[]> =>
+  request<PriceChange[]>(`/prices/${id}/history`);
 
 export const restoreDefaults = (): Promise<{ added: number }> =>
   request('/prices/restore-defaults', { method: 'POST' });

@@ -490,6 +490,16 @@ export interface OrderPayment {
   hints: string[];
 }
 
+/** Смена цены или единицы у позиции прайса. */
+export interface PriceChange {
+  id: number;
+  field: 'value' | 'unit';
+  old_value: string;
+  new_value: string;
+  author: string;
+  created_at: string;
+}
+
 export interface DesignInfo {
   exists: boolean;
   filename: string;

@@ -50,6 +50,8 @@ export function OrderContextMenu({
       left: Math.max(EDGE, Math.min(state.x, window.innerWidth - box.width - EDGE)),
       top: Math.max(EDGE, Math.min(state.y, window.innerHeight - box.height - EDGE)),
     });
+    // фокус — внутрь меню: иначе с клавиатуры до него не добраться
+    ref.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
   }, [state.x, state.y]);
 
   // закрывается от любого действия мимо себя
@@ -70,6 +72,16 @@ export function OrderContextMenu({
         // Esc в первую очередь закрывает меню, а не окно под ним
         e.stopPropagation();
         onClose();
+        return;
+      }
+      // стрелки ходят по пунктам, как в любом меню; Enter нажимает кнопку сам
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        const items = [...(ref.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])];
+        if (items.length === 0) return;
+        e.preventDefault();
+        const current = items.indexOf(document.activeElement as HTMLButtonElement);
+        const step = e.key === 'ArrowDown' ? 1 : -1;
+        items[(current + step + items.length) % items.length].focus();
       }
     };
 
@@ -101,13 +113,13 @@ export function OrderContextMenu({
         {order.number} · {order.title}
       </div>
 
-      <button className="ctx-item" type="button" onClick={run(() => openOrder(order.id))}>
+      <button className="ctx-item" type="button" role="menuitem" onClick={run(() => openOrder(order.id))}>
         <OpenIcon />
         Открыть
       </button>
 
       {can('orders.edit') && (
-        <button className="ctx-item" type="button" onClick={run(() => openForm(order))}>
+        <button className="ctx-item" type="button" role="menuitem" onClick={run(() => openForm(order))}>
           <EditIcon />
           Изменить
         </button>
@@ -135,6 +147,7 @@ export function OrderContextMenu({
               <button
                 className="ctx-item"
                 type="button"
+                role="menuitem"
                 key={s.key}
                 disabled={!allowed.includes(s.key)}
                 onClick={run(() => void moveStatus(order, s.key))}
@@ -152,6 +165,7 @@ export function OrderContextMenu({
           <button
             className="ctx-item danger"
             type="button"
+            role="menuitem"
             onClick={run(() => void deleteOrder(order))}
           >
             <TrashIcon />

@@ -23,6 +23,7 @@ from app.routers import (
     auth,
     clients,
     designs,
+    export,
     logs as logs_router,
     devices,
     employees,
@@ -137,6 +138,7 @@ app.include_router(logs_router.router)
 app.include_router(employees.router)
 app.include_router(devices.router)
 app.include_router(metrics.router)
+app.include_router(export.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 

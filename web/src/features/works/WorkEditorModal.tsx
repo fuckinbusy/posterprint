@@ -16,7 +16,7 @@ import { ModalShell, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider'
 import { useToast } from '@/app/ToastProvider';
 import { TemplateIcon } from '@/components/Icons';
 import { Empty, Field, Section } from '@/components/ui';
-import { money } from '@/lib/format';
+import { money, plural } from '@/lib/format';
 import type {
   Estimate,
   OrderParams,
@@ -209,6 +209,30 @@ export function WorkEditorModal({ template }: { template: WorkTemplate | null })
     if (problems.length > 0) {
       toast(problems[0]);
       return;
+    }
+
+    /* По этому виду уже есть заказы, а поле убирают: его значения в старых
+       заказах останутся ключом, который никто не читает, — карточка их не
+       покажет, пересчёт по прайсу даст другую сумму. Удалить такой вид
+       нельзя, а молча переписать было можно. */
+    if (template && template.orders_count > 0) {
+      const kept = new Set(fields.map((f) => f.key));
+      const removed = template.fields.filter((f) => f.key && !kept.has(f.key));
+      if (removed.length > 0) {
+        const ok = await askConfirm({
+          eyebrow: 'Виды работ',
+          title: 'Убрать поля у вида с заказами?',
+          text: [
+            `По «${template.title}» уже ${template.orders_count} ${plural(template.orders_count, 'заказ', 'заказа', 'заказов')}.`,
+            `${removed.map((f) => `«${f.label || f.key}»`).join(', ')} — ${removed.length === 1 ? 'исчезнет' : 'исчезнут'} из их карточек, а пересчёт по прайсу даст другую сумму.`,
+          ],
+          note: 'Значения останутся в базе, но показывать их будет нечем.',
+          yes: 'Всё равно сохранить',
+          no: 'Вернуться',
+          danger: true,
+        });
+        if (!ok) return;
+      }
     }
 
     const paying = fields.filter((f) => PAYING_ROLES.includes(f.pricing_role));

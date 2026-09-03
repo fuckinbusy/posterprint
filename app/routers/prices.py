@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app import pricing
 from app.database import get_db
 from app.logs import log as applog
-from app.models import PriceGroup, PriceItem, Template, TemplateField
+from app.models import PriceChange, PriceGroup, PriceItem, Template, TemplateField
 from app.schemas import PriceItemCreate, PriceItemOut, PriceItemUpdate
 from app.routers.templates import slugify
 from app.security import CurrentUser, require_perm
@@ -390,6 +390,17 @@ def update_price(
         setattr(item, field, value)
     if author:
         item.updated_by = author
+
+    # История — только то, что меняет деньги: цена и единица. Смена
+    # названия или включение/выключение и так видны в самой строке.
+    for field, was, now in (("value", was_value, item.value), ("unit", was_unit, item.unit)):
+        if was != now:
+            db.add(PriceChange(
+                item_id=item.id, group_key=item.group_key, item_key=item.item_key,
+                field=field, old_value=str(was if was is not None else ""),
+                new_value=str(now if now is not None else ""),
+                author=author or user.name,
+            ))
     db.commit()
     db.refresh(item)
 
@@ -471,7 +482,10 @@ def move_price(
         source = db.scalar(select(PriceGroup).where(PriceGroup.key == source_key))
         item.unit = source.unit if source else ""
 
-    fields = _pinned_fields(db, item)
+    # За позицией едут только поля, привязанные к ней одной: галочка и
+    # платное количество. У списка price_group задаёт весь набор вариантов —
+    # сменить его из-за одной позиции значило бы подменить список целиком.
+    fields = [f for f in _pinned_fields(db, item) if f.type in ("bool", "number")]
     followed = _titles_of(db, fields)
     for field in fields:
         field.price_group = target.key
@@ -518,6 +532,27 @@ def delete_price(
     )
     db.delete(item)
     db.commit()
+
+
+@router.get("/{item_id}/history")
+def price_history(item_id: int, db: Session = Depends(get_db)) -> list[dict]:
+    """Смены цены и единицы у позиции, свежие сверху."""
+    if db.get(PriceItem, item_id) is None:
+        raise HTTPException(404, "Позиция не найдена")
+    rows = db.scalars(
+        select(PriceChange)
+        .where(PriceChange.item_id == item_id)
+        .order_by(PriceChange.created_at.desc(), PriceChange.id.desc())
+        .limit(100)
+    ).all()
+    return [
+        {
+            "id": r.id, "field": r.field, "old_value": r.old_value,
+            "new_value": r.new_value, "author": r.author,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
 
 
 @router.post("/restore-defaults")

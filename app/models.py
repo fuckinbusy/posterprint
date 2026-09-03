@@ -338,3 +338,26 @@ class OrderEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     order: Mapped[Order] = relationship(back_populates="events")
+
+
+class PriceChange(Base):
+    """Одна смена цены или единицы у позиции прайса.
+
+    Ради вопроса «когда подняли баннер до 800 и с чего» — раньше в строке
+    стояло только «менял Администратор». Хранится всё, что было записано с
+    момента включения; удаляется вместе с позицией.
+    """
+
+    __tablename__ = "price_changes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(
+        ForeignKey("price_items.id", ondelete="CASCADE"), index=True
+    )
+    group_key: Mapped[str] = mapped_column(String(40), default="")
+    item_key: Mapped[str] = mapped_column(String(80), default="")
+    field: Mapped[str] = mapped_column(String(20), default="value")   # value | unit
+    old_value: Mapped[str] = mapped_column(String(40), default="")
+    new_value: Mapped[str] = mapped_column(String(40), default="")
+    author: Mapped[str] = mapped_column(String(80), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

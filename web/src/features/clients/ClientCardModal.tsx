@@ -21,6 +21,8 @@ import { dateRu, initials, money, moneyOrZero, plural, telHref } from '@/lib/for
 import { formatPhone, phoneProblem, phoneProblemInline } from '@/lib/phone';
 import type { Client } from '@/types/api';
 
+import { MergeClientModal } from './MergeClientModal';
+
 export function ClientCardModal({ clientId }: { clientId: number }) {
   const client = useClient(clientId);
 
@@ -126,6 +128,18 @@ function ClientCard({ client }: { client: Client }) {
           {editable && (
             <button className="btn btn-danger" type="button" onClick={remove}>
               Удалить
+            </button>
+          )}
+          {editable && (
+            <button
+              className="btn btn-ghost"
+              type="button"
+              title="Влить эту карточку в другую: заказы перейдут туда"
+              onClick={() =>
+                modal.push(<MergeClientModal client={client} />, { backLabel: '← К карточке' })
+              }
+            >
+              Объединить…
             </button>
           )}
           <div className="spacer" />

@@ -21,6 +21,7 @@ import type { PriceGroup, PriceItem } from '@/types/api';
 import { GroupTile } from './GroupTile';
 import { MoveItemModal } from './MoveItemModal';
 import { PriceGroupEditor } from './PriceGroupEditor';
+import { PriceHistoryModal } from './PriceHistoryModal';
 import { groupUnits, unitOptions } from './units';
 
 /** Почему раздел нельзя удалить. Пустая строка — можно.
@@ -337,7 +338,16 @@ function EditableRow({
         />
         <span className="key">
           {item.item_key}
-          {item.updated_by ? ` · менял ${item.updated_by}` : ''}
+          {' · '}
+          {/* «менял такой-то» стало кнопкой: за ним история цен с датами */}
+          <button
+            className="pr-history"
+            type="button"
+            title="История изменений цены"
+            onClick={() => modal.open(<PriceHistoryModal item={item} />)}
+          >
+            {item.updated_by ? `менял ${item.updated_by}` : 'история'}
+          </button>
           {/* видно сразу, что позицию держит вид работ — не надо тыкать
               в выключенную корзину, чтобы это выяснить */}
           {item.used_by.length > 0 && (

@@ -6,7 +6,9 @@
 
 import { useState } from 'react';
 
+import { downloadCsv } from '@/api/export';
 import { useMetrics } from '@/api/metrics';
+import { useToast } from '@/app/ToastProvider';
 import { ArrowIcon } from '@/components/Icons';
 import { Empty, Loading, PageHead, Section } from '@/components/ui';
 import { money, moneyOrZero, plural } from '@/lib/format';
@@ -27,6 +29,12 @@ export function MetricsPage() {
   const [days, setDays] = useState(30);
   const [detail, setDetail] = useState<Detail>(null);
   const metrics = useMetrics(days);
+  const { toast } = useToast();
+
+  const exportCsv = async () => {
+    const ok = await downloadCsv(`/export/orders.csv?days=${days}`, `заказы-${days || 'все'}.csv`);
+    toast(ok ? 'Файл сохраняется' : 'Не удалось выгрузить — проверьте права');
+  };
 
   const tabs = (
     <div className="mx-tabs">
@@ -40,6 +48,9 @@ export function MetricsPage() {
           {period.label}
         </button>
       ))}
+      <button className="mx-export" type="button" onClick={() => void exportCsv()}>
+        Выгрузить CSV
+      </button>
     </div>
   );
 

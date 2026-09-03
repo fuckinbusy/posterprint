@@ -7,6 +7,7 @@ import type { JSX } from 'react';
 import {
   NavBoardIcon,
   NavClientsIcon,
+  NavLogsIcon,
   NavMetricsIcon,
   NavPricesIcon,
   NavStaffIcon,
@@ -73,6 +74,14 @@ export const VIEWS: ViewConfig[] = [
     title: 'ПОСТЕР · Метрики',
     icon: NavMetricsIcon,
     permission: 'metrics.view',
+  },
+  {
+    key: 'logs',
+    path: '/logs',
+    label: 'Журнал',
+    title: 'ПОСТЕР · Журнал',
+    icon: NavLogsIcon,
+    permission: 'staff.manage',
   },
 ];
 

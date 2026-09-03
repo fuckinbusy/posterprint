@@ -13,10 +13,12 @@ import { useModal } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { Empty, Loading, PageHead } from '@/components/ui';
 
+import { formatRate } from '@/lib/format';
+
 import { GroupTile } from './GroupTile';
 import { PriceGroupEditor } from './PriceGroupEditor';
 import { PriceGroupView } from './PriceGroupView';
-import { buildTree } from './tree';
+import { buildTree, groupPath } from './tree';
 
 export function PricesPage() {
   const can = useCan();
@@ -26,6 +28,7 @@ export function PricesPage() {
   const invalidate = usePricesInvalidation();
 
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   const groups = prices.data?.groups ?? [];
   const openGroup = openKey ? groups.find((g) => g.key === openKey) : undefined;
@@ -67,6 +70,25 @@ export function PricesPage() {
 
   const totalItems = groups.reduce((acc, g) => acc + g.items.length, 0);
   const tree = buildTree(groups);
+
+  /* Поиск по всему прайсу разом: раздел, позиция, ключ. Тринадцать разделов
+     открывать по одному, чтобы найти «Oracal», — работа на минуту каждый раз;
+     дальше разделов будет больше. Результат — плоский список «раздел → позиция»,
+     нажатие открывает раздел. */
+  const needle = query.trim().toLowerCase();
+  const hits = needle
+    ? groups.flatMap((g) => {
+        const path = groupPath(groups, g);
+        const groupHit = g.title.toLowerCase().includes(needle);
+        const items = g.items.filter(
+          (i) =>
+            groupHit ||
+            i.title.toLowerCase().includes(needle) ||
+            i.item_key.toLowerCase().includes(needle),
+        );
+        return items.map((i) => ({ group: g, path, item: i }));
+      })
+    : [];
 
   const restore = async () => {
     try {
@@ -110,10 +132,45 @@ export function PricesPage() {
           }
         />
 
+        <div className="field pr-search">
+          <input
+            type="search"
+            placeholder="Найти позицию или раздел…"
+            aria-label="Поиск по прайсу"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        {needle && hits.length === 0 && <Empty>По запросу «{query}» ничего нет</Empty>}
+
+        {needle && hits.length > 0 && (
+          <div className="pr-hits">
+            {hits.map(({ group, path, item }) => (
+              <button
+                className="pr-hit"
+                type="button"
+                key={`${group.key}/${item.item_key}`}
+                onClick={() => {
+                  setQuery('');
+                  open(group.key);
+                }}
+              >
+                <span className="pr-hit-path">{path}</span>
+                <span className="pr-hit-name">
+                  {item.title}
+                  {!item.active && <em> · отключена</em>}
+                </span>
+                <span className="pr-hit-val">{formatRate(item.value, item.unit)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Только верхний уровень. Подразделы живут внутри своего родителя —
             там их и ищут. Все плитки в ОДНОЙ сетке: отдельный контейнер на
             каждую превращал сетку из трёх колонок в столбик. */}
-        <div className="pr-tiles">
+        <div className="pr-tiles" hidden={Boolean(needle)}>
           {tree.map(({ group, children }) => (
             <GroupTile
               group={group}

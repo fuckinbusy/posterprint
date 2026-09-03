@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 
 import { CLIENTS_PAGE, useClients, useClientsSummary } from '@/api/clients';
+import { downloadCsv } from '@/api/export';
 import { useModal } from '@/app/ModalProvider';
+import { useToast } from '@/app/ToastProvider';
 import { SearchIcon } from '@/components/Icons';
 import { Pager } from '@/components/Pager';
 import { Empty, Loading, PageHead } from '@/components/ui';
@@ -24,6 +26,7 @@ const DEBOUNCE_MS = 300;
 
 export function ClientsPage() {
   const modal = useModal();
+  const { toast } = useToast();
 
   const [input, setInput] = useState('');
   const [query, setQuery] = useState('');
@@ -51,6 +54,19 @@ export function ClientsPage() {
           eyebrow="Справочник"
           title="Клиенты"
           sub="Карточки заводятся сами при создании заказа. Здесь — весь список с поиском и историей: видно, кто сколько заказывал и когда обращался последний раз."
+          actions={
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() =>
+                void downloadCsv('/export/clients.csv', 'клиенты.csv').then((ok) =>
+                  toast(ok ? 'Файл сохраняется' : 'Не удалось выгрузить — проверьте права'),
+                )
+              }
+            >
+              Выгрузить CSV
+            </button>
+          }
         />
 
         <div className="cl-tools">

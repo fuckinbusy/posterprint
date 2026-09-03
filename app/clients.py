@@ -122,13 +122,16 @@ def upsert(
             phone_norm=norm or None,   # пустой телефон не должен мешать другим
             contact=contact,
         )
-        db.add(client)
         try:
-            db.flush()
+            # Сейвпоинт, а не вся сессия: при гонке откатывается только
+            # попытка завести карточку, а правки заказа, сделанные до этого
+            # вызова, остаются. Раньше откатывалось всё, а ручка отвечала 200.
+            with db.begin_nested():
+                db.add(client)
+                db.flush()
         except IntegrityError:
             # Гонка: двое оформляют заказ одному и тому же клиенту одновременно.
             # Первый завёл карточку — второй берёт её, а не плодит дубль.
-            db.rollback()
             client = db.scalar(select(Client).where(Client.phone_norm == norm))
             if client is None:
                 return None

@@ -15,6 +15,7 @@ import { BoardFilters } from '@/features/board/BoardFilters';
 import { BOARD_SORTS, type BoardSort } from '@/features/board/sorting';
 import { ClientsPage } from '@/features/clients/ClientsPage';
 import { GateScreen } from '@/features/gate/GateScreen';
+import { LogsPage } from '@/features/logs/LogsPage';
 import { MetricsPage } from '@/features/metrics/MetricsPage';
 import { PricesPage } from '@/features/prices/PricesPage';
 import { StaffPage } from '@/features/staff/StaffPage';
@@ -119,6 +120,14 @@ export function Shell() {
           element={
             <Guarded permission="metrics.view">
               <MetricsPage />
+            </Guarded>
+          }
+        />
+        <Route
+          path="/logs"
+          element={
+            <Guarded permission="staff.manage">
+              <LogsPage />
             </Guarded>
           }
         />

@@ -117,6 +117,22 @@ export function useUpdateClient() {
   });
 }
 
+export const mergeClient = (id: number, into: number): Promise<Client> =>
+  request<Client>(`/clients/${id}/merge`, { method: 'POST', body: { into } });
+
+/** Слияние двух карточек: заказы уезжают в целевую, исходная удаляется. */
+export function useMergeClient() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, into }: { id: number; into: number }) => mergeClient(id, into),
+    onSuccess: (client) => {
+      qc.setQueryData(qk.client(client.id), client);
+      qc.invalidateQueries({ queryKey: qk.clientsAll });
+      qc.invalidateQueries({ queryKey: qk.ordersAll });
+    },
+  });
+}
+
 export function useDeleteClient() {
   const qc = useQueryClient();
   return useMutation({

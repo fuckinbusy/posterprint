@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -203,3 +204,55 @@ def delete_client(
     )
     db.delete(client)
     db.commit()
+
+
+class MergeIn(BaseModel):
+    into: int
+
+
+@router.post("/{client_id}/merge", response_model=ClientOut,
+             dependencies=[Depends(require_perm("clients.edit"))])
+def merge_client(
+    client_id: int,
+    payload: MergeIn,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(current_user),
+) -> ClientOut:
+    """Вливает карточку client_id в карточку payload.into.
+
+    Дубли заводятся сами — второй номер, опечатка, номер без кода, — и телефон
+    уникальным индексом это не ловит: номера-то разные. Заказы переезжают в
+    целевую карточку, её пустые поля дополняются, исходная удаляется.
+    Снимки имени и телефона в самих заказах не трогаем — это история.
+    """
+    if client_id == payload.into:
+        raise HTTPException(422, "Карточку нельзя объединить с ней самой")
+    source = db.get(Client, client_id)
+    target = db.get(Client, payload.into)
+    if source is None or target is None:
+        raise HTTPException(404, "Клиент не найден")
+
+    moved = db.execute(
+        Order.__table__.update()
+        .where(Order.client_id == source.id)
+        .values(client_id=target.id)
+    ).rowcount
+
+    # дополняем только пустое: у целевой карточки свои данные главнее
+    if not target.phone and source.phone:
+        target.phone = source.phone
+    if not target.contact and source.contact:
+        target.contact = source.contact
+    if source.notes:
+        target.notes = (target.notes + "\n" if target.notes else "") + source.notes
+
+    applog.warning(
+        "Карточки клиентов объединены: «%s» (#%s, %s) → «%s» (#%s), заказов %s · %s",
+        source.name, source.id, source.phone or "без телефона",
+        target.name, target.id, moved, user.name,
+    )
+    # телефон исходной освобождается вместе с ней: уникальный индекс
+    db.delete(source)
+    db.commit()
+    db.refresh(target)
+    return to_out(db, target, user)
