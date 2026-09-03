@@ -112,6 +112,8 @@ tests/
   test_pricing.py            расчёт цены по ролям полей
   test_payments.py           платёжная строка по ГОСТ и QR
   test_status_flow.py        переходы между статусами
+  test_catalog.py            связность стартового каталога
+  test_orders_rules.py       права на цену, карточка клиента, телефоны
   test_dimensions_parity.py  сверка правила про размеры с копией на фронте
 ```
 
