@@ -29,6 +29,8 @@ import { orderParamRows } from './params';
 
 type SheetKind = 'receipt' | 'work';
 type PageSize = 'A4' | 'A5';
+/* «Две на листе» — A4 поперёк: две квитанции рядом, каждой по половине */
+type PageRule = PageSize | 'A4 landscape';
 
 const SIZE_STORAGE = 'poster.print.size';
 const PAIR_STORAGE = 'poster.print.pair';
@@ -44,7 +46,7 @@ function remembered<T extends string>(key: string, fallback: T, allowed: readonl
 
 /** Размер страницы для @page задаётся только из CSS — подсовываем правило
  *  через <style>, пока окно открыто. */
-function usePageSize(size: PageSize) {
+function usePageSize(size: PageRule) {
   useEffect(() => {
     const style = document.createElement('style');
     style.setAttribute('data-print-size', size);
@@ -68,7 +70,7 @@ export function PrintOrderModal({ order }: { order: Order }) {
   // две квитанции на листе: приёмке нужна своя копия, клиенту — своя
   const [pair, setPair] = useState(() => remembered<'yes' | 'no'>(PAIR_STORAGE, 'no', ['yes', 'no']) === 'yes');
 
-  usePageSize(pair && kind === 'receipt' ? 'A4' : size);
+  usePageSize(pair && kind === 'receipt' ? 'A4 landscape' : size);
 
   const switchKind = (next: SheetKind) => {
     setKind(next);
@@ -98,6 +100,8 @@ export function PrintOrderModal({ order }: { order: Order }) {
 
   return (
     <ModalShell
+      // две квитанции рядом в обычное окно не помещаются
+      wide={kind === 'receipt' && pair}
       eyebrow={`Печать · ${order.number}`}
       title={kind === 'receipt' ? 'Квитанция клиенту' : 'Наряд в цех'}
       foot={
@@ -136,7 +140,7 @@ export function PrintOrderModal({ order }: { order: Order }) {
           ))}
         </div>
         {kind === 'receipt' && (
-          <label className="check" title="Две одинаковые квитанции на листе A4 — приёмке и клиенту">
+          <label className="check" title="Две одинаковые квитанции рядом на листе A4 поперёк — приёмке и клиенту">
             <input type="checkbox" checked={pair} onChange={(e) => togglePair(e.target.checked)} />
             Две на листе
           </label>

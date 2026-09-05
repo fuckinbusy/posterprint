@@ -395,47 +395,91 @@ svg {
 /* ---------- навигация по разделам ---------- */
 /* Навигация важнее украшений: при нехватке места сначала прячем полосу-спот
    и счётчик, а вкладки при самом узком экране прокручиваются, а не обрезаются. */
+/* Разделы — только иконки, подпись выезжает влево при наведении (и при
+   фокусе с клавиатуры). Восемь разделов с подписями не влезали на средние
+   экраны, а прокрутка меню никому не была очевидна. Ширина меню теперь
+   не зависит ни от прав, ни от длины названий. */
 .tb-nav {
   display: flex;
-  gap: 3px;
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.tb-nav::-webkit-scrollbar {
-  display: none;
+  gap: 4px;
+  flex: 0 0 auto;
 }
 .nav-tab {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 9px 12px;
+  justify-content: center;
+  width: 40px;
+  height: 38px;
   border-radius: 9px;
   flex: 0 0 auto;
-  font-family: "Inter";
-  font-weight: 500;
-  font-size: 14px;
   color: var(--muted);
   border: 1px solid transparent;
   transition:
     color 0.16s,
     background 0.16s,
     border-color 0.16s;
-  white-space: nowrap;
 }
 .nav-tab svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
-.nav-tab:hover {
+.nav-tab:hover,
+.nav-tab:focus-visible {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--line-strong);
+  z-index: 2;
 }
 .nav-tab.active {
   color: var(--green);
   background: rgba(60, 199, 7, 0.1);
   border-color: rgba(60, 199, 7, 0.28);
+}
+/* подпись: табличка слева от иконки, выезжает из-под неё */
+.nav-tab span {
+  position: absolute;
+  right: calc(100% + 5px);
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 13px;
+  border-radius: 9px;
+  background: #161916;
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  font-family: "Inter";
+  font-weight: 500;
+  font-size: 13.5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(10px);
+  transform-origin: right center;
+  transition:
+    opacity 0.14s,
+    transform 0.18s var(--ease);
+}
+.nav-tab.active span {
+  color: var(--green);
+  border-color: rgba(60, 199, 7, 0.28);
+}
+.nav-tab:hover span,
+.nav-tab:focus-visible span {
+  opacity: 1;
+  transform: none;
+}
+/* у первого раздела слева логотип — его подпись выезжает вправо */
+.nav-tab:first-child span {
+  right: auto;
+  left: calc(100% + 5px);
+  transform: translateX(-10px);
+  transform-origin: left center;
+}
+.nav-tab:first-child:hover span,
+.nav-tab:first-child:focus-visible span {
+  transform: none;
 }
 
 /* ---------- страницы ---------- */
@@ -498,23 +542,6 @@ svg {
     display: none;
   }
 }
-/* Не влезли подписи — остаются иконки, название в подсказке. Решает
-   не медиазапрос, а замер в TopBar: сколько разделов видно, зависит от
-   прав, и жёсткий порог ширины то сжимал зря, то не сжимал вовремя. */
-/* подписи разделов важнее счётчика: он прячется первым */
-.topbar.tight .counter {
-  display: none;
-}
-.tb-nav.compact .nav-tab span {
-  display: none;
-}
-.tb-nav.compact .nav-tab {
-  padding: 9px 11px;
-}
-.tb-nav.compact .nav-tab svg {
-  width: 18px;
-  height: 18px;
-}
 @media (max-width: 1150px) {
   .tb-search {
     min-width: 150px;
@@ -539,16 +566,15 @@ svg {
   padding: 9px 12px 9px 38px;
   border-radius: 999px;
 }
+/* Виды работ не влезли в строку — переносятся на вторую. Раньше полоса
+   скроллилась, и с десятком видов половина была за краем без всякого
+   намёка, что там что-то есть. */
 .filters {
   display: flex;
-  gap: 9px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-wrap: wrap;
+  gap: 8px;
   flex: 1;
   min-width: 0;
-}
-.filters::-webkit-scrollbar {
-  display: none;
 }
 .sort {
   display: flex;
@@ -889,8 +915,10 @@ svg {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: rgba(5, 6, 5, 0.82);
-  backdrop-filter: blur(6px);
+  /* Без backdrop-filter. Размытие всей доски под окном пересчитывалось
+     при каждой прокрутке и каждом кадре анимации окна — на встроенной
+     графике это и было «лагает при открытии модалки». */
+  background: rgba(5, 6, 5, 0.88);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -5690,15 +5718,50 @@ body.touch-dragging {
   max-width: 160px;
   object-fit: contain;
 }
-/* две квитанции на листе — режутся по пунктиру */
-.print-pair .print-sheet + .print-sheet {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px dashed #999;
+/* Две квитанции на листе — рядом, лист A4 поперёк, каждой по половине
+   (это и есть A5). Раньше они шли одна под другой на A4 стоя, и вторая
+   не помещалась — переезжала на следующий лист. Шрифт чуть меньше, чем
+   у одиночной A5: половина листа без полей уже, чем A5 без полей. */
+.print-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.print-pair .print-sheet {
+  font-size: 12.5px;
+  padding: 20px 18px;
 }
 @media print {
+  .print-pair {
+    gap: 0;
+  }
+  .print-pair .print-sheet {
+    font-size: 9pt;
+    break-inside: avoid;
+    /* на второй лист ничего не переезжает; что не влезло — лучше чуть
+       ужать полями в окне печати, чем получить пустую половину */
+    max-height: 178mm;
+    overflow: hidden;
+  }
+  .print-pair .print-sheet:first-child {
+    padding-right: 7mm !important;
+    border-right: 1px dashed #999;
+  }
   .print-pair .print-sheet + .print-sheet {
-    border-top: 1px dashed #999 !important;
+    padding-left: 7mm !important;
+  }
+  .print-pair .ps-table th,
+  .print-pair .ps-table td {
+    padding: 3px 0;
+  }
+  .print-pair .ps-table th {
+    font-size: 9pt;
+  }
+  .print-pair .ps-money {
+    margin: 10px 0 8px;
+  }
+  .print-pair .ps-money > div {
+    padding: 6px 8px;
   }
 }
 
