@@ -9,7 +9,6 @@ import { NavLink } from 'react-router-dom';
 import { useOrders } from '@/api/orders';
 import type { OrdersFilter } from '@/api/keys';
 import { useAuth } from '@/app/AuthProvider';
-import { useConfirm } from '@/app/ConfirmProvider';
 import { useModal } from '@/app/ModalProvider';
 import { VIEWS } from '@/app/views';
 import { PlusIcon } from '@/components/Icons';
@@ -24,22 +23,10 @@ interface TopBarProps {
 }
 
 export function TopBar({ filter, onBoard }: TopBarProps) {
-  const { session, can, signOut } = useAuth();
-  const askConfirm = useConfirm();
+  const { session, can } = useAuth();
   const newOrder = useNewOrder();
   // вкладка показывается, только если у профиля есть право на раздел
   const views = VIEWS.filter((view) => !view.permission || can(view.permission));
-
-  const changeProfile = async () => {
-    const ok = await askConfirm({
-      eyebrow: session?.name ?? '',
-      title: 'Сменить профиль?',
-      text: 'Вы вернётесь к экрану выбора. Несохранённые изменения в открытых окнах пропадут.',
-      yes: 'Выйти',
-      no: 'Остаться',
-    });
-    if (ok) signOut();
-  };
 
   return (
     <header className="topbar">
@@ -78,22 +65,25 @@ export function TopBar({ filter, onBoard }: TopBarProps) {
       </nav>
 
       <div className="tb-right">
-        {can('finance.totals') && <ActiveCounter filter={filter} />}
+        {can('finance.totals') && <ActiveCounter filter={filter} cash={can('finance.cash')} />}
         {onBoard && can('orders.create') && (
           <button className="btn btn-green" type="button" onClick={newOrder}>
             <PlusIcon />
             Новый заказ
           </button>
         )}
-        <button
-          className={session?.kind === 'admin' ? 'profile-chip admin' : 'profile-chip'}
-          type="button"
-          title="Сменить профиль"
-          onClick={changeProfile}
+        {/* имя ведёт на страницу профиля: там смена профиля, настройки
+            этого рабочего места и что разрешено */}
+        <NavLink
+          className={({ isActive }) =>
+            ['profile-chip', session?.kind === 'admin' ? 'admin' : '', isActive ? 'active' : ''].filter(Boolean).join(' ')
+          }
+          to="/profile"
+          title="Профиль и настройки этого рабочего места"
         >
           <span className="pc-dot" />
           <span>{session?.name || 'Профиль'}</span>
-        </button>
+        </NavLink>
       </div>
     </header>
   );
@@ -104,14 +94,29 @@ export function TopBar({ filter, onBoard }: TopBarProps) {
  *  Считается по тому же списку, что показан на доске, — значит уважает
  *  выбранный фильтр и поиск. Отдельного запроса не делает: ключ кэша тот же,
  *  что у доски, данные берутся из памяти. */
-function ActiveCounter({ filter }: { filter: OrdersFilter }) {
+function ActiveCounter({ filter, cash }: { filter: OrdersFilter; cash: boolean }) {
   const { data } = useOrders(filter);
   const modal = useModal();
   const active = (data ?? []).filter((o) => o.status !== 'done' && o.status !== 'cancelled');
   const sum = active.reduce((acc, o) => acc + (o.price || 0), 0);
 
-  // нажатие открывает кассу за день: право то же — кто видит суммы,
-  // тот и сверяет ящик вечером
+  const body = (
+    <>
+      <b>{active.length}</b>
+      <span>
+        в работе · <em>{moneyOrZero(sum)}</em>
+      </span>
+    </>
+  );
+  // касса за день — по своему праву finance.cash: суммы в работе видят
+  // несколько человек, а ящик вечером сверяет один
+  if (!cash) {
+    return (
+      <div className="counter" title="Активные заказы и их сумма">
+        {body}
+      </div>
+    );
+  }
   return (
     <button
       className="counter"
@@ -119,10 +124,7 @@ function ActiveCounter({ filter }: { filter: OrdersFilter }) {
       title="Активные заказы и их сумма. Нажмите — касса за день"
       onClick={() => modal.open(<CashModal />)}
     >
-      <b>{active.length}</b>
-      <span>
-        в работе · <em>{moneyOrZero(sum)}</em>
-      </span>
+      {body}
     </button>
   );
 }

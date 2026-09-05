@@ -5,7 +5,7 @@
    и не уходил — бессмысленно. */
 
 import { request } from './client';
-import type { LoginResponse, MeResponse, ProfilesResponse } from '@/types/api';
+import type { LoginResponse, MeResponse, PermissionGroupsResponse, ProfilesResponse } from '@/types/api';
 
 export const fetchProfiles = (): Promise<ProfilesResponse> =>
   request<ProfilesResponse>('/auth/profiles', { skipAuthHandler: true });
@@ -26,3 +26,8 @@ export const loginEmployee = (employeeId: number, password: string): Promise<Log
 
 export const fetchMe = (): Promise<MeResponse> =>
   request<MeResponse>('/auth/me', { skipAuthHandler: true });
+
+/** Справочник прав с названиями — страница профиля показывает по нему,
+ *  что разрешено. Доступен любому вошедшему. */
+export const fetchPermissionGroups = (): Promise<PermissionGroupsResponse> =>
+  request<PermissionGroupsResponse>('/auth/permissions');

@@ -15,9 +15,10 @@
    идут на A5, наряды на A4, и переключать это каждый раз в диалоге принтера
    надоедает. Выбор запоминается на этом компьютере. */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { useCatalog } from '@/api/catalog';
+import { usePageSize } from '@/lib/printPage';
 import { useDesignInfo } from '@/api/designs';
 import { useCan } from '@/app/AuthProvider';
 import { ModalBackButton, ModalShell } from '@/app/ModalProvider';
@@ -29,8 +30,6 @@ import { orderParamRows } from './params';
 
 type SheetKind = 'receipt' | 'work' | 'label';
 type PageSize = 'A4' | 'A5';
-/* «Две на листе» — A4 поперёк: две квитанции рядом, каждой по половине */
-type PageRule = PageSize | 'A4 landscape';
 
 const SIZE_STORAGE = 'poster.print.size';
 const PAIR_STORAGE = 'poster.print.pair';
@@ -48,26 +47,18 @@ function remembered<T extends string>(key: string, fallback: T, allowed: readonl
   }
 }
 
-/** Размер страницы для @page задаётся только из CSS — подсовываем правило
- *  через <style>, пока окно открыто. */
-function usePageSize(size: PageRule, margin = '14mm') {
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.setAttribute('data-print-size', size);
-    style.textContent = `@media print { @page { size: ${size}; margin: ${margin}; } }`;
-    document.head.append(style);
-    return () => style.remove();
-  }, [size, margin]);
-}
-
-export function PrintOrderModal({ order }: { order: Order }) {
+export function PrintOrderModal({ order, initialKind }: { order: Order; initialKind?: SheetKind }) {
   const can = useCan();
   const { data: catalog } = useCatalog();
 
   // Квитанция — про деньги, поэтому она есть только у того, кто их видит.
   // Остальным доступен наряд: там цен нет и быть не должно.
+  // initialKind — с какого документа открыть (меню карточки на доске).
   const canReceipt = can('orders.price.view');
-  const [kind, setKind] = useState<SheetKind>(canReceipt ? 'receipt' : 'work');
+  const [kind, setKind] = useState<SheetKind>(() => {
+    if (initialKind && (initialKind !== 'receipt' || canReceipt)) return initialKind;
+    return canReceipt ? 'receipt' : 'work';
+  });
   const [size, setSize] = useState<PageSize>(() =>
     remembered<PageSize>(`${SIZE_STORAGE}.${kind}`, kind === 'receipt' ? 'A5' : 'A4', ['A4', 'A5']),
   );

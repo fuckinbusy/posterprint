@@ -2,6 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useBoardRefresh } from '@/app/prefs';
+
 import { request } from './client';
 import { qk, type OrdersFilter } from './keys';
 import type {
@@ -26,10 +28,16 @@ export function fetchOrders(filter: OrdersFilter): Promise<Order[]> {
 export const fetchOrder = (id: number): Promise<Order> => request<Order>(`/orders/${id}`);
 
 export function useOrders(filter: OrdersFilter, enabled = true) {
+  // автообновление — личная настройка рабочего места (страница профиля):
+  // планшету в цехе нужно, чтобы новые заказы появлялись сами
+  const refresh = useBoardRefresh();
   return useQuery({
     queryKey: qk.orders(filter),
     queryFn: () => fetchOrders(filter),
     enabled,
+    refetchInterval: refresh > 0 ? refresh * 1000 : false,
+    // в свёрнутой вкладке не опрашиваем: это трафик впустую
+    refetchIntervalInBackground: false,
     // при поиске держим прежний список на экране, пока едет новый:
     // иначе доска мигает пустотой на каждую набранную букву
     placeholderData: (previous) => previous,

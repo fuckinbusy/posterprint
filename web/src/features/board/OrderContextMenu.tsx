@@ -3,8 +3,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useCan } from '@/app/AuthProvider';
-import { CopyIcon, EditIcon, OpenIcon, TrashIcon } from '@/components/Icons';
+import { useModal } from '@/app/ModalProvider';
+import { CopyIcon, EditIcon, OpenIcon, PrintIcon, TrashIcon } from '@/components/Icons';
 import { useToast } from '@/app/ToastProvider';
+import { PrintOrderModal } from '@/features/orders/PrintOrderModal';
 import { useDeleteOrderFlow } from '@/features/orders/useDeleteOrderFlow';
 import { useOpenOrder } from '@/features/orders/useOpenOrder';
 import { useOpenOrderForm } from '@/features/orders/useOpenOrderForm';
@@ -37,6 +39,7 @@ export function OrderContextMenu({
   const openOrder = useOpenOrder();
   const openForm = useOpenOrderForm();
   const deleteOrder = useDeleteOrderFlow();
+  const modal = useModal();
 
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: state.x, top: state.y });
@@ -135,6 +138,40 @@ export function OrderContextMenu({
       >
         <CopyIcon />
         Скопировать номер
+      </button>
+
+      {/* печать сразу отсюда: раньше — открыть карточку, «Печать», выбрать
+          документ; на каждом заказе это два лишних нажатия */}
+      <div className="ctx-sep" />
+      <div className="ctx-head">Печать</div>
+      {can('orders.price.view') && (
+        <button
+          className="ctx-item"
+          type="button"
+          role="menuitem"
+          onClick={run(() => modal.open(<PrintOrderModal order={order} initialKind="receipt" />))}
+        >
+          <PrintIcon />
+          Квитанция клиенту
+        </button>
+      )}
+      <button
+        className="ctx-item"
+        type="button"
+        role="menuitem"
+        onClick={run(() => modal.open(<PrintOrderModal order={order} initialKind="work" />))}
+      >
+        <PrintIcon />
+        Наряд в цех
+      </button>
+      <button
+        className="ctx-item"
+        type="button"
+        role="menuitem"
+        onClick={run(() => modal.open(<PrintOrderModal order={order} initialKind="label" />))}
+      >
+        <PrintIcon />
+        Бирка
       </button>
 
       {can('orders.status') && (

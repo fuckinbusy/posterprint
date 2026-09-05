@@ -12,12 +12,15 @@
 
 import { useState } from 'react';
 
-import { useCashReport } from '@/api/reports';
+import { downloadCsv } from '@/api/export';
+import { dayBounds, useCashReport } from '@/api/reports';
 import { ModalShell } from '@/app/ModalProvider';
-import { ArrowLeftIcon, ArrowIcon } from '@/components/Icons';
+import { useToast } from '@/app/ToastProvider';
+import { ArrowLeftIcon, ArrowIcon, DownloadIcon, PrintIcon } from '@/components/Icons';
 import { Empty, Loading } from '@/components/ui';
 import { useOpenOrder } from '@/features/orders/useOpenOrder';
 import { dateFullRu, money, moneyOrZero, todayISO } from '@/lib/format';
+import { usePageSize } from '@/lib/printPage';
 import type { CashEntry, PayMethod } from '@/types/api';
 
 const METHOD_LABEL: Record<PayMethod, string> = { cash: 'Наличные', transfer: 'Перевод' };
@@ -37,9 +40,21 @@ export function CashModal() {
   const [date, setDate] = useState(todayISO());
   const report = useCashReport(date);
   const openOrder = useOpenOrder();
+  const { toast } = useToast();
   const isToday = date === todayISO();
+  // итог дня печатают в папку с отчётами — обычный лист
+  usePageSize('A4');
 
   const data = report.data;
+
+  const exportCsv = async () => {
+    const { from, to } = dayBounds(date);
+    const ok = await downloadCsv(
+      `/reports/cash.csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      `касса-${date}.csv`,
+    );
+    if (!ok) toast('Не удалось выгрузить кассу');
+  };
 
   return (
     <ModalShell
@@ -76,12 +91,34 @@ export function CashModal() {
             )}
           </div>
           <div className="spacer" />
+          <button
+            className="btn btn-ghost"
+            type="button"
+            title="Движения за день файлом для Excel"
+            disabled={!data || data.entries.length === 0}
+            onClick={() => void exportCsv()}
+          >
+            <DownloadIcon />
+            CSV
+          </button>
+          <button className="btn btn-ghost" type="button" disabled={!data} onClick={() => window.print()}>
+            <PrintIcon />
+            Печать
+          </button>
         </>
       }
     >
       {!data && report.isLoading && <Loading />}
       {data && (
         <>
+          {/* заголовок только для бумаги: шапка окна на печать не идёт */}
+          <div className="cash-print-head">
+            <b>Касса за {dateFullRu(date)}</b>
+            <span>
+              напечатано{' '}
+              {new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
           {/* итог — крупно, как в квитанции: с этим числом идут к ящику */}
           <div className="cash-totals">
             {(['cash', 'transfer'] as PayMethod[]).map((method) => {

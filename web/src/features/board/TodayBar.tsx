@@ -20,7 +20,10 @@ import { contributes } from '@/features/orders/dimensions';
 import { dateRu, plural, todayISO } from '@/lib/format';
 import type { FormField, FormTemplate, Order } from '@/types/api';
 
-export type BoardFocus = 'overdue' | 'today' | 'ready';
+/* Три счётчика полосы плюс ячейки загрузки: день (`day:ГГГГ-ММ-ДД`),
+   «позже» и «без срока». Нажатие на ячейку оставляет на доске заказы
+   этого дня — так приёмка видит, чем именно занят завтрашний день. */
+export type BoardFocus = 'overdue' | 'today' | 'ready' | 'later' | 'nodue' | `day:${string}`;
 
 const isActive = (order: Order): boolean => order.status !== 'done' && order.status !== 'cancelled';
 
@@ -28,8 +31,24 @@ const isActive = (order: Order): boolean => order.status !== 'done' && order.sta
 export function matchesFocus(order: Order, focus: BoardFocus | null, today = todayISO()): boolean {
   if (!focus) return true;
   if (focus === 'ready') return order.status === 'ready';
-  if (!isActive(order) || !order.due_date) return false;
-  return focus === 'overdue' ? order.due_date < today : order.due_date === today;
+  if (!isActive(order)) return false;
+  if (focus === 'nodue') return !order.due_date;
+  if (!order.due_date) return false;
+  if (focus === 'overdue') return order.due_date < today;
+  if (focus === 'today') return order.due_date === today;
+  if (focus === 'later') return order.due_date > shiftDay(today, 6);
+  return order.due_date === focus.slice(4);
+}
+
+/** Подпись выбранного дня для полосы, когда панель загрузки закрыта. */
+export function focusLabel(focus: BoardFocus, today = todayISO()): string {
+  if (focus === 'later') return 'Позже недели';
+  if (focus === 'nodue') return 'Без срока';
+  if (focus.startsWith('day:')) {
+    const date = focus.slice(4);
+    return date === shiftDay(today, 1) ? `Завтра, ${dateRu(date)}` : dateRu(date);
+  }
+  return '';
 }
 
 /* Площадь печати по заказу, м². Ноль — если вид работ не считается по
@@ -77,7 +96,7 @@ export function TodayBar({ orders, templates, focus, onFocus }: TodayBarProps) {
   const [showLoad, setShowLoad] = useState(false);
   const today = todayISO();
 
-  const counts: Record<BoardFocus, number> = {
+  const counts: Record<'overdue' | 'today' | 'ready', number> = {
     overdue: orders.filter((o) => matchesFocus(o, 'overdue', today)).length,
     today: orders.filter((o) => matchesFocus(o, 'today', today)).length,
     ready: orders.filter((o) => matchesFocus(o, 'ready', today)).length,
@@ -85,7 +104,7 @@ export function TodayBar({ orders, templates, focus, onFocus }: TodayBarProps) {
 
   const toggle = (next: BoardFocus) => onFocus(focus === next ? null : next);
 
-  const pill = (key: BoardFocus, label: string, hot = false) => (
+  const pill = (key: 'overdue' | 'today' | 'ready', label: string, hot = false) => (
     <button
       className={['today-pill', focus === key ? 'on' : '', hot && counts[key] > 0 ? 'hot' : '', counts[key] === 0 ? 'zero' : '']
         .filter(Boolean)
@@ -110,6 +129,14 @@ export function TodayBar({ orders, templates, focus, onFocus }: TodayBarProps) {
         {pill('overdue', 'Просрочено', true)}
         {pill('today', 'Сдать сегодня')}
         {pill('ready', 'К выдаче')}
+        {/* выбран день из загрузки — напоминаем, что доска отфильтрована,
+            даже если панель уже закрыли */}
+        {focus && focusLabel(focus, today) && (
+          <button className="today-pill on day" type="button" title="Показать все заказы" onClick={() => onFocus(null)}>
+            {focusLabel(focus, today)}
+            <b aria-hidden="true">×</b>
+          </button>
+        )}
         <button
           className={showLoad ? 'today-load on' : 'today-load'}
           type="button"
@@ -120,12 +147,24 @@ export function TodayBar({ orders, templates, focus, onFocus }: TodayBarProps) {
           <span aria-hidden="true">{showLoad ? '▴' : '▾'}</span>
         </button>
       </div>
-      {showLoad && <LoadPanel orders={orders} templates={templates} today={today} />}
+      {showLoad && <LoadPanel orders={orders} templates={templates} today={today} focus={focus} onFocus={onFocus} />}
     </div>
   );
 }
 
-function LoadPanel({ orders, templates, today }: { orders: Order[]; templates: FormTemplate[]; today: string }) {
+function LoadPanel({
+  orders,
+  templates,
+  today,
+  focus,
+  onFocus,
+}: {
+  orders: Order[];
+  templates: FormTemplate[];
+  today: string;
+  focus: BoardFocus | null;
+  onFocus: (focus: BoardFocus | null) => void;
+}) {
   const byKey = new Map(templates.map((t) => [t.key, t]));
   const active = orders.filter(isActive);
 
@@ -142,23 +181,40 @@ function LoadPanel({ orders, templates, today }: { orders: Order[]; templates: F
   const noDue = bucket(active.filter((o) => !o.due_date));
   const later = bucket(active.filter((o) => o.due_date && o.due_date > days[6].date));
 
-  const cell = (label: string, sub: string, b: { count: number; area: number }, className = '') => (
-    <div className={['load-day', className, b.count === 0 ? 'empty' : ''].filter(Boolean).join(' ')} key={label + sub}>
+  // ячейка — кнопка: нажатие оставляет на доске заказы этого дня
+  const cell = (key: BoardFocus, label: string, sub: string, b: { count: number; area: number }, className = '') => (
+    <button
+      className={['load-day', className, b.count === 0 ? 'empty' : '', focus === key ? 'on' : ''].filter(Boolean).join(' ')}
+      type="button"
+      key={key}
+      aria-pressed={focus === key}
+      disabled={b.count === 0}
+      title={focus === key ? 'Показать все заказы' : `Оставить на доске только: ${label.toLowerCase()}`}
+      onClick={() => onFocus(focus === key ? null : key)}
+    >
       <span className="load-date">
         {label}
         <small>{sub}</small>
       </span>
       <b>{b.count ? `${b.count} ${plural(b.count, 'заказ', 'заказа', 'заказов')}` : '—'}</b>
       <span className="load-area">{b.area > 0 ? `${sqm(b.area)} м²` : ''}</span>
-    </div>
+    </button>
   );
 
   return (
     <div className="load-panel" aria-label="Загрузка цеха на неделю">
-      {overdue.count > 0 && cell('Просрочено', '', overdue, 'hot')}
-      {days.map((d, i) => cell(i === 0 ? 'Сегодня' : i === 1 ? 'Завтра' : weekday(d.date), dateRu(d.date), d, i === 0 ? 'today' : ''))}
-      {later.count > 0 && cell('Позже', '', later)}
-      {noDue.count > 0 && cell('Без срока', '', noDue, 'muted')}
+      {overdue.count > 0 && cell('overdue', 'Просрочено', '', overdue, 'hot')}
+      {days.map((d, i) =>
+        cell(
+          i === 0 ? 'today' : `day:${d.date}`,
+          i === 0 ? 'Сегодня' : i === 1 ? 'Завтра' : weekday(d.date),
+          dateRu(d.date),
+          d,
+          i === 0 ? 'today' : '',
+        ),
+      )}
+      {later.count > 0 && cell('later', 'Позже', '', later)}
+      {noDue.count > 0 && cell('nodue', 'Без срока', '', noDue, 'muted')}
       <div className="load-hint">м² — площадь печати по размерам в заказе; работы без площади считаются штуками</div>
     </div>
   );

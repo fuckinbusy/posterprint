@@ -12,6 +12,7 @@ import type { ReactNode } from 'react';
 import { useCatalog } from '@/api/catalog';
 import { BoardPage } from '@/features/board/BoardPage';
 import { BoardFilters } from '@/features/board/BoardFilters';
+import { ProfilePage } from '@/features/profile/ProfilePage';
 import { BOARD_SORTS, type BoardSort } from '@/features/board/sorting';
 import { ClientsPage } from '@/features/clients/ClientsPage';
 import { GateScreen } from '@/features/gate/GateScreen';
@@ -54,7 +55,11 @@ export function Shell() {
 
   useEffect(() => {
     const view = viewByPath(location.pathname);
-    document.title = view ? view.title : 'ПОСТЕР · Заказы';
+    document.title = view
+      ? view.title
+      : location.pathname === '/profile'
+        ? 'ПОСТЕР · Профиль'
+        : 'ПОСТЕР · Заказы';
   }, [location.pathname]);
 
   const changeSort = (value: BoardSort) => {
@@ -142,6 +147,8 @@ export function Shell() {
             </Guarded>
           }
         />
+        {/* профиль доступен всем, кто вошёл — права не нужны */}
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/board" replace />} />
       </Routes>
     </>

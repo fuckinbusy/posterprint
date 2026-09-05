@@ -772,6 +772,29 @@ svg {
   border-radius: var(--r);
   background: rgba(255, 255, 255, 0.02);
 }
+/* ячейка — кнопка: нажатие оставляет на доске заказы этого дня */
+button.load-day {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+button.load-day:disabled {
+  cursor: default;
+}
+button.load-day:not(:disabled):hover {
+  border-color: rgba(60, 199, 7, 0.4);
+}
+.load-day.on {
+  border-color: var(--green);
+  background: rgba(60, 199, 7, 0.12);
+}
+.load-day.on .load-date {
+  color: var(--green);
+}
+.today-pill.day b {
+  font-family: inherit;
+}
 .load-day {
   flex: 1 1 110px;
   min-width: 110px;
@@ -5798,25 +5821,213 @@ svg {
 .log-tools select {
   min-width: 140px;
 }
+.log-tools .log-count {
+  margin-left: auto;
+  align-self: center;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* Журнал как консоль: тёмное поле, моноширинный шрифт системы (Space Mono
+   красив в заголовках, но кириллицу в нём читать строками тяжело), время
+   приглушено, уровень — цветной штамп, свежее внизу. Высота фиксирована,
+   прокрутка своя — так после загрузки можно прокрутить к последней строке. */
 .log-view {
   margin: 0;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
+  padding: 12px 0;
+  border: 1px solid var(--line-strong);
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.35);
-  font-family: "Space Mono", monospace;
-  font-size: 12px;
-  line-height: 1.55;
+  background: #050605;
+  font-family: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, "Roboto Mono", monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 70vh;
+  height: min(68vh, 760px);
+  min-height: 320px;
   overflow: auto;
+  color: #c9d1c4;
+  scrollbar-gutter: stable;
+}
+.log-view:focus-visible {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-glow);
+}
+.log-line {
+  display: block;
+  padding: 0 16px;
+  border-left: 3px solid transparent;
+}
+.log-line:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.log-time {
+  color: #5f6a5c;
+  margin-right: 10px;
+}
+.log-level {
+  display: inline-block;
+  min-width: 58px;
+  margin-right: 10px;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: #7f8a7b;
+}
+.log-msg {
+  color: #d9e0d4;
+}
+.log-debug,
+.log-debug .log-msg {
+  color: #6f786c;
 }
 .log-warn {
+  border-left-color: #f0b429;
+  background: rgba(240, 180, 41, 0.05);
+}
+.log-warn .log-level {
   color: #f0b429;
 }
 .log-error {
+  border-left-color: var(--red);
+  background: rgba(229, 72, 77, 0.07);
+}
+.log-error .log-level,
+.log-error .log-msg {
+  color: #ff7b7f;
+}
+
+/* ---------- резервные копии ---------- */
+.backup-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  margin-bottom: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(60, 199, 7, 0.06), transparent);
+}
+.backup-card.stale {
+  border-color: rgba(229, 72, 77, 0.45);
+  background: linear-gradient(180deg, rgba(229, 72, 77, 0.08), transparent);
+}
+.backup-main {
+  flex: 1 1 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.backup-title {
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.backup-state {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--green);
+}
+.backup-card.stale .backup-state {
   color: var(--red);
+}
+.backup-hint {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.backup-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.backup-list {
+  flex: 1 0 100%;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.backup-list li {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.backup-list li b {
+  flex: 0 0 150px;
+  font-weight: 600;
+}
+.backup-list li span {
+  flex: 1;
+  color: var(--muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.backup-list li em {
+  font-style: normal;
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: var(--muted);
+}
+.backup-list li.more {
+  color: var(--muted);
+  border-bottom: 0;
+}
+
+/* ---------- профиль ---------- */
+.profile-chip.active {
+  color: var(--green);
+  border-color: rgba(60, 199, 7, 0.4);
+}
+.perm-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.perm-group-title {
+  display: block;
+  margin-bottom: 7px;
+  font-family: "Space Mono";
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.perm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.perm-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(60, 199, 7, 0.3);
+  background: rgba(60, 199, 7, 0.08);
+  color: var(--text);
+  font-size: 13px;
+  cursor: help;
+}
+.kv kbd {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.04);
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: var(--text);
 }
 
 /* кнопка истории у позиции прайса — выглядит как текст, ведёт себя как ссылка */
@@ -6217,3 +6428,59 @@ body.touch-dragging {
   text-transform: uppercase;
   color: var(--muted);
 }
+
+/* ---------- касса на бумаге ---------- */
+.cash-print-head {
+  display: none;
+}
+@media print {
+  .cash-print-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+    border-bottom: 2px solid #111;
+    font-size: 16pt;
+    color: #000;
+  }
+  .cash-print-head span {
+    font-size: 9pt;
+    color: #555;
+  }
+  .cash-totals,
+  .cash-table,
+  .cash-list,
+  .cash-total,
+  .cash-row {
+    color: #000 !important;
+    background: none !important;
+    border-color: #999 !important;
+    box-shadow: none !important;
+  }
+  .cash-total span,
+  .cash-total em,
+  .cash-method,
+  .cash-method em,
+  .cash-time,
+  .cash-order span,
+  .cash-table th {
+    color: #444 !important;
+  }
+  .cash-total b,
+  .cash-amount,
+  .cash-order b,
+  .cash-table td {
+    color: #000 !important;
+  }
+  .cash-row.out .cash-amount {
+    color: #b0161b !important;
+  }
+  .cash-row {
+    break-inside: avoid;
+    border-bottom: 1px solid #ddd !important;
+    border-radius: 0 !important;
+  }
+}
+

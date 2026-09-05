@@ -1,11 +1,17 @@
-"""Просмотр логов из интерфейса. Только для тех, у кого staff.manage."""
+"""Просмотр логов и резервные копии из интерфейса. Только staff.manage."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+import logging
 
-from app import logs
-from app.security import require_perm
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from app import backup, logs
+from app.database import get_db
+from app.security import CurrentUser, require_perm
+
+applog = logging.getLogger("poster")
 
 router = APIRouter(
     prefix="/api/logs",
@@ -25,3 +31,35 @@ def read_logs(
     if only_problems:
         rows = [r for r in rows if " ERROR " in r or " WARNING " in r or "ОШИБКА" in r]
     return {"name": name, "lines": rows, "files": logs.files()}
+
+
+@router.get("/backups")
+def list_backups() -> dict:
+    """Какие копии есть, свежие первыми. Из этого же ответа страница понимает,
+    давно ли делали последнюю: копия старше суток — повод для красной плашки."""
+    items = backup.list_backups()
+    return {
+        "dir": str(backup.BACKUP_DIR),
+        "items": items[:20],
+        "total": len(items),
+        "last_at": items[0]["created_at"] if items else None,
+    }
+
+
+@router.post("/backup", status_code=201)
+def make_backup(
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_perm("staff.manage")),
+) -> dict:
+    """Копия прямо сейчас — та же, что делает scripts/backup.py.
+
+    Кнопка нужна, потому что скрипт с сервера никто не запускал: копию
+    делают тогда, когда о ней вспоминают, а вспоминают в интерфейсе.
+    """
+    try:
+        info = backup.run(db=db)
+    except OSError as exc:
+        raise HTTPException(500, f"Не удалось записать копию: {exc}") from None
+    applog.info("Резервная копия %s · %s", info["name"], user.name)
+    return info
+

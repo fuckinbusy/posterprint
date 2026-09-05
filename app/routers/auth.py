@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import devices as devices_logic
+from app import permissions
 from app.logs import log
 from app.database import get_db
 from app.models import Employee
@@ -160,3 +161,11 @@ def login_employee(
 def me(user: CurrentUser = Depends(current_user)) -> dict:
     """Проверка сохранённого токена при загрузке страницы."""
     return user.as_dict()
+
+
+@router.get("/permissions")
+def permission_groups(_: CurrentUser = Depends(current_user)) -> dict:
+    """Все права с названиями — страница профиля показывает по ним, что
+    человеку разрешено. Это справочник, а не чьи-то права, поэтому доступен
+    любому вошедшему."""
+    return {"groups": permissions.groups()}

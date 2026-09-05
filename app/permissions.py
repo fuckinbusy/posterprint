@@ -86,6 +86,14 @@ PERMISSIONS: list[dict] = [
         "group": "Деньги",
         "default": False,
     },
+    {
+        "key": "finance.cash",
+        "title": "Сверять кассу",
+        "hint": "Касса за день: кто, сколько и как принял, печать и выгрузка. "
+                "Отдельно от сумм в работе: ящик вечером сверяет один человек.",
+        "group": "Деньги",
+        "default": False,
+    },
     # ---------------- макеты
     {
         "key": "design.view",
@@ -179,6 +187,7 @@ IMPLIED: dict[str, list[str]] = {
     "orders.price.edit": ["orders.price.view"],
     "orders.estimate": ["orders.price.view"],
     "finance.totals": ["orders.price.view"],
+    "finance.cash": ["orders.price.view"],
     "prices.edit": ["prices.view"],
     "clients.history": ["clients.view"],
     "design.upload": ["design.view"],

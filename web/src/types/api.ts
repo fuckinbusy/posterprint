@@ -21,6 +21,7 @@ export type Permission =
   | 'orders.price.edit'
   | 'orders.estimate'
   | 'finance.totals'
+  | 'finance.cash'
   | 'design.view'
   | 'design.upload'
   | 'clients.view'
@@ -40,6 +41,30 @@ export interface PermissionItem {
   group: string;
   default?: boolean;
   danger?: boolean;
+}
+
+export interface PermissionGroupsResponse {
+  groups: { title: string; items: PermissionItem[] }[];
+}
+
+/* ---------------------------------------------------- резервные копии */
+export interface BackupInfo {
+  name: string;
+  created_at: string | null;
+  size: number;
+  files: string[];
+}
+
+export interface BackupsResponse {
+  dir: string;
+  items: BackupInfo[];
+  total: number;
+  last_at: string | null;
+}
+
+export interface BackupResult extends BackupInfo {
+  counts: Record<string, number>;
+  snapshot: boolean;
 }
 
 export interface PermissionCatalog {
