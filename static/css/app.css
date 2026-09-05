@@ -655,6 +655,91 @@ svg {
   display: flex;
   flex-direction: column;
 }
+/* обёртка нужна индикаторам по краям: они лежат поверх доски, не
+   прокручиваются с ней и не ловят мышь */
+.board-scroller {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.board-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 3;
+}
+.board-edge.left {
+  left: 0;
+  background: linear-gradient(90deg, rgba(8, 9, 8, 0.85), transparent);
+}
+.board-edge.right {
+  right: 0;
+  background: linear-gradient(270deg, rgba(8, 9, 8, 0.85), transparent);
+}
+/* за краем есть колонки — намёк */
+.board-edge.can {
+  opacity: 0.45;
+}
+/* доска едет — стрелка горит и подталкивает в сторону движения */
+.board-edge.on {
+  opacity: 1;
+}
+.board-edge span {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: #0f110f;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  padding-bottom: 3px;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.board-edge.on span {
+  color: var(--green);
+  border-color: var(--green);
+  box-shadow: 0 0 0 4px var(--green-glow);
+  animation: edge-nudge 0.5s ease-in-out infinite alternate;
+}
+.board-edge.right.on span {
+  animation-name: edge-nudge-right;
+}
+@keyframes edge-nudge {
+  from {
+    transform: translateX(2px);
+  }
+  to {
+    transform: translateX(-5px);
+  }
+}
+@keyframes edge-nudge-right {
+  from {
+    transform: translateX(-2px);
+  }
+  to {
+    transform: translateX(5px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-edge.on span {
+    animation: none;
+  }
+}
 .board {
   flex: 1;
   min-height: 0;
@@ -996,14 +1081,11 @@ button.load-day:not(:disabled):hover {
   font-size: 13.5px;
   color: var(--muted);
 }
-/* Колонка тянется, чтобы шесть колонок влезли в широкий экран: раньше
-   ширина была жёсткой (300 px), и на 1920 доска не помещалась на четыре
-   пикселя — её скроллили постоянно. Уже 240 не сжимается: карточка с
-   номером, суммой и сроком иначе рассыпается. */
+/* Ширина жёсткая: пробовали тянуть колонки под экран — на средних экранах
+   они сжимались до 240 px и карточки выглядели хуже. Что не влезло,
+   доезжает само: курсор у края доски (см. boardScroll.ts). */
 .col {
-  flex: 1 1 280px;
-  min-width: 240px;
-  max-width: 360px;
+  flex: 0 0 300px;
   display: flex;
   flex-direction: column;
   min-height: 0;
