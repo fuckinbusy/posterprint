@@ -395,22 +395,21 @@ svg {
 /* ---------- навигация по разделам ---------- */
 /* Навигация важнее украшений: при нехватке места сначала прячем полосу-спот
    и счётчик, а вкладки при самом узком экране прокручиваются, а не обрезаются. */
-/* Разделы — только иконки, подпись выезжает влево при наведении (и при
-   фокусе с клавиатуры). Восемь разделов с подписями не влезали на средние
-   экраны, а прокрутка меню никому не была очевидна. Ширина меню теперь
-   не зависит ни от прав, ни от длины названий. */
+/* Разделы — иконки; при наведении (и фокусе с клавиатуры) кнопка
+   раскрывается вправо, в сторону свободного места, и показывает название.
+   Восемь разделов с подписями не влезали на средние экраны, а прокрутка
+   меню никому не была очевидна. Ширина меню в покое не зависит ни от прав,
+   ни от длины названий. */
 .tb-nav {
   display: flex;
   gap: 4px;
   flex: 0 0 auto;
 }
 .nav-tab {
-  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 40px;
   height: 38px;
+  padding: 0 10px;
   border-radius: 9px;
   flex: 0 0 auto;
   color: var(--muted);
@@ -423,63 +422,40 @@ svg {
 .nav-tab svg {
   width: 18px;
   height: 18px;
+  flex: 0 0 auto;
 }
 .nav-tab:hover,
 .nav-tab:focus-visible {
   color: var(--text);
   background: rgba(255, 255, 255, 0.05);
   border-color: var(--line-strong);
-  z-index: 2;
 }
 .nav-tab.active {
   color: var(--green);
   background: rgba(60, 199, 7, 0.1);
   border-color: rgba(60, 199, 7, 0.28);
 }
-/* подпись: табличка слева от иконки, выезжает из-под неё */
+/* название: свёрнуто в ноль, раскрывается вправо от иконки */
 .nav-tab span {
-  position: absolute;
-  right: calc(100% + 5px);
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  padding: 0 13px;
-  border-radius: 9px;
-  background: #161916;
-  border: 1px solid var(--line-strong);
-  color: var(--text);
+  display: block;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  margin-left: 0;
   font-family: "Inter";
   font-weight: 500;
-  font-size: 13.5px;
+  font-size: 14px;
   white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transform: translateX(10px);
-  transform-origin: right center;
   transition:
-    opacity 0.14s,
-    transform 0.18s var(--ease);
-}
-.nav-tab.active span {
-  color: var(--green);
-  border-color: rgba(60, 199, 7, 0.28);
+    max-width 0.22s var(--ease),
+    margin-left 0.22s var(--ease),
+    opacity 0.15s;
 }
 .nav-tab:hover span,
 .nav-tab:focus-visible span {
+  max-width: 180px;
   opacity: 1;
-  transform: none;
-}
-/* у первого раздела слева логотип — его подпись выезжает вправо */
-.nav-tab:first-child span {
-  right: auto;
-  left: calc(100% + 5px);
-  transform: translateX(-10px);
-  transform-origin: left center;
-}
-.nav-tab:first-child:hover span,
-.nav-tab:first-child:focus-visible span {
-  transform: none;
+  margin-left: 8px;
 }
 
 /* ---------- страницы ---------- */
@@ -566,15 +542,24 @@ svg {
   padding: 9px 12px 9px 38px;
   border-radius: 999px;
 }
-/* Виды работ не влезли в строку — переносятся на вторую. Раньше полоса
-   скроллилась, и с десятком видов половина была за краем без всякого
-   намёка, что там что-то есть. */
+/* Виды работ — в одну строку: сколько влезло, столько чипов, остальные в
+   списке «Ещё N» (см. BoardFilters). Не скроллится и не переносится: с
+   полусотней видов и то и другое плохо. */
 .filters {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+}
+.filters .filters-more .sel-btn {
+  color: var(--text);
+}
+.filters .filters-more .sel-list {
+  left: 0;
+  right: auto;
+  min-width: 240px;
 }
 .sort {
   display: flex;
@@ -618,7 +603,7 @@ svg {
   border-color: var(--green);
   box-shadow: 0 0 0 3px var(--green-glow);
 }
-.filters button {
+.filters > button {
   font-family: "Space Mono";
   font-size: 13px;
   letter-spacing: 0.04em;
@@ -631,10 +616,10 @@ svg {
   transition: 0.2s;
   white-space: nowrap;
 }
-.filters button:hover {
+.filters > button:hover {
   color: var(--text);
 }
-.filters button.active {
+.filters > button.active {
   background: var(--green);
   color: #06210a;
   border-color: var(--green);
