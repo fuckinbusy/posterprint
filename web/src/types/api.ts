@@ -238,8 +238,36 @@ export interface OrderCreatePayload {
   price?: number;
   prepaid?: number;
   refunded?: boolean;
+  /** как приняли (или вернули) деньги, если внесённое изменилось;
+   *  в заказе не хранится — уходит строкой в журнал кассы */
+  pay_method?: PayMethod;
   due_date: string | null;
   notes: string;
+}
+
+/* ---------------------------------------------------- касса */
+export type PayMethod = 'cash' | 'transfer';
+
+export interface CashEntry {
+  id: number;
+  at: string;
+  order_id: number;
+  order_number: string;
+  client_name: string;
+  title: string;
+  /** плюс — приняли, минус — вернули */
+  amount: number;
+  method: PayMethod;
+  author: string;
+}
+
+export interface CashReport {
+  entries: CashEntry[];
+  by_method: Record<PayMethod, { in: number; out: number; net: number }>;
+  by_author: { author: string; cash: number; transfer: number; total: number }[];
+  total_in: number;
+  total_out: number;
+  total: number;
 }
 
 /* PATCH принимает те же поля — на сервере стоит extra="forbid",

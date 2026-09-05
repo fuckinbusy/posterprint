@@ -26,8 +26,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import delete, select  # noqa: E402
 
 from app import clients as clients_logic, pricing  # noqa: E402
+
+# консоль Windows по умолчанию в cp1251 — на «₽» в выводе скрипт падал,
+# успев стереть старые демо-заказы и не добавив новые
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 from app.database import SessionLocal, init_db  # noqa: E402
-from app.models import STATUS_META, Client, Order, OrderEvent, OrderStatus, Template  # noqa: E402
+from app.models import STATUS_META, Client, Order, OrderEvent, OrderStatus, Payment, Template  # noqa: E402
 from app.routers.orders import next_number  # noqa: E402
 
 # кто принимал — просто имена в истории, профили под них не нужны
@@ -267,6 +272,16 @@ def main() -> None:
                         author=item["manager"] or ADMIN,
                         created_at=created_at + timedelta(hours=8 * n),
                     ))
+            # касса: внесённое — строкой в журнал, как если бы приняли руками.
+            # Чётные заказы — переводом, нечётные — наличными: в кассе за день
+            # видно оба способа.
+            if prepaid > 0:
+                db.add(Payment(
+                    order_id=order.id, amount=prepaid,
+                    method="transfer" if order.id % 2 == 0 else "cash",
+                    author=item["manager"] or ADMIN,
+                    created_at=created_at + timedelta(hours=1),
+                ))
             db.add_all(events)
             db.commit()
             print(f"  {order.number}  {STATUS_META[status]['title']:<12} {item['title']:<36} {price:>9.0f} ₽")

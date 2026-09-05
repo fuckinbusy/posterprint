@@ -16,12 +16,13 @@ import { useConfirm } from '@/app/ConfirmProvider';
 import { ModalShell, useModal, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { Reg } from '@/components/Icons';
+import { Select } from '@/components/Select';
 import { Empty, Field, Section } from '@/components/ui';
 import { useMoveStatus } from '@/features/board/useMoveStatus';
 import { ClientCardModal } from '@/features/clients/ClientCardModal';
 import { money, plural } from '@/lib/format';
 import { formatPhone, phoneProblem, phoneProblemInline } from '@/lib/phone';
-import type { Estimate, FormTemplate, Order, OrderParams, ParamValue } from '@/types/api';
+import type { Estimate, FormTemplate, Order, OrderParams, ParamValue, PayMethod } from '@/types/api';
 
 import { ClientSearchField } from './ClientSearchField';
 import { isDimension, neededDimensions } from './dimensions';
@@ -95,6 +96,8 @@ function initialState(
   };
 }
 
+const PAY_METHOD_STORAGE = 'poster.pay.method';
+
 export function OrderFormModal({ templateKey, order }: OrderFormModalProps) {
   const catalog = useCatalog();
   // вид работ можно сменить прямо в форме: ключ живёт здесь, форма под ним
@@ -160,6 +163,29 @@ function OrderForm({
   const [initialJson] = useState(() => JSON.stringify(initialState(template, order)));
   const markClean = useUnsavedGuard(JSON.stringify(form) !== initialJson || designFile !== null);
   const prepaidNow = Number(form.prepaid || 0);
+
+  /* Деньги двинулись — на руках стало больше или меньше, чем было при
+     открытии окна. Тогда спрашиваем, как приняли: наличными или переводом.
+     В заказе это не хранится, уходит строкой в кассу за день. Последний
+     выбор запоминаем: в смену обычно один и тот же способ. */
+  const heldBefore = order && !order.refunded ? order.prepaid : 0;
+  const heldNow = form.refunded ? 0 : prepaidNow;
+  const moneyMoved = Math.round((heldNow - heldBefore) * 100) !== 0;
+  const [payMethod, setPayMethod] = useState<PayMethod>(() => {
+    try {
+      return localStorage.getItem(PAY_METHOD_STORAGE) === 'transfer' ? 'transfer' : 'cash';
+    } catch {
+      return 'cash';
+    }
+  });
+  const choosePayMethod = (value: PayMethod) => {
+    setPayMethod(value);
+    try {
+      localStorage.setItem(PAY_METHOD_STORAGE, value);
+    } catch {
+      /* без памяти тоже работает */
+    }
+  };
   /* Ошибку по телефону показываем не на каждую набранную цифру, а когда
    * человек ушёл из поля или нажал «Сохранить»: иначе поле краснеет,
    * едва начав его заполнять. */
@@ -204,6 +230,7 @@ function OrderForm({
           price: Number(form.price || 0),
           prepaid: Number(form.prepaid || 0),
           refunded: form.refunded,
+          ...(moneyMoved ? { pay_method: payMethod } : {}),
         }
       : {}),
   });
@@ -576,6 +603,21 @@ function OrderForm({
                 >
                   Оплачен полностью
                 </button>
+                {moneyMoved && (
+                  <div className="pay-method">
+                    <span>{heldNow < heldBefore ? 'Вернули' : 'Приняли'}</span>
+                    <Select
+                      variant="pill"
+                      aria-label="Как приняли деньги"
+                      value={payMethod}
+                      options={[
+                        { value: 'cash', label: 'наличными' },
+                        { value: 'transfer', label: 'переводом' },
+                      ]}
+                      onChange={(v) => choosePayMethod(v as PayMethod)}
+                    />
+                  </div>
+                )}
                 {/* Возврат — только у существующего заказа: по заказу, который
                     ещё не создан, возвращать нечего. Отмеченный подсвечивается
                     красным — состояние отдаём классом, чтобы было видно в разметке. */}

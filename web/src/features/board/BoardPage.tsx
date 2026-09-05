@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { useCatalog } from '@/api/catalog';
 import { useOrders } from '@/api/orders';
 import type { OrdersFilter } from '@/api/keys';
 import { useCan } from '@/app/AuthProvider';
@@ -11,6 +12,7 @@ import type { Order, OrderStatus, StatusMeta } from '@/types/api';
 import { OrderCard } from './OrderCard';
 import { OrderContextMenu, type ContextMenuState } from './OrderContextMenu';
 import { sortOrders, type BoardSort } from './sorting';
+import { TodayBar, matchesFocus, type BoardFocus } from './TodayBar';
 import { useMoveStatus } from './useMoveStatus';
 import { useStatuses } from './useStatuses';
 
@@ -22,27 +24,40 @@ interface BoardPageProps {
 export function BoardPage({ filter, sort }: BoardPageProps) {
   const statuses = useStatuses();
   const orders = useOrders(filter);
+  // полоса «Сегодня» и загрузка цеха смотрят на все заказы, а не на
+  // отфильтрованные: срочность и загрузка — про цех целиком
+  const everything = useOrders({ q: '', templateKey: 'all' });
+  const { data: catalog } = useCatalog();
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
+  const [focus, setFocus] = useState<BoardFocus | null>(null);
 
   const openMenu = (order: Order, x: number, y: number) => setMenu({ order, x, y });
 
   return (
-    <main className="board page" aria-label="Доска заказов">
-      {statuses.statuses.map((status) => (
-        <Column
-          key={status.key}
-          status={status}
-          orders={sortOrders(
-            (orders.data ?? []).filter((o) => o.status === status.key),
-            sort,
-          )}
-          allOrders={orders.data ?? []}
-          loading={orders.isLoading}
-          onContextMenu={openMenu}
-        />
-      ))}
-      {menu && <OrderContextMenu state={menu} onClose={() => setMenu(null)} />}
-    </main>
+    <div className="board-wrap page">
+      <TodayBar
+        orders={everything.data ?? []}
+        templates={catalog?.templates ?? []}
+        focus={focus}
+        onFocus={setFocus}
+      />
+      <main className="board" aria-label="Доска заказов">
+        {statuses.statuses.map((status) => (
+          <Column
+            key={status.key}
+            status={status}
+            orders={sortOrders(
+              (orders.data ?? []).filter((o) => o.status === status.key && matchesFocus(o, focus)),
+              sort,
+            )}
+            allOrders={orders.data ?? []}
+            loading={orders.isLoading}
+            onContextMenu={openMenu}
+          />
+        ))}
+        {menu && <OrderContextMenu state={menu} onClose={() => setMenu(null)} />}
+      </main>
+    </div>
   );
 }
 

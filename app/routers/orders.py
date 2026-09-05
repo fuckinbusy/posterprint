@@ -9,11 +9,11 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app import catalog, clients as clients_logic, payments, pricing, settings as settings_logic, shop
+from app import catalog, ledger, clients as clients_logic, payments, pricing, settings as settings_logic, shop
 from app.logs import log as applog
 from app.security import CurrentUser, current_user, require_perm
 from app.database import get_db
-from app.models import ALLOWED_TRANSITIONS, FORWARD, STATUS_META, Order, OrderEvent, OrderStatus
+from app.models import ALLOWED_TRANSITIONS, FORWARD, STATUS_META, Order, OrderEvent, OrderStatus, Payment
 from app.schemas import (
     EstimateRequest,
     EstimateResponse,
@@ -261,6 +261,24 @@ NULLABLE_FIELDS = {"due_date", "client_id"}
 MONEY_FIELDS = {"price", "prepaid", "refunded"}
 
 
+def ledger_method(value: str | None) -> str:
+    """Способ оплаты из запроса: неизвестное и пустое — наличные."""
+    return value if value in ledger.METHODS else ledger.DEFAULT_METHOD
+
+
+def record_movement(
+    db: Session, order: Order, before: tuple[float, bool], method: str, author: str
+) -> None:
+    """Строка в журнал кассы, если внесённое по заказу изменилось.
+
+    Сравниваем состояние до правки с тем, что стало: разница и есть
+    движение денег — плюс приняли, минус вернули (см. app/ledger.py).
+    """
+    delta = ledger.movement(before, (float(order.prepaid or 0), bool(order.refunded)))
+    if delta:
+        db.add(Payment(order_id=order.id, amount=delta, method=method, author=author))
+
+
 def require_money_rights(user: CurrentUser, fields: set[str]) -> None:
     """Стоимость, внесённое и возврат меняет только тот, кому это разрешено.
 
@@ -283,8 +301,9 @@ def create_order(
     template = catalog.get_template(db, payload.template_key)
     if template is None:
         raise HTTPException(422, "Неизвестный вид работ")
-    require_money_rights(user, payload.model_fields_set)
+    require_money_rights(user, payload.model_fields_set - {"pay_method"})
     check_refund(payload.refunded, payload.prepaid)
+    pay_method = ledger_method(payload.pay_method)
 
     params = {**catalog.default_params(db, payload.template_key), **(payload.params or {})}
 
@@ -326,6 +345,7 @@ def create_order(
         try:
             db.flush()
             log(db, order, "created", f"Заказ создан — {template['title']}", user.name)
+            record_movement(db, order, (0.0, False), pay_method, user.name)
             db.commit()
             db.refresh(order)
             applog.info(
@@ -370,7 +390,10 @@ def update_order(
     # это «поле не трогали», а не «запиши пустоту»: иначе {"title": null}
     # ронял запрос в 500 на NOT NULL.
     changes = {k: v for k, v in changes.items() if v is not None or k in NULLABLE_FIELDS}
+    # способ оплаты — не поле заказа, а подпись к движению денег в журнале
+    pay_method = ledger_method(changes.pop("pay_method", None))
     require_money_rights(user, set(changes))
+    money_before = (float(order.prepaid or 0), bool(order.refunded))
 
     if "template_key" in changes and not catalog.exists(db, changes["template_key"]):
         raise HTTPException(422, "Неизвестный шаблон заказа")
@@ -385,6 +408,7 @@ def update_order(
     # а внесённое обнулить сейчас
     if {"refunded", "prepaid"} & set(changed_labels):
         check_refund(order.refunded, order.prepaid)
+        record_movement(db, order, money_before, pay_method, user.name)
 
     if changed_labels:
         # если правили данные клиента — обновляем и его карточку в справочнике

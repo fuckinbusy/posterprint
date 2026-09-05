@@ -27,13 +27,16 @@ import type { FormTemplate, Order, ShopDetails } from '@/types/api';
 
 import { orderParamRows } from './params';
 
-type SheetKind = 'receipt' | 'work';
+type SheetKind = 'receipt' | 'work' | 'label';
 type PageSize = 'A4' | 'A5';
 /* «Две на листе» — A4 поперёк: две квитанции рядом, каждой по половине */
 type PageRule = PageSize | 'A4 landscape';
 
 const SIZE_STORAGE = 'poster.print.size';
 const PAIR_STORAGE = 'poster.print.pair';
+const LABELS_STORAGE = 'poster.print.labels';
+/* сколько бирок печатать разом: на каждый рулон или пачку по одной */
+const LABEL_COUNTS = ['1', '2', '3', '4'] as const;
 
 function remembered<T extends string>(key: string, fallback: T, allowed: readonly T[]): T {
   try {
@@ -69,6 +72,7 @@ export function PrintOrderModal({ order }: { order: Order }) {
   );
   // две квитанции на листе: приёмке нужна своя копия, клиенту — своя
   const [pair, setPair] = useState(() => remembered<'yes' | 'no'>(PAIR_STORAGE, 'no', ['yes', 'no']) === 'yes');
+  const [labels, setLabels] = useState(() => Number(remembered(LABELS_STORAGE, '1', LABEL_COUNTS)));
 
   usePageSize(pair && kind === 'receipt' ? 'A4 landscape' : size);
 
@@ -80,6 +84,14 @@ export function PrintOrderModal({ order }: { order: Order }) {
     setSize(next);
     try {
       localStorage.setItem(`${SIZE_STORAGE}.${kind}`, next);
+    } catch {
+      /* без памяти тоже работает */
+    }
+  };
+  const chooseLabels = (next: number) => {
+    setLabels(next);
+    try {
+      localStorage.setItem(LABELS_STORAGE, String(next));
     } catch {
       /* без памяти тоже работает */
     }
@@ -103,7 +115,7 @@ export function PrintOrderModal({ order }: { order: Order }) {
       // две квитанции рядом в обычное окно не помещаются
       wide={kind === 'receipt' && pair}
       eyebrow={`Печать · ${order.number}`}
-      title={kind === 'receipt' ? 'Квитанция клиенту' : 'Наряд в цех'}
+      title={kind === 'receipt' ? 'Квитанция клиенту' : kind === 'work' ? 'Наряд в цех' : 'Бирка на заказ'}
       foot={
         <>
           <div className="spacer" />
@@ -114,16 +126,20 @@ export function PrintOrderModal({ order }: { order: Order }) {
         </>
       }
     >
-      {canReceipt && (
-        <div className="print-switch">
+      <div className="print-switch">
+        {canReceipt && (
           <button className={kind === 'receipt' ? 'active' : ''} type="button" onClick={() => switchKind('receipt')}>
             Квитанция клиенту
           </button>
-          <button className={kind === 'work' ? 'active' : ''} type="button" onClick={() => switchKind('work')}>
-            Наряд в цех
-          </button>
-        </div>
-      )}
+        )}
+        <button className={kind === 'work' ? 'active' : ''} type="button" onClick={() => switchKind('work')}>
+          Наряд в цех
+        </button>
+        {/* бирка — на рулон или пачку: номер крупно, по нему ищут на полке */}
+        <button className={kind === 'label' ? 'active' : ''} type="button" onClick={() => switchKind('label')}>
+          Бирка
+        </button>
+      </div>
 
       <div className="print-opts">
         <div className="print-switch" role="group" aria-label="Размер листа">
@@ -139,6 +155,21 @@ export function PrintOrderModal({ order }: { order: Order }) {
             </button>
           ))}
         </div>
+        {kind === 'label' && (
+          <div className="print-switch" role="group" aria-label="Сколько бирок">
+            <span className="print-opts-label">Штук</span>
+            {LABEL_COUNTS.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={labels === Number(n) ? 'active' : ''}
+                onClick={() => chooseLabels(Number(n))}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        )}
         {kind === 'receipt' && (
           <label className="check" title="Две одинаковые квитанции рядом на листе A4 поперёк — приёмке и клиенту">
             <input type="checkbox" checked={pair} onChange={(e) => togglePair(e.target.checked)} />
@@ -156,7 +187,7 @@ export function PrintOrderModal({ order }: { order: Order }) {
         ) : (
           receipt
         )
-      ) : (
+      ) : kind === 'work' ? (
         <WorkSheet
           order={order}
           template={template}
@@ -164,12 +195,46 @@ export function PrintOrderModal({ order }: { order: Order }) {
           // было бы неправдой — мы просто не знаем
           designFile={can('design.view') ? (design.data?.exists ? design.data.filename : '—') : ''}
         />
+      ) : (
+        <div className="print-labels">
+          {Array.from({ length: labels }, (_, i) => (
+            <LabelSheet key={i} order={order} shop={catalog?.shop} />
+          ))}
+        </div>
       )}
 
       <p className="print-hint">
-        Так документ и напечатается. Поля — в окне печати браузера; размер листа уже выбран.
+        {kind === 'label'
+          ? 'Бирка 90 × 55 мм, режется по пунктиру. На A5 помещается две в столбик, на A4 — четыре.'
+          : 'Так документ и напечатается. Поля — в окне печати браузера; размер листа уже выбран.'}
       </p>
     </ModalShell>
+  );
+}
+
+/* ---------------------------------------------------------- бирка */
+/** Бирка на готовый заказ — клеится на рулон или пачку. Номер крупно: по
+ *  нему ищут на полке; клиент и телефон — чтобы позвонить, не открывая
+ *  карточку; что внутри — чтобы не разворачивать. Цен нет намеренно. */
+function LabelSheet({ order, shop }: { order: Order; shop: ShopDetails | undefined }) {
+  const client = [order.client_name, formatPhone(order.client_phone)].filter(Boolean).join(' · ');
+  return (
+    <div className="print-sheet print-label">
+      <div className="pl-top">
+        <b className="pl-num">{order.number}</b>
+        {shop?.name && <span className="pl-shop">{shop.name}</span>}
+      </div>
+      {client && <div className="pl-client">{client}</div>}
+      <div className="pl-work">
+        {order.title}
+        {order.summary ? ` · ${order.summary}` : ''}
+      </div>
+      <div className="pl-foot">
+        <span>{order.quantity} шт</span>
+        {order.due_date && <span>Готово {dateFullRu(order.due_date)}</span>}
+        {order.manager && <span>Принял: {order.manager}</span>}
+      </div>
+    </div>
   );
 }
 

@@ -10,8 +10,10 @@ import { useOrders } from '@/api/orders';
 import type { OrdersFilter } from '@/api/keys';
 import { useAuth } from '@/app/AuthProvider';
 import { useConfirm } from '@/app/ConfirmProvider';
+import { useModal } from '@/app/ModalProvider';
 import { VIEWS } from '@/app/views';
 import { PlusIcon } from '@/components/Icons';
+import { CashModal } from '@/features/cash/CashModal';
 import { useNewOrder } from '@/features/orders/useNewOrder';
 import { moneyOrZero } from '@/lib/format';
 
@@ -104,15 +106,23 @@ export function TopBar({ filter, onBoard }: TopBarProps) {
  *  что у доски, данные берутся из памяти. */
 function ActiveCounter({ filter }: { filter: OrdersFilter }) {
   const { data } = useOrders(filter);
+  const modal = useModal();
   const active = (data ?? []).filter((o) => o.status !== 'done' && o.status !== 'cancelled');
   const sum = active.reduce((acc, o) => acc + (o.price || 0), 0);
 
+  // нажатие открывает кассу за день: право то же — кто видит суммы,
+  // тот и сверяет ящик вечером
   return (
-    <div className="counter" title="Активные заказы и их сумма">
+    <button
+      className="counter"
+      type="button"
+      title="Активные заказы и их сумма. Нажмите — касса за день"
+      onClick={() => modal.open(<CashModal />)}
+    >
       <b>{active.length}</b>
       <span>
         в работе · <em>{moneyOrZero(sum)}</em>
       </span>
-    </div>
+    </button>
   );
 }

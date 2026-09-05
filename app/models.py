@@ -323,6 +323,10 @@ class Order(Base):
         cascade="all, delete-orphan",
         order_by="OrderEvent.created_at.desc()",
     )
+    payments: Mapped[list["Payment"]] = relationship(
+        back_populates="order",
+        cascade="all, delete-orphan",
+    )
 
 
 class OrderEvent(Base):
@@ -338,6 +342,27 @@ class OrderEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     order: Mapped[Order] = relationship(back_populates="events")
+
+
+class Payment(Base):
+    """Одно движение денег по заказу: внесли (плюс) или вернули (минус).
+
+    Заказ хранит только итог «внесено». Эта таблица — журнал, из которого
+    собирается касса за день: кто, когда, сколько и как — наличными или
+    переводом. Строка появляется при каждом изменении внесённого
+    (см. app/ledger.py), сама сумма в заказе остаётся источником истины.
+    """
+
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
+    amount: Mapped[float] = mapped_column(Float)          # плюс — пришли, минус — ушли
+    method: Mapped[str] = mapped_column(String(20), default="cash")  # cash | transfer
+    author: Mapped[str] = mapped_column(String(80), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+    order: Mapped[Order] = relationship(back_populates="payments")
 
 
 class PriceChange(Base):

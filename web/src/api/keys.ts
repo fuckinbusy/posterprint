@@ -43,6 +43,7 @@ export const qk = {
   devices: ['devices'] as const,
 
   metrics: (days: number) => ['metrics', days] as const,
+  cash: (date: string) => ['cash', date] as const,
 
   design: (orderId: number) => ['design', orderId] as const,
 

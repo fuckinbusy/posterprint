@@ -32,6 +32,9 @@ class OrderCreate(OrderBase):
     # Раньше поле было, и профиль без права на смену статуса мог завести
     # заказ сразу «Выданным» — мимо таблицы переходов и без completed_at.
     template_key: str
+    # Как приняли внесённое: cash | transfer. Не хранится в заказе — уходит
+    # строкой в журнал кассы (app/ledger.py). Пусто — наличные.
+    pay_method: str | None = Field(default=None, max_length=20)
 
 
 class OrderUpdate(BaseModel):
@@ -53,6 +56,8 @@ class OrderUpdate(BaseModel):
     due_date: date | None = None
     manager: str | None = Field(default=None, max_length=80)
     notes: str | None = Field(default=None, max_length=4000)
+    # как приняли (или вернули) деньги, если внесённое изменилось
+    pay_method: str | None = Field(default=None, max_length=20)
 
 
 class StatusUpdate(BaseModel):
