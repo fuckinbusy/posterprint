@@ -9,6 +9,7 @@ import { useOpenOrder } from '@/features/orders/useOpenOrder';
 import { dateRu, money, todayISO } from '@/lib/format';
 import type { Order, OrderStatus } from '@/types/api';
 
+import { edgeScroll, stopEdgeScroll } from './boardScroll';
 import { PayBadge } from './payment';
 import { useMoveStatus } from './useMoveStatus';
 import { useStatuses } from './useStatuses';
@@ -69,6 +70,7 @@ export function OrderCard({ order, onContextMenu }: OrderCardProps) {
     };
     const finish = () => {
       window.clearTimeout(timer);
+      stopEdgeScroll();
       ghost?.remove();
       ghost = null;
       el.classList.remove('dragging');
@@ -109,6 +111,8 @@ export function OrderCard({ order, onContextMenu }: OrderCardProps) {
       if (ghost) {
         ghost.style.transform = `translate(${t.clientX - start.x}px, ${t.clientY - start.y}px)`;
       }
+      // палец у края доски — доска едет сама к колонке за краем
+      edgeScroll(t.clientX);
       // призрак не ловит события (pointer-events: none), поэтому под пальцем
       // видна настоящая колонка
       const col = document.elementFromPoint(t.clientX, t.clientY)?.closest<HTMLElement>('.col') ?? null;

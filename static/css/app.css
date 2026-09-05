@@ -996,8 +996,14 @@ button.load-day:not(:disabled):hover {
   font-size: 13.5px;
   color: var(--muted);
 }
+/* Колонка тянется, чтобы шесть колонок влезли в широкий экран: раньше
+   ширина была жёсткой (300 px), и на 1920 доска не помещалась на четыре
+   пикселя — её скроллили постоянно. Уже 240 не сжимается: карточка с
+   номером, суммой и сроком иначе рассыпается. */
 .col {
-  flex: 0 0 300px;
+  flex: 1 1 280px;
+  min-width: 240px;
+  max-width: 360px;
   display: flex;
   flex-direction: column;
   min-height: 0;

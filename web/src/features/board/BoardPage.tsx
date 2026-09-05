@@ -1,6 +1,6 @@
 /* Доска заказов: колонка на каждый статус. */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useCatalog } from '@/api/catalog';
 import { useOrders } from '@/api/orders';
@@ -9,6 +9,7 @@ import { useCan } from '@/app/AuthProvider';
 import { money } from '@/lib/format';
 import type { Order, OrderStatus, StatusMeta } from '@/types/api';
 
+import { edgeScroll, rememberScroll, restoreScroll, stopEdgeScroll, wheelSideways } from './boardScroll';
 import { OrderCard } from './OrderCard';
 import { OrderContextMenu, type ContextMenuState } from './OrderContextMenu';
 import { sortOrders, type BoardSort } from './sorting';
@@ -33,6 +34,29 @@ export function BoardPage({ filter, sort }: BoardPageProps) {
 
   const openMenu = (order: Order, x: number, y: number) => setMenu({ order, x, y });
 
+  /* Прокрутка вбок (см. boardScroll.ts): колесо над шапками — вбок,
+     положение помнится между заходами, автопрокрутка при перетаскивании
+     останавливается, когда перетаскивание кончилось где угодно. */
+  const boardRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return undefined;
+    restoreScroll(el);
+    // колесо — не через onWheel: React вешает его passive, preventDefault не действует
+    el.addEventListener('wheel', wheelSideways, { passive: false });
+    const remember = () => rememberScroll(el);
+    el.addEventListener('scroll', remember, { passive: true });
+    document.addEventListener('dragend', stopEdgeScroll);
+    document.addEventListener('drop', stopEdgeScroll);
+    return () => {
+      el.removeEventListener('wheel', wheelSideways);
+      el.removeEventListener('scroll', remember);
+      document.removeEventListener('dragend', stopEdgeScroll);
+      document.removeEventListener('drop', stopEdgeScroll);
+      stopEdgeScroll();
+    };
+  }, []);
+
   return (
     <div className="board-wrap page">
       <TodayBar
@@ -41,7 +65,16 @@ export function BoardPage({ filter, sort }: BoardPageProps) {
         focus={focus}
         onFocus={setFocus}
       />
-      <main className="board" aria-label="Доска заказов">
+      <main
+        className="board"
+        aria-label="Доска заказов"
+        ref={boardRef}
+        // карточку тянут к краю — доска едет сама
+        onDragOver={(e) => edgeScroll(e.clientX)}
+        onDragLeave={(e) => {
+          if (e.currentTarget === e.target) stopEdgeScroll();
+        }}
+      >
         {statuses.statuses.map((status) => (
           <Column
             key={status.key}
