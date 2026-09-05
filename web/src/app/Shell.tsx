@@ -18,6 +18,7 @@ import { GateScreen } from '@/features/gate/GateScreen';
 import { LogsPage } from '@/features/logs/LogsPage';
 import { MetricsPage } from '@/features/metrics/MetricsPage';
 import { PricesPage } from '@/features/prices/PricesPage';
+import { SettingsPage } from '@/features/settings/SettingsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
 import { TopBar } from '@/features/shell/TopBar';
 import { WorksPage } from '@/features/works/WorksPage';
@@ -68,10 +69,12 @@ export function Shell() {
 
   return (
     <>
-      <TopBar filter={filter} query={query} onQueryChange={setQuery} showSearch={onBoard} />
+      <TopBar filter={filter} onBoard={onBoard} />
 
       {onBoard && (
         <BoardFilters
+          query={query}
+          onQueryChange={setQuery}
           templates={catalog.data?.templates ?? []}
           templateKey={templateKey}
           onTemplateChange={setTemplateKey}
@@ -128,6 +131,14 @@ export function Shell() {
           element={
             <Guarded permission="staff.manage">
               <LogsPage />
+            </Guarded>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <Guarded permission="staff.manage">
+              <SettingsPage />
             </Guarded>
           }
         />

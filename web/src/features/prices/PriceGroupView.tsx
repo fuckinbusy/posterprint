@@ -15,6 +15,7 @@ import { useModal } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { ArrowIcon, EyeIcon, EyeOffIcon, MoveIcon, TrashIcon } from '@/components/Icons';
 import { Empty, PageHead } from '@/components/ui';
+import { Select } from '@/components/Select';
 import { formatRate, plural } from '@/lib/format';
 import type { PriceGroup, PriceItem } from '@/types/api';
 
@@ -370,19 +371,19 @@ function EditableRow({
       />
       {/* В строке места мало — показываем сам символ, а расшифровку кладём
           в подсказку и в широкие формы, где она помещается целиком. */}
-      <select
+      <Select
+        variant="compact"
         className="unit-pick"
         value={item.unit}
         aria-label="За что берётся цена"
         title={unitOptions(item.unit).find((u) => u.value === item.unit)?.label ?? 'За что берётся цена'}
-        onChange={(e) => void changeUnit(e.target.value)}
-      >
-        {unitOptions(item.unit).map((unit) => (
-          <option value={unit.value} key={unit.value} title={unit.label}>
-            {unit.value}
-          </option>
-        ))}
-      </select>
+        options={unitOptions(item.unit).map((unit) => ({
+          value: unit.value,
+          label: unit.value,
+          hint: unit.label.replace(/^.*?— /, ''),
+        }))}
+        onChange={(v) => void changeUnit(v)}
+      />
       <button
         className="pr-act"
         type="button"
@@ -483,13 +484,11 @@ function AddItemForm({ group, onDone }: { group: PriceGroup; onDone: () => void 
       </div>
       <div className="field">
         <label>За что берётся</label>
-        <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-          {unitOptions(unit).map((u) => (
-            <option value={u.value} key={u.value}>
-              {u.label}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={unit}
+          options={unitOptions(unit).map((u) => ({ value: u.value, label: u.label }))}
+          onChange={setUnit}
+        />
       </div>
       <button className="btn btn-green" type="button" onClick={save}>
         Добавить

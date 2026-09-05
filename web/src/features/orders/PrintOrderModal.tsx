@@ -9,9 +9,13 @@
    и уходит на бумагу, отдельного «предпросмотра» нет. Печатью занимается
    CSS (раздел «печать» в static/css/app.css): при печати прячется всё, кроме
    листа, а сам лист распрямляется в обычный поток, чтобы длинный заказ
-   переполз на вторую страницу, а не обрезался. */
+   переполз на вторую страницу, а не обрезался.
 
-import { useState } from 'react';
+   Размер листа выбирается здесь, а не в окне печати браузера: квитанции
+   идут на A5, наряды на A4, и переключать это каждый раз в диалоге принтера
+   надоедает. Выбор запоминается на этом компьютере. */
+
+import { useEffect, useState } from 'react';
 
 import { useCatalog } from '@/api/catalog';
 import { useDesignInfo } from '@/api/designs';
@@ -24,6 +28,31 @@ import type { FormTemplate, Order, ShopDetails } from '@/types/api';
 import { orderParamRows } from './params';
 
 type SheetKind = 'receipt' | 'work';
+type PageSize = 'A4' | 'A5';
+
+const SIZE_STORAGE = 'poster.print.size';
+const PAIR_STORAGE = 'poster.print.pair';
+
+function remembered<T extends string>(key: string, fallback: T, allowed: readonly T[]): T {
+  try {
+    const saved = localStorage.getItem(key);
+    return allowed.includes(saved as T) ? (saved as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Размер страницы для @page задаётся только из CSS — подсовываем правило
+ *  через <style>, пока окно открыто. */
+function usePageSize(size: PageSize) {
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.setAttribute('data-print-size', size);
+    style.textContent = `@media print { @page { size: ${size}; } }`;
+    document.head.append(style);
+    return () => style.remove();
+  }, [size]);
+}
 
 export function PrintOrderModal({ order }: { order: Order }) {
   const can = useCan();
@@ -33,9 +62,39 @@ export function PrintOrderModal({ order }: { order: Order }) {
   // Остальным доступен наряд: там цен нет и быть не должно.
   const canReceipt = can('orders.price.view');
   const [kind, setKind] = useState<SheetKind>(canReceipt ? 'receipt' : 'work');
+  const [size, setSize] = useState<PageSize>(() =>
+    remembered<PageSize>(`${SIZE_STORAGE}.${kind}`, kind === 'receipt' ? 'A5' : 'A4', ['A4', 'A5']),
+  );
+  // две квитанции на листе: приёмке нужна своя копия, клиенту — своя
+  const [pair, setPair] = useState(() => remembered<'yes' | 'no'>(PAIR_STORAGE, 'no', ['yes', 'no']) === 'yes');
+
+  usePageSize(pair && kind === 'receipt' ? 'A4' : size);
+
+  const switchKind = (next: SheetKind) => {
+    setKind(next);
+    setSize(remembered<PageSize>(`${SIZE_STORAGE}.${next}`, next === 'receipt' ? 'A5' : 'A4', ['A4', 'A5']));
+  };
+  const chooseSize = (next: PageSize) => {
+    setSize(next);
+    try {
+      localStorage.setItem(`${SIZE_STORAGE}.${kind}`, next);
+    } catch {
+      /* без памяти тоже работает */
+    }
+  };
+  const togglePair = (next: boolean) => {
+    setPair(next);
+    try {
+      localStorage.setItem(PAIR_STORAGE, next ? 'yes' : 'no');
+    } catch {
+      /* без памяти тоже работает */
+    }
+  };
 
   const template = catalog?.templates.find((t) => t.key === order.template_key);
   const design = useDesignInfo(order.id, can('design.view'));
+
+  const receipt = <ReceiptSheet order={order} template={template} shop={catalog?.shop} />;
 
   return (
     <ModalShell
@@ -53,25 +112,46 @@ export function PrintOrderModal({ order }: { order: Order }) {
     >
       {canReceipt && (
         <div className="print-switch">
-          <button
-            className={kind === 'receipt' ? 'active' : ''}
-            type="button"
-            onClick={() => setKind('receipt')}
-          >
+          <button className={kind === 'receipt' ? 'active' : ''} type="button" onClick={() => switchKind('receipt')}>
             Квитанция клиенту
           </button>
-          <button
-            className={kind === 'work' ? 'active' : ''}
-            type="button"
-            onClick={() => setKind('work')}
-          >
+          <button className={kind === 'work' ? 'active' : ''} type="button" onClick={() => switchKind('work')}>
             Наряд в цех
           </button>
         </div>
       )}
 
+      <div className="print-opts">
+        <div className="print-switch" role="group" aria-label="Размер листа">
+          {(['A5', 'A4'] as PageSize[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={(pair && kind === 'receipt' ? 'A4' : size) === s ? 'active' : ''}
+              disabled={pair && kind === 'receipt'}
+              onClick={() => chooseSize(s)}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        {kind === 'receipt' && (
+          <label className="check" title="Две одинаковые квитанции на листе A4 — приёмке и клиенту">
+            <input type="checkbox" checked={pair} onChange={(e) => togglePair(e.target.checked)} />
+            Две на листе
+          </label>
+        )}
+      </div>
+
       {kind === 'receipt' ? (
-        <ReceiptSheet order={order} template={template} shop={catalog?.shop} />
+        pair ? (
+          <div className="print-pair">
+            {receipt}
+            {receipt}
+          </div>
+        ) : (
+          receipt
+        )
       ) : (
         <WorkSheet
           order={order}
@@ -83,8 +163,7 @@ export function PrintOrderModal({ order }: { order: Order }) {
       )}
 
       <p className="print-hint">
-        Так документ и напечатается. Размер листа и поля — в окне печати
-        браузера; для квитанции обычно хватает A5.
+        Так документ и напечатается. Поля — в окне печати браузера; размер листа уже выбран.
       </p>
     </ModalShell>
   );
@@ -121,9 +200,7 @@ function ReceiptSheet({
       {(order.client_name || order.client_phone) && (
         <div className="ps-line">
           <span>Клиент</span>
-          <b>
-            {[order.client_name, formatPhone(order.client_phone)].filter(Boolean).join(' · ')}
-          </b>
+          <b>{[order.client_name, formatPhone(order.client_phone)].filter(Boolean).join(' · ')}</b>
         </div>
       )}
 
@@ -149,14 +226,51 @@ function ReceiptSheet({
   );
 }
 
+/** Деньги в квитанции. Главная строка — крупная рамка справа: с ней клиент
+ *  придёт забирать заказ. Ноль в ней писать нельзя: «К доплате 0 ₽» человек
+ *  читает мельком и переспрашивает, сколько же он должен. */
+function MoneyBlock({ order }: { order: Order }) {
+  const settled = !order.refunded && order.price > 0 && order.debt <= 0 && order.surplus <= 0;
+
+  return (
+    <div className="ps-money">
+      <div>
+        <span>Стоимость</span>
+        <b>{order.price ? moneyOrZero(order.price) : 'не указана'}</b>
+      </div>
+      <div>
+        <span>Внесено</span>
+        <b>{moneyOrZero(order.prepaid)}</b>
+      </div>
+      {order.refunded ? (
+        <div className="big">
+          <span>Возвращено клиенту</span>
+          <b>{moneyOrZero(order.prepaid)}</b>
+        </div>
+      ) : order.surplus > 0 ? (
+        <div className="big">
+          <span>Переплата</span>
+          <b>{moneyOrZero(order.surplus)}</b>
+        </div>
+      ) : (
+        <div className="big">
+          <span>{settled ? 'Оплата' : 'К доплате'}</span>
+          <b>{settled ? 'полностью' : moneyOrZero(order.debt)}</b>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------- наряд в цех */
-function WorkSheet({
+export function WorkSheet({
   order,
   template,
   designFile,
 }: {
   order: Order;
   template: FormTemplate | undefined;
+  /** имя файла макета; «—» — макета нет; пусто — строку не показываем */
   designFile: string;
 }) {
   const rows = orderParamRows(template, order);
@@ -223,50 +337,17 @@ function WorkSheet({
   );
 }
 
-/** Деньги в квитанции. Главная строка — крупная рамка справа: с ней клиент
- *  придёт забирать заказ. Ноль в ней писать нельзя: «К доплате 0 ₽» человек
- *  читает мельком и переспрашивает, сколько же он должен. */
-function MoneyBlock({ order }: { order: Order }) {
-  const settled = !order.refunded && order.price > 0 && order.debt <= 0;
-
-  return (
-    <div className="ps-money">
-      <div>
-        <span>Стоимость</span>
-        <b>{order.price ? moneyOrZero(order.price) : 'не указана'}</b>
-      </div>
-      <div>
-        <span>Внесено</span>
-        <b>{moneyOrZero(order.prepaid)}</b>
-      </div>
-      {order.refunded ? (
-        <div className="big">
-          <span>Возвращено клиенту</span>
-          <b>{moneyOrZero(order.prepaid)}</b>
-        </div>
-      ) : order.surplus > 0 ? (
-        <div className="big">
-          <span>Переплата</span>
-          <b>{moneyOrZero(order.surplus)}</b>
-        </div>
-      ) : (
-        <div className="big">
-          <span>{settled ? 'Оплата' : 'К доплате'}</span>
-          <b>{settled ? 'полностью' : moneyOrZero(order.debt)}</b>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ---------------------------------------------------------- общие куски */
 function ShopHead({ shop }: { shop: ShopDetails | undefined }) {
   const contacts = [shop?.phone, shop?.address, shop?.note].filter(Boolean).join(' · ');
-  if (!shop?.name && !contacts) return null;
+  if (!shop?.name && !contacts && !shop?.logo) return null;
   return (
     <div className="ps-shop">
-      {shop?.name && <b>{shop.name}</b>}
-      {contacts && <span>{contacts}</span>}
+      {shop?.logo && <img className="ps-logo" src={shop.logo} alt="" />}
+      <div className="ps-shop-text">
+        {shop?.name && <b>{shop.name}</b>}
+        {contacts && <span>{contacts}</span>}
+      </div>
     </div>
   );
 }
@@ -306,7 +387,8 @@ function WorkTable({
 function PrintedAt() {
   return (
     <div className="ps-printed">
-      Напечатано {new Date().toLocaleString('ru-RU', {
+      Напечатано{' '}
+      {new Date().toLocaleString('ru-RU', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',

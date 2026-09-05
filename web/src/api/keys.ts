@@ -48,4 +48,6 @@ export const qk = {
 
   /** QR и реквизиты для оплаты; сумма входит в ключ — на каждую свой код */
   payment: (orderId: number, amount: number) => ['payment', orderId, amount] as const,
+
+  settings: ['settings'] as const,
 };

@@ -101,40 +101,48 @@ def account_key_ok(account: str, bic: str) -> bool:
     return sum(int(d) * w for d, w in zip(digits, KEY_WEIGHTS)) % 10 == 0
 
 
-def settings() -> dict:
-    """Реквизиты из .env. Пусто — значит, оплату показывать нечем."""
+def settings(overrides: dict[str, str] | None = None) -> dict:
+    """Реквизиты. Значение из базы (страница «Настройки») главнее .env;
+    ключа в базе нет — берётся .env. Пусто — значит, оплату показывать нечем."""
+    from app.settings import pick
+
+    def get(key: str, env_name: str) -> str:
+        return pick(overrides, key, _env(env_name))
+
     return {
         # для QR по ГОСТ (все пять обязательны)
-        "name": _env("POSTER_PAY_NAME"),
-        "account": _digits(_env("POSTER_PAY_ACCOUNT")),
-        "bank": _env("POSTER_PAY_BANK"),
-        "bic": _digits(_env("POSTER_PAY_BIC")),
-        "corr_account": _digits(_env("POSTER_PAY_CORR_ACCOUNT")),
+        "name": get("pay_name", "POSTER_PAY_NAME"),
+        "account": _digits(get("pay_account", "POSTER_PAY_ACCOUNT")),
+        "bank": get("pay_bank", "POSTER_PAY_BANK"),
+        "bic": _digits(get("pay_bic", "POSTER_PAY_BIC")),
+        "corr_account": _digits(get("pay_corr_account", "POSTER_PAY_CORR_ACCOUNT")),
         # дополнительные — банки часто просят ИНН
-        "inn": _digits(_env("POSTER_PAY_INN")),
-        "kpp": _digits(_env("POSTER_PAY_KPP")),
+        "inn": _digits(get("pay_inn", "POSTER_PAY_INN")),
+        "kpp": _digits(get("pay_kpp", "POSTER_PAY_KPP")),
         # то, что просто показываем на экране, без QR
-        "card": _env("POSTER_PAY_CARD"),
-        "phone": _env("POSTER_PAY_PHONE"),
-        "note": _env("POSTER_PAY_NOTE"),
-        "encoding": _env("POSTER_PAY_ENCODING").lower() or "utf8",
+        "card": get("pay_card", "POSTER_PAY_CARD"),
+        "phone": get("pay_phone", "POSTER_PAY_PHONE"),
+        "note": get("pay_note", "POSTER_PAY_NOTE"),
+        "encoding": get("pay_encoding", "POSTER_PAY_ENCODING").lower() or "utf8",
         # ссылка на перевод, выданная банком
-        "link": _env("POSTER_PAY_LINK"),
-        "mode": _mode(),
+        "link": get("pay_link", "POSTER_PAY_LINK"),
+        "mode": _mode(
+            get("pay_mode", "POSTER_PAY_MODE").lower(),
+            get("pay_link", "POSTER_PAY_LINK"),
+        ),
     }
 
 
-def _mode() -> str:
+def _mode(chosen: str = "", link: str = "") -> str:
     """Какой QR показываем.
 
     Пусто — решаем сами: есть ссылка, значит её и показываем. Так проще
     всего: владелец вставил ссылку из банка — всё заработало, читать про
     режимы не пришлось.
     """
-    chosen = _env("POSTER_PAY_MODE").lower()
     if chosen in MODES:
         return chosen
-    return "link" if _env("POSTER_PAY_LINK") else "gost"
+    return "link" if link else "gost"
 
 
 def _qr_library_missing() -> bool:

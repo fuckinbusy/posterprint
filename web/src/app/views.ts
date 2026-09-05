@@ -10,6 +10,7 @@ import {
   NavLogsIcon,
   NavMetricsIcon,
   NavPricesIcon,
+  NavSettingsIcon,
   NavStaffIcon,
   NavWorksIcon,
 } from '@/components/Icons';
@@ -81,6 +82,14 @@ export const VIEWS: ViewConfig[] = [
     label: 'Журнал',
     title: 'ПОСТЕР · Журнал',
     icon: NavLogsIcon,
+    permission: 'staff.manage',
+  },
+  {
+    key: 'settings',
+    path: '/settings',
+    label: 'Настройки',
+    title: 'ПОСТЕР · Настройки',
+    icon: NavSettingsIcon,
     permission: 'staff.manage',
   },
 ];

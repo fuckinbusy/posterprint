@@ -11,6 +11,7 @@ import { PRICE_UNITS, unitOptions } from '@/features/prices/units';
 import type { PriceGroup } from '@/types/api';
 
 import type { QuickMode } from './WorkFieldRow';
+import { Select } from '@/components/Select';
 
 interface QuickPriceFormProps {
   mode: QuickMode;
@@ -86,13 +87,11 @@ export function QuickPriceForm({ mode, group, onCancel, onCreated }: QuickPriceF
           </label>
           <label className="wk-cell">
             <span>Единица по умолчанию</span>
-            <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-              {PRICE_UNITS.map((u) => (
-                <option value={u.value} key={u.value}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={unit}
+              options={PRICE_UNITS.map((u) => ({ value: u.value, label: u.label }))}
+              onChange={setUnit}
+            />
           </label>
           <button className="btn btn-green" type="button" disabled={saving} onClick={save}>
             Создать
@@ -135,13 +134,11 @@ export function QuickPriceForm({ mode, group, onCancel, onCreated }: QuickPriceF
         {!isFactor && (
           <label className="wk-cell">
             <span>За что берётся</span>
-            <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-              {unitOptions(unit).map((u) => (
-                <option value={u.value} key={u.value}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={unit}
+              options={unitOptions(unit).map((u) => ({ value: u.value, label: u.label }))}
+              onChange={setUnit}
+            />
           </label>
         )}
         <button className="btn btn-green" type="button" disabled={saving} onClick={save}>

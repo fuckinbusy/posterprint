@@ -361,3 +361,14 @@ class PriceChange(Base):
     new_value: Mapped[str] = mapped_column(String(40), default="")
     author: Mapped[str] = mapped_column(String(80), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Setting(Base):
+    """Настройка, которую правит владелец из интерфейса: реквизиты мастерской
+    и оплаты. Ключ/значение; значение из базы главнее .env (app/settings.py)."""
+
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

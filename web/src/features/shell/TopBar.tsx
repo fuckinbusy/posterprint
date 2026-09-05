@@ -1,6 +1,9 @@
-/* Шапка: бренд, разделы, поиск, счётчик денег в работе, профиль. */
+/* Шапка: бренд, разделы, счётчик денег в работе, профиль.
 
-import { useEffect, useRef } from 'react';
+   Поиска здесь больше нет — он переехал в полосу фильтров доски. В шапке
+   он делил место с разделами, и на средних экранах кнопки справа уезжали
+   за край, приходилось скроллить. */
+
 import { NavLink } from 'react-router-dom';
 
 import { useOrders } from '@/api/orders';
@@ -8,44 +11,22 @@ import type { OrdersFilter } from '@/api/keys';
 import { useAuth } from '@/app/AuthProvider';
 import { useConfirm } from '@/app/ConfirmProvider';
 import { VIEWS } from '@/app/views';
-import { PlusIcon, SearchIcon } from '@/components/Icons';
+import { PlusIcon } from '@/components/Icons';
 import { useNewOrder } from '@/features/orders/useNewOrder';
 import { moneyOrZero } from '@/lib/format';
 
 interface TopBarProps {
   filter: OrdersFilter;
-  query: string;
-  onQueryChange: (value: string) => void;
-  /** поиск, фильтры и «новый заказ» относятся только к доске */
-  showSearch: boolean;
+  /** «новый заказ» относится только к доске */
+  onBoard: boolean;
 }
 
-export function TopBar({ filter, query, onQueryChange, showSearch }: TopBarProps) {
+export function TopBar({ filter, onBoard }: TopBarProps) {
   const { session, can, signOut } = useAuth();
   const askConfirm = useConfirm();
   const newOrder = useNewOrder();
   // вкладка показывается, только если у профиля есть право на раздел
   const views = VIEWS.filter((view) => !view.permission || can(view.permission));
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  // «/» — быстрый переход в поиск. Не перехватываем, если человек уже
-  // печатает в каком-нибудь поле: слэш там нужен как символ.
-  useEffect(() => {
-    if (!showSearch) return undefined;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== '/') return;
-      const active = document.activeElement;
-      const typing =
-        active instanceof HTMLInputElement ||
-        active instanceof HTMLTextAreaElement ||
-        active instanceof HTMLSelectElement;
-      if (typing) return;
-      e.preventDefault();
-      searchRef.current?.focus();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [showSearch]);
 
   const changeProfile = async () => {
     const ok = await askConfirm({
@@ -92,24 +73,9 @@ export function TopBar({ filter, query, onQueryChange, showSearch }: TopBarProps
         ))}
       </nav>
 
-      {showSearch && (
-        <div className="tb-search">
-          <SearchIcon />
-          <input
-            type="search"
-            placeholder="Номер, клиент, телефон…"
-            autoComplete="off"
-            aria-label="Поиск заказов"
-            ref={searchRef}
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-          />
-        </div>
-      )}
-
       <div className="tb-right">
         {can('finance.totals') && <ActiveCounter filter={filter} />}
-        {showSearch && can('orders.create') && (
+        {onBoard && can('orders.create') && (
           <button className="btn btn-green" type="button" onClick={newOrder}>
             <PlusIcon />
             Новый заказ

@@ -45,7 +45,9 @@ def field_to_dict(db: Session, field: TemplateField) -> dict:
     else:
         options = list(field.options or [])
 
-    default = field.default_value
+    # тип значения зависит от типа поля: у списка строка, у галочки bool,
+    # у числа число — mypy иначе считает всё строкой
+    default: str | bool | int | float = field.default_value
     if field.type == "select":
         # обязательное поле всегда с ответом; необязательное можно оставить пустым
         # («без ламинации», «без обработки края»)

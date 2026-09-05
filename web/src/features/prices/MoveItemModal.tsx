@@ -11,6 +11,7 @@ import { movePriceItem, usePricesInvalidation } from '@/api/prices';
 import { ModalShell, useModalFrame } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { Field, Section } from '@/components/ui';
+import { Select } from '@/components/Select';
 import { formatRate } from '@/lib/format';
 import type { PriceGroup, PriceItem } from '@/types/api';
 
@@ -94,13 +95,11 @@ export function MoveItemModal({ item, source, groups }: MoveItemModalProps) {
                 : null
             }
           >
-            <select value={target} onChange={(e) => setTarget(e.target.value)}>
-              {targets.map((group) => (
-                <option value={group.key} key={group.key}>
-                  {group.title}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={target}
+              options={targets.map((group) => ({ value: group.key, label: group.title }))}
+              onChange={setTarget}
+            />
           </Field>
         )}
       </Section>

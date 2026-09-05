@@ -1,10 +1,16 @@
-/* Полоса под шапкой: фильтр по видам работ и порядок карточек в колонках. */
+/* Полоса под шапкой: поиск, фильтр по видам работ и порядок карточек. */
 
+import { useEffect, useRef } from 'react';
+
+import { SearchIcon } from '@/components/Icons';
+import { Select } from '@/components/Select';
 import type { FormTemplate } from '@/types/api';
 
 import type { BoardSort } from './sorting';
 
 interface BoardFiltersProps {
+  query: string;
+  onQueryChange: (value: string) => void;
   templates: FormTemplate[];
   templateKey: string;
   onTemplateChange: (key: string) => void;
@@ -21,6 +27,8 @@ const SORT_OPTIONS: { value: BoardSort; label: string }[] = [
 ];
 
 export function BoardFilters({
+  query,
+  onQueryChange,
   templates,
   templateKey,
   onTemplateChange,
@@ -28,9 +36,40 @@ export function BoardFilters({
   onSortChange,
 }: BoardFiltersProps) {
   const items = [{ key: 'all', title: 'Все работы' }, ...templates];
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // «/» — быстрый переход в поиск. Не перехватываем, если человек уже
+  // печатает в каком-нибудь поле: слэш там нужен как символ.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/') return;
+      const active = document.activeElement;
+      const typing =
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        active instanceof HTMLSelectElement;
+      if (typing) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <div className="filters-row">
+      <div className="tb-search">
+        <SearchIcon />
+        <input
+          type="search"
+          placeholder="Номер, клиент, телефон…"
+          autoComplete="off"
+          aria-label="Поиск заказов"
+          ref={searchRef}
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+        />
+      </div>
       <div className="filters" role="group" aria-label="Фильтр по виду работ">
         {items.map((item) => (
           <button
@@ -43,20 +82,16 @@ export function BoardFilters({
           </button>
         ))}
       </div>
-      <label className="sort">
+      <div className="sort">
         <span>Порядок</span>
-        <select
+        <Select
+          variant="pill"
           aria-label="Порядок заказов в колонках"
           value={sort}
-          onChange={(e) => onSortChange(e.target.value as BoardSort)}
-        >
-          {SORT_OPTIONS.map((option) => (
-            <option value={option.value} key={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
+          options={SORT_OPTIONS}
+          onChange={(v) => onSortChange(v as BoardSort)}
+        />
+      </div>
     </div>
   );
 }

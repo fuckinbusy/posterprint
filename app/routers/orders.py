@@ -9,7 +9,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app import catalog, clients as clients_logic, payments, pricing, shop
+from app import catalog, clients as clients_logic, payments, pricing, settings as settings_logic, shop
 from app.logs import log as applog
 from app.security import CurrentUser, current_user, require_perm
 from app.database import get_db
@@ -162,7 +162,7 @@ def get_catalog(db: Session = Depends(get_db)) -> dict:
         "templates": catalog.all_templates(db),
         # реквизиты мастерской для шапки квитанции: справочник, который
         # читается один раз вместе с остальными
-        "shop": shop.details(),
+        "shop": shop.details(settings_logic.overrides(db)),
         "statuses": [
             {"key": status.value, **STATUS_META[status]} for status in OrderStatus
         ],
@@ -531,7 +531,7 @@ def order_payment(
     к оплате называть нечем.
     """
     order = get_order_or_404(db, order_id)
-    config = payments.settings()
+    config = payments.settings(settings_logic.overrides(db))
     _, debt = payment_state(order)
 
     # по умолчанию — сколько осталось доплатить; ноль (всё оплачено) даёт

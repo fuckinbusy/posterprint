@@ -6,6 +6,7 @@ import { createPriceGroup, updatePriceGroup, usePricesInvalidation } from '@/api
 import { ModalShell, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { Field, Section } from '@/components/ui';
+import { Select } from '@/components/Select';
 import type { PriceGroup, PriceGroupKind } from '@/types/api';
 
 import { possibleParents } from './tree';
@@ -106,13 +107,11 @@ export function PriceGroupEditor({
             label="Единица по умолчанию"
             hint="Подставляется новым позициям раздела. У каждой позиции единица своя — в одном разделе спокойно уживаются цена за метр и цена за штуку. На расчёт не влияет: способ счёта задаёт роль поля в виде работ."
           >
-            <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-              {units.map((u) => (
-                <option value={u.value} key={u.value}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={unit}
+              options={units.map((u) => ({ value: u.value, label: u.label }))}
+              onChange={setUnit}
+            />
           </Field>
         </div>
 
@@ -136,18 +135,15 @@ export function PriceGroupEditor({
                 : 'Здесь выбирается РОДИТЕЛЬ. Чтобы наоборот — положить что-то внутрь этого раздела, откройте его и нажмите «+ Подраздел».'
             }
           >
-            <select
+            <Select
               value={parent}
               disabled={hasChildren}
-              onChange={(e) => setParent(e.target.value)}
-            >
-              <option value="">— никуда, это самостоятельный раздел —</option>
-              {parents.map((g) => (
-                <option value={g.key} key={g.key}>
-                  внутрь «{g.title}»
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: '— никуда, это самостоятельный раздел —' },
+                ...parents.map((g) => ({ value: g.key, label: `внутрь «${g.title}»` })),
+              ]}
+              onChange={setParent}
+            />
           </Field>
         </div>
 
@@ -156,10 +152,14 @@ export function PriceGroupEditor({
             label="Что хранят позиции"
             hint="Коэффициенты умножают цену — например надбавка за двустороннюю печать."
           >
-            <select value={kind} onChange={(e) => setKind(e.target.value as PriceGroupKind)}>
-              <option value="money">Цены в рублях</option>
-              <option value="factor">Коэффициенты (×1.8)</option>
-            </select>
+            <Select
+              value={kind}
+              options={[
+                { value: 'money', label: 'Цены в рублях' },
+                { value: 'factor', label: 'Коэффициенты (×1.8)' },
+              ]}
+              onChange={(v) => setKind(v as PriceGroupKind)}
+            />
           </Field>
         </div>
       </Section>

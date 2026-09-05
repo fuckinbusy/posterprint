@@ -160,6 +160,19 @@ export interface ShopDetails {
   phone: string;
   address: string;
   note: string;
+  /** data:-строка с картинкой; пусто — логотипа нет */
+  logo: string;
+}
+
+/** GET/PUT /api/settings — реквизиты мастерской и оплаты. */
+export interface SettingsSnapshot {
+  values: Record<string, string>;
+  /** откуда взято каждое значение: из базы, из .env или пусто */
+  sources: Record<string, 'db' | 'env' | 'empty'>;
+  shop: ShopDetails;
+  problems: string[];
+  hints: string[];
+  qr_ready: boolean;
 }
 
 export interface Catalog {

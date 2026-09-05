@@ -6,6 +6,7 @@
 import { useId } from 'react';
 
 import type { FormField, ParamValue } from '@/types/api';
+import { Select } from '@/components/Select';
 
 interface OrderParamFieldProps {
   field: FormField;
@@ -32,15 +33,17 @@ export function OrderParamField({ field, value, inactive, onChange }: OrderParam
     return (
       <div className="field">
         <label htmlFor={id}>{field.label}</label>
-        <select id={id} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>
-          {/* необязательное поле можно оставить пустым: «без ламинации» */}
-          {!field.required && <option value="">— нет —</option>}
-          {field.options.map((option) => (
-            <option value={option} key={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        <Select
+          id={id}
+          value={String(value ?? '')}
+          placeholder="— нет —"
+          options={[
+            // необязательное поле можно оставить пустым: «без ламинации»
+            ...(field.required ? [] : [{ value: '', label: '— нет —' }]),
+            ...field.options.map((option) => ({ value: option, label: option })),
+          ]}
+          onChange={onChange}
+        />
       </div>
     );
   }

@@ -2,6 +2,7 @@
 
 import { useModal } from '@/app/ModalProvider';
 import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from '@/components/Icons';
+import { Select } from '@/components/Select';
 import { formatRate, plural } from '@/lib/format';
 
 import { PricePickerModal } from './PricePickerModal';
@@ -146,36 +147,32 @@ export function WorkFieldRow({
   const roleSelect = (
     <label className="wk-cell">
       <span>Как считать</span>
-      <select
+      <Select
         value={field.pricing_role}
-        onChange={(e) => set({ pricing_role: e.target.value as PricingRole })}
-      >
-        {rolesFor(kindKey).map((role) => (
-          <option value={role.key} key={role.key}>
-            {role.title}
-          </option>
-        ))}
-      </select>
+        options={rolesFor(kindKey).map((role) => ({ value: role.key, label: role.title }))}
+        onChange={(v) => set({ pricing_role: v as PricingRole })}
+      />
     </label>
   );
 
   const itemSelect = (name: 'price_item' | 'default_value', value: string, withValue: boolean) => (
     <label className="wk-cell">
       <span>{name === 'price_item' ? 'Позиция прайса' : 'Выбрано по умолчанию'}</span>
-      <select
+      <Select
         value={value}
         disabled={!field.price_group}
-        onChange={(e) => pickOrCreate(e.target.value, (next) => set({ [name]: next }), 'item')}
-      >
-        <option value="">{field.price_group ? '— выберите —' : '— сначала раздел —'}</option>
-        {items.map((item) => (
-          <option value={item.item_key} key={item.id}>
-            {item.title || item.item_key}
-            {withValue ? ` · ${item.value}` : ''}
-          </option>
-        ))}
-        {field.price_group && <option value={CREATE_NEW}>+ Создать позицию…</option>}
-      </select>
+        placeholder={field.price_group ? '— выберите —' : '— сначала раздел —'}
+        options={[
+          { value: '', label: field.price_group ? '— выберите —' : '— сначала раздел —' },
+          ...items.map((item) => ({
+            value: item.item_key,
+            label: item.title || item.item_key,
+            hint: withValue ? String(item.value) : undefined,
+          })),
+          ...(field.price_group ? [{ value: CREATE_NEW, label: '+ Создать позицию…' }] : []),
+        ]}
+        onChange={(v) => pickOrCreate(v, (next) => set({ [name]: next }), 'item')}
+      />
     </label>
   );
 
@@ -201,16 +198,11 @@ export function WorkFieldRow({
     field.pricing_role === 'per_length' && lengthFields.length > 1 ? (
       <label className="wk-cell">
         <span>Считать по полю</span>
-        <select
+        <Select
           value={field.source_field}
-          onChange={(e) => set({ source_field: e.target.value })}
-        >
-          {lengthFields.map((f, n) => (
-            <option value={f.key} key={f.key || n}>
-              {f.label || `длина ${n + 1}`}
-            </option>
-          ))}
-        </select>
+          options={lengthFields.map((f, n) => ({ value: f.key, label: f.label || `длина ${n + 1}` }))}
+          onChange={(v) => set({ source_field: v })}
+        />
       </label>
     ) : null;
 
@@ -290,17 +282,14 @@ export function WorkFieldRow({
         </label>
         <label className="wk-cell">
           <span>Выбрано по умолчанию</span>
-          <select
+          <Select
             value={field.default_value}
-            onChange={(e) => set({ default_value: e.target.value })}
-          >
-            <option value="">{field.required ? '— первый в списке —' : '— нет —'}</option>
-            {options.map((option) => (
-              <option value={option} key={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: field.required ? '— первый в списке —' : '— нет —' },
+              ...options.map((option) => ({ value: option, label: option })),
+            ]}
+            onChange={(v) => set({ default_value: v })}
+          />
         </label>
         {requiredCell}
       </>
@@ -311,13 +300,11 @@ export function WorkFieldRow({
       <>
         <label className="wk-cell">
           <span>В чём вводят</span>
-          <select value={unit} onChange={(e) => set({ unit: e.target.value })}>
-            {(['мм', 'см', 'м'] as SizeUnit[]).map((u) => (
-              <option value={u} key={u}>
-                {UNIT_TITLES[u]}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={unit}
+            options={(['мм', 'см', 'м'] as SizeUnit[]).map((u) => ({ value: u, label: UNIT_TITLES[u] }))}
+            onChange={(v) => set({ unit: v })}
+          />
         </label>
         <label className="wk-cell wide">
           <span>Значение по умолчанию, {unit}</span>
@@ -386,16 +373,11 @@ export function WorkFieldRow({
 
       <label className="wk-kind">
         <span>Что это за поле</span>
-        <select
+        <Select
           value={kindKey}
-          onChange={(e) => onChange(applyKind(field, e.target.value as FieldKindKey))}
-        >
-          {FIELD_KINDS.map((item) => (
-            <option value={item.key} key={item.key}>
-              {item.title}
-            </option>
-          ))}
-        </select>
+          options={FIELD_KINDS.map((item) => ({ value: item.key, label: item.title }))}
+          onChange={(v) => onChange(applyKind(field, v as FieldKindKey))}
+        />
       </label>
       <div className="wk-kind-hint">{kind.hint}</div>
 

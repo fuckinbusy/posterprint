@@ -18,11 +18,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def details() -> dict:
-    """Название, телефон, адрес и строка под ними (часы работы, сайт)."""
+def details(overrides: dict[str, str] | None = None) -> dict:
+    """Название, телефон, адрес и строка под ними (часы работы, сайт).
+
+    overrides — то, что владелец записал на странице «Настройки»
+    (app/settings.py); оно главнее .env. Логотип живёт только там.
+    """
+    from app.settings import pick
+
+    env = lambda name: (os.getenv(name) or "").strip()  # noqa: E731
     return {
-        "name": (os.getenv("POSTER_SHOP_NAME") or "").strip(),
-        "phone": (os.getenv("POSTER_SHOP_PHONE") or "").strip(),
-        "address": (os.getenv("POSTER_SHOP_ADDRESS") or "").strip(),
-        "note": (os.getenv("POSTER_SHOP_NOTE") or "").strip(),
+        "name": pick(overrides, "shop_name", env("POSTER_SHOP_NAME")),
+        "phone": pick(overrides, "shop_phone", env("POSTER_SHOP_PHONE")),
+        "address": pick(overrides, "shop_address", env("POSTER_SHOP_ADDRESS")),
+        "note": pick(overrides, "shop_note", env("POSTER_SHOP_NOTE")),
+        "logo": pick(overrides, "shop_logo", ""),
     }

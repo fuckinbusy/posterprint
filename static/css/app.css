@@ -527,8 +527,17 @@ svg {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 22px;
+  padding: 12px 22px;
   border-bottom: 1px solid var(--line);
+}
+/* поиск живёт здесь, а не в шапке: там он делил место с разделами */
+.filters-row .tb-search {
+  flex: 0 1 300px;
+  min-width: 170px;
+}
+.filters-row .tb-search input {
+  padding: 9px 12px 9px 38px;
+  border-radius: 999px;
 }
 .filters {
   display: flex;
@@ -5464,4 +5473,333 @@ body.touch-dragging {
 .col.touch-over {
   outline: 2px solid var(--green);
   outline-offset: -2px;
+}
+
+/* ---------- выпадающий список ---------- */
+/* Нативный <select> красится только снаружи: список из него рисует
+   операционная система — белый, с чужим шрифтом. Свой список повторяет
+   стиль системы целиком. Разметка — components/Select.tsx. */
+.sel {
+  position: relative;
+  width: 100%;
+}
+.sel-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 11px 13px;
+  color: var(--text);
+  font-family: "Inter";
+  font-size: 14px;
+  line-height: 1.25;
+  transition: border-color 0.2s;
+}
+.sel-btn:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.sel-btn:focus-visible,
+.sel.open .sel-btn {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-glow);
+}
+.sel-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.sel-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sel-value.empty {
+  color: #6d746a;
+}
+.sel-arrow {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.18s;
+}
+.sel.open .sel-arrow {
+  transform: translateY(2px) rotate(225deg);
+}
+
+.sel-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 120;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6);
+  animation: pop 0.14s var(--ease);
+  min-width: max-content;
+  max-width: min(420px, 90vw);
+}
+.sel.up .sel-list {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.sel-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sel-section + .sel-section {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.sel-group {
+  padding: 6px 10px 4px;
+  font-family: "Space Mono";
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sel-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 9px 11px 9px 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+  position: relative;
+}
+.sel-opt.on {
+  background: rgba(60, 199, 7, 0.12);
+}
+.sel-opt.selected::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 5px;
+  height: 9px;
+  border-right: 2px solid var(--green);
+  border-bottom: 2px solid var(--green);
+  transform: translateY(-60%) rotate(45deg);
+}
+.sel-opt.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.sel-opt-label {
+  flex: 1;
+  min-width: 0;
+}
+.sel-opt-hint {
+  flex: 0 0 auto;
+  font-family: "Space Mono";
+  font-size: 12px;
+  color: var(--muted);
+}
+.sel-empty {
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* таблетка — порядок на доске, инструменты журнала */
+.sel-pill {
+  width: auto;
+}
+.sel-pill .sel-btn {
+  border-radius: 999px;
+  padding: 8px 15px;
+  font-family: "Space Mono";
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.sel-pill .sel-list {
+  left: auto;
+  right: 0;
+}
+.sel-pill .sel-opt {
+  font-family: "Space Mono";
+  font-size: 13px;
+}
+
+/* компактный — единица в строке прайса */
+.sel-compact {
+  width: auto;
+}
+.sel-compact .sel-btn {
+  padding: 7px 10px;
+  font-family: "Space Mono";
+  font-size: 12.5px;
+  border-radius: 8px;
+}
+.sel-compact .sel-list {
+  left: auto;
+  right: 0;
+}
+
+/* ---------- печать: размер листа, две копии, логотип ---------- */
+.print-opts {
+  display: flex;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: -6px 0 16px;
+}
+.print-opts .print-switch {
+  margin: 0;
+}
+.print-opts label.check {
+  margin: 0;
+}
+.ps-shop {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+.ps-shop .ps-shop-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ps-logo {
+  max-height: 48px;
+  max-width: 160px;
+  object-fit: contain;
+}
+/* две квитанции на листе — режутся по пунктиру */
+.print-pair .print-sheet + .print-sheet {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px dashed #999;
+}
+/* стопка нарядов: каждый с новой страницы */
+.print-stack .print-sheet + .print-sheet {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px dashed #999;
+}
+@media print {
+  .print-stack .print-sheet {
+    break-after: page;
+    border-top: 0 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  .print-stack .print-sheet:last-child {
+    break-after: auto;
+  }
+  .print-pair .print-sheet + .print-sheet {
+    border-top: 1px dashed #999 !important;
+  }
+}
+
+/* кнопка печати нарядов в шапке колонки */
+.col-print {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  margin-right: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: 0.18s;
+}
+.col:hover .col-print,
+.col-print:focus-visible {
+  opacity: 1;
+}
+.col-print:hover {
+  color: var(--green);
+  background: rgba(60, 199, 7, 0.1);
+}
+.col-print svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+/* ---------- настройки ---------- */
+.settings-src {
+  font-family: "Space Mono";
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-left: 8px;
+}
+.settings-logo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.settings-logo img {
+  max-height: 64px;
+  max-width: 220px;
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.settings-status {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+.settings-status.ok {
+  border-color: rgba(60, 199, 7, 0.4);
+  color: var(--green);
+}
+.settings-status.bad {
+  border-color: rgba(229, 72, 77, 0.4);
+}
+.settings-status ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.settings-status li {
+  margin-bottom: 4px;
+}
+.settings-status.hint {
+  color: var(--muted);
+}
+.settings-sub {
+  margin: 22px 0 12px;
+  font-family: "Space Mono";
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
 }

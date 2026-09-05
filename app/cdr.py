@@ -168,7 +168,8 @@ def normalize(raw: bytes) -> tuple[bytes, int, int] | None:
     try:
         from PIL import Image
 
-        image = Image.open(io.BytesIO(raw))
+        # аннотация ради mypy: open() отдаёт ImageFile, а convert() — Image
+        image: Image.Image = Image.open(io.BytesIO(raw))
         image.load()
 
         # эскизы CDR бывают в палитре или с альфой — приводим к обычному виду
