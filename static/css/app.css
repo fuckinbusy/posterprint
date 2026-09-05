@@ -5476,10 +5476,12 @@ svg {
 /* Размер зашит в миллиметрах: бирка режется по пунктиру, и на экране, и
    на бумаге она одна и та же. 90 × 55 — как визитка, влезает на любой
    рулон. */
+/* плитка: колонки ровно по ширине бирки, сколько влезет на лист */
 .print-labels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5mm;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 90mm);
+  justify-content: start;
+  gap: 4mm;
 }
 .print-opts-label {
   align-self: center;

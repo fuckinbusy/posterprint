@@ -35,8 +35,9 @@ type PageRule = PageSize | 'A4 landscape';
 const SIZE_STORAGE = 'poster.print.size';
 const PAIR_STORAGE = 'poster.print.pair';
 const LABELS_STORAGE = 'poster.print.labels';
-/* сколько бирок печатать разом: на каждый рулон или пачку по одной */
-const LABEL_COUNTS = ['1', '2', '3', '4'] as const;
+/* сколько бирок печатать разом: на каждый рулон или пачку по одной.
+   Плиткой 2 × 4 на A4 — восемь, больше на лист не влезает */
+const LABEL_COUNTS = ['1', '2', '4', '6', '8'] as const;
 
 function remembered<T extends string>(key: string, fallback: T, allowed: readonly T[]): T {
   try {
@@ -49,14 +50,14 @@ function remembered<T extends string>(key: string, fallback: T, allowed: readonl
 
 /** Размер страницы для @page задаётся только из CSS — подсовываем правило
  *  через <style>, пока окно открыто. */
-function usePageSize(size: PageRule) {
+function usePageSize(size: PageRule, margin = '14mm') {
   useEffect(() => {
     const style = document.createElement('style');
     style.setAttribute('data-print-size', size);
-    style.textContent = `@media print { @page { size: ${size}; } }`;
+    style.textContent = `@media print { @page { size: ${size}; margin: ${margin}; } }`;
     document.head.append(style);
     return () => style.remove();
-  }, [size]);
+  }, [size, margin]);
 }
 
 export function PrintOrderModal({ order }: { order: Order }) {
@@ -74,7 +75,9 @@ export function PrintOrderModal({ order }: { order: Order }) {
   const [pair, setPair] = useState(() => remembered<'yes' | 'no'>(PAIR_STORAGE, 'no', ['yes', 'no']) === 'yes');
   const [labels, setLabels] = useState(() => Number(remembered(LABELS_STORAGE, '1', LABEL_COUNTS)));
 
-  usePageSize(pair && kind === 'receipt' ? 'A4 landscape' : size);
+  // у бирок поля уже: с обычными 14 мм две бирки по 90 мм на A4 не
+  // помещались рядом и вставали в столбик, оставляя полстраницы пустой
+  usePageSize(pair && kind === 'receipt' ? 'A4 landscape' : size, kind === 'label' ? '10mm' : '14mm');
 
   const switchKind = (next: SheetKind) => {
     setKind(next);
@@ -112,8 +115,8 @@ export function PrintOrderModal({ order }: { order: Order }) {
 
   return (
     <ModalShell
-      // две квитанции рядом в обычное окно не помещаются
-      wide={kind === 'receipt' && pair}
+      // две квитанции рядом и плитка бирок в обычное окно не помещаются
+      wide={(kind === 'receipt' && pair) || kind === 'label'}
       eyebrow={`Печать · ${order.number}`}
       title={kind === 'receipt' ? 'Квитанция клиенту' : kind === 'work' ? 'Наряд в цех' : 'Бирка на заказ'}
       foot={
@@ -205,7 +208,7 @@ export function PrintOrderModal({ order }: { order: Order }) {
 
       <p className="print-hint">
         {kind === 'label'
-          ? 'Бирка 90 × 55 мм, режется по пунктиру. На A5 помещается две в столбик, на A4 — четыре.'
+          ? 'Бирка 90 × 55 мм, режется по пунктиру. Плиткой: на A4 помещается восемь (2 × 4), на A5 — три в столбик.'
           : 'Так документ и напечатается. Поля — в окне печати браузера; размер листа уже выбран.'}
       </p>
     </ModalShell>
