@@ -39,6 +39,10 @@ export function OrderCard({ order, onContextMenu }: OrderCardProps) {
   const canDrag = can('orders.status');
 
   const ref = useRef<HTMLElement>(null);
+  // свежие order и moveStatus — через ссылку: иначе эффект ниже снимал и
+  // вешал четыре слушателя на каждой карточке при каждой перерисовке доски
+  const live = useRef({ order, moveStatus });
+  live.current = { order, moveStatus };
   // после перетаскивания пальцем следом прилетает click — его надо проглотить,
   // иначе вместе со сменой статуса откроется и карточка
   const swallowClick = useRef(false);
@@ -122,7 +126,8 @@ export function OrderCard({ order, onContextMenu }: OrderCardProps) {
       finish();
       if (!was) return;
       swallowClick.current = true;
-      if (target && target !== order.status) void moveStatus(order, target);
+      const { order: current, moveStatus: move } = live.current;
+      if (target && target !== current.status) void move(current, target);
     };
 
     const onCancel = () => {
@@ -141,7 +146,7 @@ export function OrderCard({ order, onContextMenu }: OrderCardProps) {
       el.removeEventListener('touchcancel', onCancel);
       onCancel();
     };
-  }, [canDrag, order, moveStatus]);
+  }, [canDrag]);
 
   const classes = ['card'];
   if (overdue) classes.push('overdue');

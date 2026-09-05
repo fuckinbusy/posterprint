@@ -8,10 +8,6 @@ import { useCan } from '@/app/AuthProvider';
 import { money } from '@/lib/format';
 import type { Order, OrderStatus, StatusMeta } from '@/types/api';
 
-import { PrintBatchModal } from '@/features/orders/PrintBatchModal';
-import { PrintIcon } from '@/components/Icons';
-import { useModal } from '@/app/ModalProvider';
-
 import { OrderCard } from './OrderCard';
 import { OrderContextMenu, type ContextMenuState } from './OrderContextMenu';
 import { sortOrders, type BoardSort } from './sorting';
@@ -62,7 +58,6 @@ interface ColumnProps {
 
 function Column({ status, orders, allOrders, loading, onContextMenu }: ColumnProps) {
   const can = useCan();
-  const modal = useModal();
   const moveStatus = useMoveStatus();
   const [over, setOver] = useState(false);
 
@@ -95,18 +90,6 @@ function Column({ status, orders, allOrders, loading, onContextMenu }: ColumnPro
         <div className="col-top">
           <span className="col-dot" style={{ background: status.color }} />
           <span className="col-title">{status.title}</span>
-          {/* наряды на всю колонку разом — в цех уходит стопка, а не по одному */}
-          {orders.length > 0 && (
-            <button
-              className="col-print"
-              type="button"
-              title={`Наряды на все заказы в «${status.title}»`}
-              aria-label={`Напечатать наряды: ${status.title}`}
-              onClick={() => modal.open(<PrintBatchModal orders={orders} title={status.title} />)}
-            >
-              <PrintIcon />
-            </button>
-          )}
           <span className="col-count">{orders.length}</span>
         </div>
         <div className="col-sum">
