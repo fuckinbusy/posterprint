@@ -49,6 +49,14 @@ PERMISSIONS: list[dict] = [
         "default": True,
     },
     {
+        "key": "notify.orders",
+        "title": "Получать уведомления о новых заказах",
+        "hint": "Всплывающее окно со звуком, когда кто-то другой оформил заказ. "
+                "Нужно тому, кто в цехе или на выдаче и не смотрит на доску постоянно.",
+        "group": "Заказы",
+        "default": False,
+    },
+    {
         "key": "orders.delete",
         "title": "Удалять заказы",
         "hint": "Безвозвратно, вместе с историей. Обычно оставляют только старшим.",
@@ -188,6 +196,7 @@ IMPLIED: dict[str, list[str]] = {
     "orders.estimate": ["orders.price.view"],
     "finance.totals": ["orders.price.view"],
     "finance.cash": ["orders.price.view"],
+    "notify.orders": ["orders.view"],
     "prices.edit": ["prices.view"],
     "clients.history": ["clients.view"],
     "design.upload": ["design.view"],

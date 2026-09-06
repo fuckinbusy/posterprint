@@ -22,6 +22,7 @@ export type Permission =
   | 'orders.estimate'
   | 'finance.totals'
   | 'finance.cash'
+  | 'notify.orders'
   | 'design.view'
   | 'design.upload'
   | 'clients.view'
@@ -45,6 +46,13 @@ export interface PermissionItem {
 
 export interface PermissionGroupsResponse {
   groups: { title: string; items: PermissionItem[] }[];
+}
+
+/* ---------------------------------------------------- уведомления */
+export interface FreshOrders {
+  /** самый большой id заказа на сервере — точка отсчёта для следующего опроса */
+  latest_id: number;
+  orders: Order[];
 }
 
 /* ---------------------------------------------------- резервные копии */

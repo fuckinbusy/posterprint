@@ -60,6 +60,13 @@ export const UserIcon = (p: IconProps) => (
   </svg>
 );
 
+export const BellIcon = (p: IconProps) => (
+  <svg {...svg(p)}>
+    <path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4l2-2Z" />
+    <path d="M10 20a2 2 0 0 0 4 0" />
+  </svg>
+);
+
 export const ClockIcon = (p: IconProps) => (
   <svg {...svg(p)}>
     <circle cx="12" cy="12" r="9" />

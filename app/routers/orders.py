@@ -366,6 +366,47 @@ def create_order(
     raise HTTPException(503, "Не удалось создать заказ, повторите")
 
 
+def fresh_orders_filter(rows: list[Order], after: int | None, me: str) -> list[Order]:
+    """Что всплывать: заказы новее точки отсчёта и не свои.
+
+    after=None — первый запрос после входа: человеку нужен только край,
+    заваливать его тем, что оформили до его прихода, незачем.
+    """
+    if after is None:
+        return []
+    return [o for o in rows if o.id > after and (o.manager or "") != me]
+
+
+@router.get("/orders/fresh")
+def fresh_orders(
+    after: int | None = Query(default=None, ge=0, description="id последнего виденного заказа"),
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_perm("notify.orders")),
+) -> dict:
+    """Новые заказы после указанного — для всплывающих уведомлений.
+
+    Опрашивается раз в несколько секунд каждым, у кого включено право,
+    поэтому дёшево: один max(id) и, если есть точка отсчёта, короткая
+    выборка по id. Свои заказы (manager — этот же профиль) не отдаются.
+    Объявлена раньше /orders/{order_id}: иначе «fresh» пытался бы стать
+    номером заказа.
+    """
+    latest = db.scalar(select(func.max(Order.id))) or 0
+    rows: list[Order] = []
+    if after is not None and latest > after:
+        rows = list(
+            db.scalars(
+                select(Order)
+                .options(selectinload(Order.events))
+                .where(Order.id > after)
+                .order_by(Order.id)
+                .limit(20)
+            ).all()
+        )
+    picked = fresh_orders_filter(rows, after, user.name)
+    return {"latest_id": latest, "orders": [to_out(o, user, db) for o in picked]}
+
+
 @router.get("/orders/{order_id}", response_model=OrderOut)
 def get_order(
     order_id: int,

@@ -12,6 +12,7 @@ import type { ReactNode } from 'react';
 import { useCatalog } from '@/api/catalog';
 import { BoardPage } from '@/features/board/BoardPage';
 import { BoardFilters } from '@/features/board/BoardFilters';
+import { OrderNotices } from '@/features/notify/OrderNotices';
 import { ProfilePage } from '@/features/profile/ProfilePage';
 import { BOARD_SORTS, type BoardSort } from '@/features/board/sorting';
 import { ClientsPage } from '@/features/clients/ClientsPage';
@@ -75,6 +76,8 @@ export function Shell() {
   return (
     <>
       <TopBar filter={filter} onBoard={onBoard} />
+      {/* всплывашки о новых заказах — у профиля с правом notify.orders */}
+      <OrderNotices />
 
       {onBoard && (
         <BoardFilters
