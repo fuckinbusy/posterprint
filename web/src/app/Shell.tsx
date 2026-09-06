@@ -12,6 +12,7 @@ import type { ReactNode } from 'react';
 import { useCatalog } from '@/api/catalog';
 import { BoardPage } from '@/features/board/BoardPage';
 import { BoardFilters } from '@/features/board/BoardFilters';
+import { MailPage } from '@/features/mail/MailPage';
 import { OrderNotices } from '@/features/notify/OrderNotices';
 import { ProfilePage } from '@/features/profile/ProfilePage';
 import { BOARD_SORTS, type BoardSort } from '@/features/board/sorting';
@@ -147,6 +148,14 @@ export function Shell() {
           element={
             <Guarded permission="staff.manage">
               <SettingsPage />
+            </Guarded>
+          }
+        />
+        <Route
+          path="/mail"
+          element={
+            <Guarded permission="mail.access">
+              <MailPage />
             </Guarded>
           }
         />

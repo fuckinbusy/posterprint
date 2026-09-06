@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { checkMail, type MailCheck } from '@/api/mail';
 import { useSaveSettings, useSettings } from '@/api/settings';
 import { useToast } from '@/app/ToastProvider';
 import { Select } from '@/components/Select';
@@ -24,6 +25,19 @@ export function SettingsPage() {
 
   const [values, setValues] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
+  const [mailCheck, setMailCheck] = useState<MailCheck | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  const runMailCheck = async () => {
+    setChecking(true);
+    try {
+      setMailCheck(await checkMail());
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setChecking(false);
+    }
+  };
 
   // первый ответ сервера — в форму; дальше форма живёт своей жизнью,
   // чтобы фоновое перечитывание не затирало введённое
@@ -129,6 +143,60 @@ export function SettingsPage() {
               </div>
             </Field>
           </div>
+        </Section>
+
+        <Section title="Почта — рабочий ящик">
+          <p className="settings-sub">
+            Раздел «Почта»: письма клиентов читаются здесь, ответ уходит с этого ящика, о новых всплывает
+            уведомление. Ящик один на всех, личный сюда не подключают: пароль хранится на сервере.
+          </p>
+          <div className="settings-grid">
+            <Field label={<>Ящик {source('mail_user')}</>} hint="Полный адрес, например zakaz@yandex.ru">
+              {text('mail_user', 'zakaz@yandex.ru')}
+            </Field>
+            <Field
+              label={<>Пароль приложения {source('mail_password')}</>}
+              hint={
+                snap.secrets?.mail_password
+                  ? 'Задан. Пусто — оставить прежний; чтобы сменить, введите новый.'
+                  : 'Не пароль от аккаунта: id.yandex.ru → Безопасность → Пароли приложений → Почта'
+              }
+            >
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={values.mail_password ?? ''}
+                placeholder={snap.secrets?.mail_password ? '••••••••••••' : 'abcdefghijklmnop'}
+                onChange={(e) => set('mail_password', e.target.value)}
+              />
+            </Field>
+            <Field label={<>Сервер IMAP {source('mail_imap')}</>} hint="Чтение. Пусто — imap.yandex.ru:993">
+              {text('mail_imap', 'imap.yandex.ru:993')}
+            </Field>
+            <Field label={<>Сервер SMTP {source('mail_smtp')}</>} hint="Отправка. Пусто — smtp.yandex.ru:465">
+              {text('mail_smtp', 'smtp.yandex.ru:465')}
+            </Field>
+            <Field label={<>Имя отправителя {source('mail_sender')}</>} hint="Как подписаны исходящие. Пусто — название мастерской">
+              {text('mail_sender', 'Печатный цех ПОСТЕР')}
+            </Field>
+          </div>
+          <div className="settings-check">
+            <button className="btn btn-ghost" type="button" disabled={checking || dirty} onClick={() => void runMailCheck()}>
+              {checking ? 'Проверяю…' : 'Проверить соединение'}
+            </button>
+            {dirty && <span className="hint">Сначала сохраните.</span>}
+            {mailCheck && !dirty && (
+              <span className={mailCheck.ok ? 'settings-status ok' : 'settings-status bad'}>
+                {mailCheck.ok
+                  ? `Всё работает: в ящике ${mailCheck.total} писем, непрочитанных ${mailCheck.unseen}.`
+                  : `Чтение (IMAP): ${mailCheck.imap}. Отправка (SMTP): ${mailCheck.smtp}.`}
+              </span>
+            )}
+          </div>
+          <p className="hint">
+            Яндекс: включите IMAP в настройках ящика (Почта → Настройки → Почтовые программы) и выпустите пароль
+            приложения. Нужна двухфакторная защита аккаунта — без неё Яндекс пароли приложений не выдаёт.
+          </p>
         </Section>
 
         <Section title="Оплата — что видит клиент">

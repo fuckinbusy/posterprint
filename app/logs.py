@@ -84,7 +84,9 @@ BACKUP_COUNT = 5
 # /.well-known/… дёргает сам Chrome (devtools) при каждом открытии страницы —
 # в журнале это выглядело как поток 404, за которым не видно настоящих ошибок
 SKIP_PREFIXES = ("/static/", "/favicon", "/.well-known/")
-SKIP_SUFFIXES = ("/preview",)
+# /fresh — опрос «что нового» раз в несколько секунд с каждого рабочего
+# места; в журнале от него один шум
+SKIP_SUFFIXES = ("/preview", "/fresh")
 
 log = logging.getLogger("poster")
 

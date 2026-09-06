@@ -33,6 +33,7 @@ from app.routers import (
     orders,
     prices,
     templates,
+    mail as mail_router,
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -143,6 +144,7 @@ app.include_router(metrics.router)
 app.include_router(reports.router)
 app.include_router(export.router)
 app.include_router(settings_router.router)
+app.include_router(mail_router.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 

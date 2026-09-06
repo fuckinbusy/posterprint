@@ -6,6 +6,7 @@
 
 import { NavLink } from 'react-router-dom';
 
+import { useMailStore } from '@/api/mail';
 import { useOrders } from '@/api/orders';
 import type { OrdersFilter } from '@/api/keys';
 import { useAuth } from '@/app/AuthProvider';
@@ -25,6 +26,7 @@ interface TopBarProps {
 export function TopBar({ filter, onBoard }: TopBarProps) {
   const { session, can } = useAuth();
   const newOrder = useNewOrder();
+  const mail = useMailStore();
   // вкладка показывается, только если у профиля есть право на раздел
   const views = VIEWS.filter((view) => !view.permission || can(view.permission));
 
@@ -60,6 +62,12 @@ export function TopBar({ filter, onBoard }: TopBarProps) {
           >
             <view.icon />
             <span>{view.label}</span>
+            {/* непрочитанные письма — красная точка с числом на иконке почты */}
+            {view.key === 'mail' && mail.unseen > 0 && (
+              <i className="nav-badge" aria-label={`${mail.unseen} непрочитанных`}>
+                {mail.unseen > 99 ? '99+' : mail.unseen}
+              </i>
+            )}
           </NavLink>
         ))}
       </nav>

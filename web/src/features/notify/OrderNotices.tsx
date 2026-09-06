@@ -1,28 +1,29 @@
-/* Всплывающие уведомления о новых заказах — справа сверху, под шапкой.
+/* Всплывающие уведомления — справа сверху, под шапкой.
 
-   Появляются только у профиля с правом «Получать уведомления о новых
-   заказах» и только о чужих заказах: свой человек и так видит. Коротко —
-   номер, что за работа, клиент, срок и сумма (если её можно видеть);
-   кнопка «Открыть» ведёт в карточку, крестик прячет, само пропадает через
-   NOTICE_LIFE_MS. Полоска внизу показывает, сколько осталось; под курсором
-   отсчёт замирает — пока читают, не исчезнет.
+   Два повода: кто-то другой оформил заказ (право notify.orders) и в рабочий
+   ящик пришло письмо (право mail.access). Коротко — кто, что, когда; кнопка
+   «Открыть» ведёт в карточку заказа или в письмо, крестик прячет, само
+   пропадает через NOTICE_LIFE_MS. Полоска внизу показывает, сколько
+   осталось; под курсором отсчёт замирает — пока читают, не исчезнет.
 
    Звук — короткий сигнал (lib/chime.ts), выключается в профиле. В свёрнутой
    вкладке дополнительно показывается системное уведомление браузера, если
    человек его разрешил (кнопка тоже в профиле). */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
+import { useFreshMail, type MailSummary } from '@/api/mail';
 import { useFreshOrders } from '@/api/notifications';
 import { useCan } from '@/app/AuthProvider';
 import { usePref } from '@/app/prefs';
-import { BellIcon, CloseIcon } from '@/components/Icons';
+import { BellIcon, CloseIcon, NavMailIcon } from '@/components/Icons';
 import { useOpenOrder } from '@/features/orders/useOpenOrder';
 import { playChime, unlockAudio } from '@/lib/chime';
 import { dateRu, money } from '@/lib/format';
 import type { Order } from '@/types/api';
 
-import { onNotice, pushNotice, type Notice } from './notices';
+import { onNotice, pushMailNotice, pushNotice, type Notice } from './notices';
 
 export const NOTIFY_SOUND = ['on', 'off'] as const;
 export type NotifySound = (typeof NOTIFY_SOUND)[number];
@@ -39,23 +40,24 @@ export function OrderNotices() {
   // звук можно только после первого жеста — разблокируем заранее
   useEffect(() => unlockAudio(), []);
 
-  // всё, что кто-то поднял через pushNotice, — в стопку
+  // всё, что кто-то поднял через шину, — в стопку
   useEffect(
     () =>
       onNotice((notice) => {
         setItems((prev) => [...prev.slice(-4), notice]);
         if (soundRef.current === 'on') playChime();
-        if (document.visibilityState === 'hidden') systemNotice(notice.order);
+        if (document.visibilityState === 'hidden') systemNotice(notice);
       }),
     [],
   );
 
-  // опрос сервера: новые чужие заказы
+  // опрос сервера: новые чужие заказы и новые письма
   useFreshOrders((fresh) => fresh.orders.forEach((order) => pushNotice(order)));
+  useFreshMail((messages) => messages.forEach((mail) => pushMailNotice(mail)));
 
   if (items.length === 0) return null;
   return (
-    <div className="notices" role="status" aria-live="polite" aria-label="Новые заказы">
+    <div className="notices" role="status" aria-live="polite" aria-label="Уведомления">
       {items.map((notice) => (
         <NoticeCard
           key={notice.id}
@@ -78,7 +80,7 @@ function NoticeCard({
   onClose: () => void;
 }) {
   const openOrder = useOpenOrder();
-  const { order } = notice;
+  const navigate = useNavigate();
   const [paused, setPaused] = useState(false);
   // сколько осталось жить — считаем сами, чтобы пауза под курсором работала
   const left = useRef(notice.life);
@@ -94,42 +96,30 @@ function NoticeCard({
     };
   }, [paused, onClose]);
 
-  const details = [
-    order.client_name,
-    order.due_date ? `к ${dateRu(order.due_date)}` : '',
-    showMoney && order.price ? money(order.price) : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const view = describe(notice, showMoney);
+  const open = () => {
+    onClose();
+    if (notice.kind === 'order') openOrder(notice.order.id);
+    else navigate(`/mail?uid=${notice.mail.uid}`);
+  };
 
   return (
     <div
-      className={paused ? 'notice paused' : 'notice'}
+      className={['notice', notice.kind, paused ? 'paused' : ''].filter(Boolean).join(' ')}
       style={{ '--life': `${notice.life}ms` } as React.CSSProperties}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="notice-icon">
-        <BellIcon />
-      </div>
+      <div className="notice-icon">{notice.kind === 'mail' ? <NavMailIcon /> : <BellIcon />}</div>
       <div className="notice-body">
-        <span className="notice-eyebrow">{notice.test ? 'Проверка уведомлений' : 'Новый заказ'}</span>
-        <b className="notice-title">
-          {order.number} · {order.title}
-        </b>
-        {details && <span className="notice-sub">{details}</span>}
-        {order.manager && <span className="notice-who">принял {order.manager}</span>}
+        <span className="notice-eyebrow">{view.eyebrow}</span>
+        <b className="notice-title">{view.title}</b>
+        {view.sub && <span className="notice-sub">{view.sub}</span>}
+        {view.who && <span className="notice-who">{view.who}</span>}
       </div>
       <div className="notice-actions">
         {!notice.test && (
-          <button
-            className="btn btn-green"
-            type="button"
-            onClick={() => {
-              onClose();
-              openOrder(order.id);
-            }}
-          >
+          <button className="btn btn-green" type="button" onClick={open}>
             Открыть
           </button>
         )}
@@ -140,6 +130,35 @@ function NoticeCard({
       <i className="notice-bar" aria-hidden="true" />
     </div>
   );
+}
+
+/** Текст карточки — одинаково для всплывашки и системного уведомления. */
+function describe(
+  notice: Notice,
+  showMoney: boolean,
+): { eyebrow: string; title: string; sub: string; who: string } {
+  if (notice.kind === 'mail') {
+    const m = notice.mail;
+    return {
+      eyebrow: notice.test ? 'Проверка уведомлений' : 'Новое письмо',
+      title: m.from.name || m.from.email,
+      sub: m.subject,
+      who: m.from.name ? m.from.email : '',
+    };
+  }
+  const order: Order = notice.order;
+  return {
+    eyebrow: notice.test ? 'Проверка уведомлений' : 'Новый заказ',
+    title: `${order.number} · ${order.title}`,
+    sub: [
+      order.client_name,
+      order.due_date ? `к ${dateRu(order.due_date)}` : '',
+      showMoney && order.price ? money(order.price) : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    who: order.manager ? `принял ${order.manager}` : '',
+  };
 }
 
 /* ---------------------------------------------------- системное уведомление */
@@ -155,12 +174,16 @@ export async function askSystemNotices(): Promise<boolean> {
   return result === 'granted';
 }
 
-function systemNotice(order: Order) {
+function systemNotice(notice: Notice) {
   if (!systemNoticesAllowed()) return;
+  const view = describe(notice, false);
   try {
-    const n = new Notification(`Новый заказ ${order.number}`, {
-      body: [order.title, order.client_name].filter(Boolean).join(' · '),
-      tag: `order-${order.id}`,
+    const n = new Notification(`${view.eyebrow}: ${view.title}`, {
+      body: view.sub,
+      tag:
+        notice.kind === 'order'
+          ? `order-${notice.order.id}`
+          : `mail-${(notice as { mail: MailSummary }).mail.uid}`,
     });
     n.onclick = () => {
       window.focus();

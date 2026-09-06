@@ -271,6 +271,13 @@ export const NavStaffIcon = (p: IconProps) => (
   </svg>
 );
 
+export const NavMailIcon = (p: IconProps) => (
+  <svg {...svg(p)}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m3 7 9 6 9-6" />
+  </svg>
+);
+
 export const NavLogsIcon = (p: IconProps) => (
   <svg {...svg(p)}>
     <path d="M4 5h16M4 10h16M4 15h10M4 20h7" />

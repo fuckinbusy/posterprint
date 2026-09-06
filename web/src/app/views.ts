@@ -8,6 +8,7 @@ import {
   NavBoardIcon,
   NavClientsIcon,
   NavLogsIcon,
+  NavMailIcon,
   NavMetricsIcon,
   NavPricesIcon,
   NavSettingsIcon,
@@ -43,6 +44,14 @@ export const VIEWS: ViewConfig[] = [
     title: 'ПОСТЕР · Клиенты',
     icon: NavClientsIcon,
     permission: 'clients.list',
+  },
+  {
+    key: 'mail',
+    path: '/mail',
+    label: 'Почта',
+    title: 'ПОСТЕР · Почта',
+    icon: NavMailIcon,
+    permission: 'mail.access',
   },
   {
     key: 'prices',

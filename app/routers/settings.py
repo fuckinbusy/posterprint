@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app import payments, settings as settings_logic, shop
+from app import mail, payments, settings as settings_logic, shop
 from app.database import get_db
 from app.logs import log as applog
 from app.security import CurrentUser, require_perm
@@ -40,10 +40,16 @@ def _snapshot(db: Session) -> dict:
             values[key] = (os.getenv(env_name) or "").strip() if env_name else ""
             sources[key] = "env" if env_name and os.getenv(env_name) else "empty"
 
+    # пароль обратно не отдаём — только факт, что он есть
+    secrets = {key: bool(values.get(key)) for key in settings_logic.SECRET_KEYS}
+    for key in settings_logic.SECRET_KEYS:
+        values[key] = ""
+
     config = payments.settings(saved)
     return {
         "values": values,
         "sources": sources,
+        "secrets": secrets,
         "shop": shop.details(saved),
         # что не так с платёжными реквизитами — прямо на странице, а не
         # у стойки, когда клиент уже ждёт
@@ -67,10 +73,20 @@ def write_settings(
     unknown = set(payload.values) - set(settings_logic.KEYS)
     if unknown:
         raise HTTPException(422, f"Неизвестные настройки: {sorted(unknown)}")
+    # пустой пароль в форме — «не менять», а не «стереть»: форма его и не
+    # показывает. Стереть — очистить ящик, без него пароль не нужен.
+    values = dict(payload.values)
+    for key in settings_logic.SECRET_KEYS:
+        if key in values and not values[key].strip():
+            values.pop(key)
+    if not values.get("mail_user", "x").strip():
+        values["mail_password"] = ""
     try:
-        settings_logic.save(db, payload.values)
+        settings_logic.save(db, values)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from None
+    if any(k.startswith("mail_") for k in values):
+        mail.mailbox.reset()  # ящик или пароль поменялись — старое соединение забыть
     changed = sorted(k for k in payload.values if k != "shop_logo")
     applog.warning("Настройки изменены: %s · %s", ", ".join(changed) or "логотип", user.name)
     return _snapshot(db)

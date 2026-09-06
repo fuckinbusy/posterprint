@@ -23,6 +23,7 @@ export type Permission =
   | 'finance.totals'
   | 'finance.cash'
   | 'notify.orders'
+  | 'mail.access'
   | 'design.view'
   | 'design.upload'
   | 'clients.view'
@@ -202,6 +203,8 @@ export interface SettingsSnapshot {
   values: Record<string, string>;
   /** откуда взято каждое значение: из базы, из .env или пусто */
   sources: Record<string, 'db' | 'env' | 'empty'>;
+  /** секреты (пароль почты) обратно не приходят — только задан ли */
+  secrets: Record<string, boolean>;
   shop: ShopDetails;
   problems: string[];
   hints: string[];
