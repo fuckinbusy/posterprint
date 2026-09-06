@@ -29,6 +29,7 @@ import {
   type MailSummary,
 } from '@/api/mail';
 import { useCan } from '@/app/AuthProvider';
+import { useTheme } from '@/app/theme';
 import { ModalShell, useModal, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { ArrowLeftIcon, DownloadIcon, EditIcon, FileIcon, PlusIcon } from '@/components/Icons';
@@ -344,6 +345,12 @@ function MailReader({
     noteSeen();
   }, [detail.data, onSeen]);
 
+  // «показать только текст» — до раннего return ниже: хуки после return
+  // меняют свой порядок между рендерами, и React падает (#310), как только
+  // выбирают первое письмо
+  const [asText, setAsText] = useState(false);
+  useEffect(() => setAsText(false), [uid]);
+
   if (uid === null) {
     return (
       <section className="mail-read empty" aria-label="Письмо">
@@ -356,8 +363,6 @@ function MailReader({
   }
 
   // письмо с оформлением — в рамке; по желанию — только текст
-  const [asText, setAsText] = useState(false);
-  useEffect(() => setAsText(false), [uid]);
 
   const m = detail.data;
   return (
@@ -427,15 +432,38 @@ function MailReader({
    сервере. allow-same-origin нужен только чтобы измерить высоту содержимого
    и подогнать рамку — без скриптов это безопасно. Ссылки открываются в
    новой вкладке. */
+/* Письмо приходит «как на бумаге»: тёмный текст, без фона. В светлой теме
+   так и показываем. В тёмной — инвертируем документ целиком (чёрный текст
+   становится светлым, белые подложки — тёмными), а картинки инвертируем
+   обратно, чтобы фото и логотипы остались собой. Так делают почтовые
+   клиенты в тёмном режиме: письмо не режет глаз белым листом, а чужие
+   цвета текста не пропадают. */
+const FRAME_THEME: Record<'dark' | 'light', string> = {
+  dark:
+    'html{background:#eef0ec;filter:invert(1) hue-rotate(180deg)}' +
+    'img,video,picture,[style*="background-image"]{filter:invert(1) hue-rotate(180deg)}',
+  light: 'html{background:transparent}',
+};
+
 function HtmlMail({ html }: { html: string }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(320);
+  const theme = useTheme();
+  const themed = html.replace('<head>', `<head><style>${FRAME_THEME[theme]}</style>`);
 
+  // Перед замером рамку ужимаем до 100 px: высота документа не меньше
+  // высоты рамки, а письма часто несут «html, body { height: 100% }» — и
+  // рамка, подгоняясь под собственную высоту, росла сама на себя, короткое
+  // письмо разъезжалось на тысячи пикселей. Ужали, померили, вернули —
+  // всё в одном кадре, глазу не видно.
   const measure = useCallback(() => {
-    const doc = frame.current?.contentDocument;
-    const root = doc?.documentElement;
-    if (!root) return;
+    const el = frame.current;
+    const root = el?.contentDocument?.documentElement;
+    if (!el || !root) return;
+    const was = el.style.height;
+    el.style.height = '100px';
     const next = Math.min(Math.max(root.scrollHeight, 120), 20_000);
+    el.style.height = was;
     setHeight((prev) => (Math.abs(prev - next) > 2 ? next : prev));
   }, []);
 
@@ -445,10 +473,10 @@ function HtmlMail({ html }: { html: string }) {
     const timers = [150, 600, 1500, 3500].map((ms) => window.setTimeout(measure, ms));
     let observer: ResizeObserver | null = null;
     const attach = window.setTimeout(() => {
-      const root = frame.current?.contentDocument?.documentElement;
-      if (root && typeof ResizeObserver !== 'undefined') {
+      const body = frame.current?.contentDocument?.body;
+      if (body && typeof ResizeObserver !== 'undefined') {
         observer = new ResizeObserver(measure);
-        observer.observe(root);
+        observer.observe(body);
       }
     }, 200);
     return () => {
@@ -456,7 +484,7 @@ function HtmlMail({ html }: { html: string }) {
       window.clearTimeout(attach);
       observer?.disconnect();
     };
-  }, [html, measure]);
+  }, [themed, measure]);
 
   return (
     <iframe
@@ -465,7 +493,7 @@ function HtmlMail({ html }: { html: string }) {
       title="Письмо"
       sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
       referrerPolicy="no-referrer"
-      srcDoc={html}
+      srcDoc={themed}
       style={{ height }}
       onLoad={measure}
     />

@@ -10,9 +10,10 @@ import { useMailStore } from '@/api/mail';
 import { useOrders } from '@/api/orders';
 import type { OrdersFilter } from '@/api/keys';
 import { useAuth } from '@/app/AuthProvider';
+import { toggleTheme, useTheme } from '@/app/theme';
 import { useModal } from '@/app/ModalProvider';
 import { VIEWS } from '@/app/views';
-import { PlusIcon } from '@/components/Icons';
+import { MoonIcon, PlusIcon, SunIcon } from '@/components/Icons';
 import { CashModal } from '@/features/cash/CashModal';
 import { useNewOrder } from '@/features/orders/useNewOrder';
 import { moneyOrZero } from '@/lib/format';
@@ -27,6 +28,7 @@ export function TopBar({ filter, onBoard }: TopBarProps) {
   const { session, can } = useAuth();
   const newOrder = useNewOrder();
   const mail = useMailStore();
+  const theme = useTheme();
   // вкладка показывается, только если у профиля есть право на раздел
   const views = VIEWS.filter((view) => !view.permission || can(view.permission));
 
@@ -80,6 +82,16 @@ export function TopBar({ filter, onBoard }: TopBarProps) {
             Новый заказ
           </button>
         )}
+        {/* тема — свойство экрана, не профиля: хранится в браузере */}
+        <button
+          className="icon-btn theme-toggle"
+          type="button"
+          title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+          aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
+          onClick={(e) => toggleTheme({ x: e.clientX, y: e.clientY })}
+        >
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+        </button>
         {/* имя ведёт на страницу профиля: там смена профиля, настройки
             этого рабочего места и что разрешено */}
         <NavLink

@@ -2,13 +2,28 @@
    ПОСТЕР · внутренняя система заказов
    Палитра и шрифты — как на сайте: тёмный «цех» + зелёный спот.
    ========================================================= */
+/* Цвета — только через переменные: под html[data-theme="light"] ниже они
+   переопределены, и весь интерфейс перекрашивается одним атрибутом.
+   --fg-rgb — компоненты цвета «переднего плана» для полупрозрачных
+   подложек и рамок (rgba(var(--fg-rgb), 0.06)): в тёмной теме это белый,
+   в светлой — почти чёрный. */
 :root {
   --ink: #0a0b0a;
   --panel: #101210;
-  --line: rgba(255, 255, 255, 0.1);
-  --line-strong: rgba(255, 255, 255, 0.18);
+  --panel-2: #0f130f;
+  --field-bg: rgba(0, 0, 0, 0.32);
+  --field-solid: #0d0f0d;
+  --inset-bg: rgba(0, 0, 0, 0.35);
+  --overlay: rgba(5, 6, 5, 0.88);
+  --fg-rgb: 255, 255, 255;
+  --line: rgba(var(--fg-rgb), 0.1);
+  --line-strong: rgba(var(--fg-rgb), 0.18);
   --text: #e9ebe6;
+  --text-1: #dfe2db;
+  --text-2: #c4c8c0;
   --muted: #969c90;
+  --muted-2: #6d746a;
+  --muted-3: #5f665c;
   --green: #3cc707;
   --green-deep: #1c5e10;
   --green-glow: rgba(60, 199, 7, 0.3);
@@ -16,6 +31,27 @@
   --r: 14px;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --topbar-h: 70px;
+}
+/* Светлая тема. Зелёный темнее: яркий #3cc707 на белом не читается. */
+html[data-theme="light"] {
+  --ink: #f1f3ee;
+  --panel: #ffffff;
+  --panel-2: #f7f8f4;
+  --field-bg: #ffffff;
+  --field-solid: #ffffff;
+  --inset-bg: rgba(17, 20, 17, 0.045);
+  --overlay: rgba(20, 23, 20, 0.5);
+  --fg-rgb: 17, 20, 17;
+  --text: #14170f;
+  --text-1: #1f241d;
+  --text-2: #3a413a;
+  --muted: #687066;
+  --muted-2: #5d655c;
+  --muted-3: #4f574d;
+  --green: #2f9e07;
+  --green-deep: #1c5e10;
+  --green-glow: rgba(47, 158, 7, 0.22);
+  color-scheme: light;
 }
 
 * {
@@ -30,6 +66,35 @@
    фоне они выглядят чужими — а иногда просто не видны. */
 html {
   color-scheme: dark;
+}
+/* Плавная смена темы. Где есть View Transitions — новая тема раскрывается
+   кругом из точки нажатия; иначе цвета перетекают transition-ом. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  animation: theme-reveal 0.55s var(--ease);
+}
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0 at var(--vt-x, 100%) var(--vt-y, 0));
+  }
+  to {
+    clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 100%) var(--vt-y, 0));
+  }
+}
+html.theme-anim,
+html.theme-anim *,
+html.theme-anim *::before,
+html.theme-anim *::after {
+  transition:
+    background-color 0.45s var(--ease),
+    color 0.45s var(--ease),
+    border-color 0.45s var(--ease),
+    fill 0.45s var(--ease),
+    stroke 0.45s var(--ease) !important;
 }
 html,
 body {
@@ -51,7 +116,7 @@ body {
   border-radius: 5px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(var(--fg-rgb), 0.3);
 }
 
 /* Список, который раскрывает браузер. Стилизуется он ограниченно, но
@@ -90,7 +155,7 @@ input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
   -webkit-text-fill-color: var(--text);
-  -webkit-box-shadow: 0 0 0 1000px #0d0f0d inset;
+  -webkit-box-shadow: 0 0 0 1000px var(--field-solid) inset;
   caret-color: var(--text);
 }
 body {
@@ -195,13 +260,14 @@ svg {
   background: var(--green);
 }
 .spotbar span:nth-child(2) {
-  background: #fff;
+  background: var(--text);
 }
 .spotbar span:nth-child(3) {
   background: var(--green-deep);
 }
 .spotbar span:nth-child(4) {
-  background: #000;
+  background: var(--ink);
+  outline: 1px solid var(--line);
 }
 
 /* ---------- шапка ---------- */
@@ -216,7 +282,7 @@ svg {
   /* Без backdrop-filter: размытие под шапкой перерисовывалось на каждый кадр
      прокрутки доски и на Windows со встроенной графикой заметно тормозило
      весь интерфейс. Плотный фон выглядит так же, а стоит ничего. */
-  background: #0a0b0a;
+  background: var(--ink);
   z-index: 40;
 }
 .tb-left {
@@ -263,7 +329,7 @@ svg {
 }
 .tb-search input {
   width: 100%;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--inset-bg);
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   padding: 11px 14px 11px 40px;
@@ -273,7 +339,7 @@ svg {
   transition: border-color 0.2s;
 }
 .tb-search input::placeholder {
-  color: #6d746a;
+  color: var(--muted-2);
 }
 .tb-search input:focus {
   outline: none;
@@ -310,7 +376,7 @@ svg {
 .counter:hover,
 .counter:focus-visible {
   border-color: var(--line-strong);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   outline: none;
 }
 .counter b {
@@ -442,7 +508,7 @@ svg {
 .nav-tab:hover,
 .nav-tab:focus-visible {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
   border-color: var(--line-strong);
 }
 .nav-tab.active {
@@ -600,7 +666,7 @@ svg {
 .sort select {
   appearance: none;
   cursor: pointer;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--field-bg);
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   padding: 8px 32px 8px 15px;
@@ -697,7 +763,7 @@ svg {
   height: 36px;
   border-radius: 50%;
   border: 1px solid var(--line-strong);
-  background: #0f110f;
+  background: var(--panel-2);
   color: var(--muted);
   display: flex;
   align-items: center;
@@ -801,7 +867,7 @@ svg {
   text-align: center;
   padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(var(--fg-rgb), 0.07);
 }
 .today-pill.zero {
   color: var(--muted);
@@ -814,7 +880,7 @@ svg {
   background: rgba(229, 72, 77, 0.16);
 }
 .today-pill:hover {
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(var(--fg-rgb), 0.3);
 }
 .today-pill.on {
   background: var(--green);
@@ -855,7 +921,7 @@ svg {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--r);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--fg-rgb), 0.02);
 }
 /* ячейка — кнопка: нажатие оставляет на доске заказы этого дня */
 button.load-day {
@@ -1029,7 +1095,7 @@ button.load-day:not(:disabled):hover {
   transition: border-color 0.16s;
 }
 .cash-row:hover {
-  border-color: rgba(255, 255, 255, 0.28);
+  border-color: rgba(var(--fg-rgb), 0.28);
 }
 .cash-time {
   font-family: "Space Mono";
@@ -1091,7 +1157,7 @@ button.load-day:not(:disabled):hover {
   min-height: 0;
   border: 1px solid var(--line);
   border-radius: var(--r);
-  background: rgba(255, 255, 255, 0.014);
+  background: rgba(var(--fg-rgb), 0.014);
 }
 .col.drop {
   border-color: rgba(60, 199, 7, 0.55);
@@ -1162,7 +1228,7 @@ button.load-day:not(:disabled):hover {
   font-family: "Space Mono";
   font-size: 13px;
   letter-spacing: 0.08em;
-  color: #5f665c;
+  color: var(--muted-3);
 }
 
 /* ---------- карточка-наряд ---------- */
@@ -1173,8 +1239,8 @@ button.load-day:not(:disabled):hover {
   padding: 14px 14px 13px 20px;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.028),
-    rgba(255, 255, 255, 0.008)
+    rgba(var(--fg-rgb), 0.028),
+    rgba(var(--fg-rgb), 0.008)
   );
   cursor: grab;
   transition:
@@ -1202,7 +1268,7 @@ button.load-day:not(:disabled):hover {
   background: linear-gradient(
     180deg,
     rgba(60, 199, 7, 0.06),
-    rgba(255, 255, 255, 0.01)
+    rgba(var(--fg-rgb), 0.01)
   );
 }
 .card.dragging {
@@ -1253,7 +1319,7 @@ button.load-day:not(:disabled):hover {
   align-items: center;
   gap: 7px;
   font-size: 14px;
-  color: #c4c8c0;
+  color: var(--text-2);
   margin-bottom: 11px;
 }
 .card-client svg {
@@ -1281,7 +1347,7 @@ button.load-day:not(:disabled):hover {
   text-overflow: ellipsis;
 }
 .card-price.unset {
-  color: #5f665c;
+  color: var(--muted-3);
   font-size: 13px;
 }
 .card-due {
@@ -1351,7 +1417,7 @@ button.load-day:not(:disabled):hover {
   /* Без backdrop-filter. Размытие всей доски под окном пересчитывалось
      при каждой прокрутке и каждом кадре анимации окна — на встроенной
      графике это и было «лагает при открытии модалки». */
-  background: rgba(5, 6, 5, 0.88);
+  background: var(--overlay);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -1496,7 +1562,7 @@ button.load-day:not(:disabled):hover {
 }
 .tpl .go {
   flex: 0 0 auto;
-  color: #4e554b;
+  color: var(--muted-2);
   display: flex;
   align-items: center;
   transition:
@@ -1556,7 +1622,7 @@ button.load-day:not(:disabled):hover {
 .field select,
 .field textarea {
   width: 100%;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--field-bg);
   border: 1px solid var(--line-strong);
   border-radius: 9px;
   padding: 11px 13px;
@@ -1608,7 +1674,7 @@ button.load-day:not(:disabled):hover {
    оставляем на месте: исчезающие поля дёргают форму, и непонятно, куда
    делось то, что только что было. */
 .field.inactive label {
-  color: #5f665c;
+  color: var(--muted-3);
 }
 .field input:disabled,
 .field select:disabled,
@@ -1736,7 +1802,7 @@ button.load-day:not(:disabled):hover {
   margin-top: 14px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(var(--fg-rgb), 0.015);
   overflow: hidden;
 }
 .money-quick {
@@ -1814,7 +1880,7 @@ button.load-day:not(:disabled):hover {
   border: 1px solid var(--line);
   border-radius: 11px;
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(var(--fg-rgb), 0.015);
   margin-top: 13px;
 }
 /* внутри общей рамки своя не нужна — только черта-разделитель */
@@ -1848,7 +1914,7 @@ button.load-day:not(:disabled):hover {
   display: block;
   font-family: "Inter";
   font-size: 12.5px;
-  color: #6d746a;
+  color: var(--muted-2);
   margin-top: 5px;
   line-height: 1.45;
 }
@@ -1872,7 +1938,7 @@ button.load-day:not(:disabled):hover {
   align-items: baseline;
   font-family: "Inter";
   font-size: 13.5px;
-  color: #c4c8c0;
+  color: var(--text-2);
   padding: 7px 0;
   border-bottom: 1px dashed var(--line);
 }
@@ -1900,7 +1966,7 @@ button.load-day:not(:disabled):hover {
 .calc-note {
   font-family: "Space Mono";
   font-size: 12px;
-  color: #6d746a;
+  color: var(--muted-2);
   margin-top: 9px;
   line-height: 1.55;
 }
@@ -1916,7 +1982,7 @@ button.load-day:not(:disabled):hover {
   padding: 9px 0 9px 24px;
   border-bottom: 1px dashed var(--line);
   font-size: 14px;
-  color: #c4c8c0;
+  color: var(--text-2);
 }
 .feed li:last-child {
   border-bottom: none;
@@ -1935,7 +2001,7 @@ button.load-day:not(:disabled):hover {
   display: block;
   font-family: "Space Mono";
   font-size: 12px;
-  color: #6d746a;
+  color: var(--muted-2);
   margin-top: 3px;
   letter-spacing: 0.05em;
 }
@@ -1987,7 +2053,7 @@ button.load-day:not(:disabled):hover {
 }
 .kv dd {
   margin: 0;
-  color: #dfe2db;
+  color: var(--text-1);
 }
 .kv dd a:hover {
   color: var(--green);
@@ -2148,7 +2214,7 @@ button.load-day:not(:disabled):hover {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 16px 15px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(var(--fg-rgb), 0.015);
 }
 .mx-cell .k {
   font-family: "Space Mono";
@@ -2197,14 +2263,14 @@ button.load-day:not(:disabled):hover {
   background: var(--green);
 }
 .mx-bar:hover {
-  background: #fff;
+  background: var(--text);
 }
 .mx-axis {
   display: flex;
   justify-content: space-between;
   font-family: "Space Mono";
   font-size: 11.5px;
-  color: #6d746a;
+  color: var(--muted-2);
   margin-top: 8px;
   letter-spacing: 0.05em;
 }
@@ -2258,7 +2324,7 @@ button.load-day:not(:disabled):hover {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 16px 15px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(var(--fg-rgb), 0.015);
   color: var(--text);
   cursor: pointer;
   font-family: "Inter";
@@ -2319,7 +2385,7 @@ button.load-day:not(:disabled):hover {
   margin-bottom: 20px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(var(--fg-rgb), 0.015);
 }
 .mx-sum span {
   font-family: "Space Mono";
@@ -2351,7 +2417,7 @@ button.load-day:not(:disabled):hover {
 .mx-rank-row .i {
   font-family: "Space Mono";
   font-size: 12.5px;
-  color: #5f665c;
+  color: var(--muted-3);
   width: 20px;
   flex: 0 0 auto;
   padding-top: 3px;
@@ -2385,7 +2451,7 @@ button.load-day:not(:disabled):hover {
 .mx-rank-row .track {
   height: 5px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
   overflow: hidden;
 }
 .mx-rank-row .track span {
@@ -2401,13 +2467,13 @@ button.load-day:not(:disabled):hover {
   margin-top: 7px;
   font-family: "Space Mono";
   font-size: 12px;
-  color: #6d746a;
+  color: var(--muted-2);
   letter-spacing: 0.04em;
 }
 .mx-empty {
   font-family: "Space Mono";
   font-size: 13px;
-  color: #5f665c;
+  color: var(--muted-3);
   letter-spacing: 0.06em;
   padding: 14px 0;
 }
@@ -2416,7 +2482,7 @@ button.load-day:not(:disabled):hover {
   font-family: "Space Mono";
   font-size: 12px;
   letter-spacing: 0.06em;
-  color: #5f665c;
+  color: var(--muted-3);
   margin: -18px 0 26px;
 }
 .gate-card.locked {
@@ -2428,8 +2494,8 @@ button.load-day:not(:disabled):hover {
   border-color: var(--line);
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.025),
-    rgba(255, 255, 255, 0.006)
+    rgba(var(--fg-rgb), 0.025),
+    rgba(var(--fg-rgb), 0.006)
   );
 }
 .gate-card .lock.pin {
@@ -2450,7 +2516,7 @@ button.load-day:not(:disabled):hover {
   border: 1px solid var(--line);
   border-radius: 13px;
   padding: 15px 17px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(var(--fg-rgb), 0.015);
 }
 .dv-card.current {
   border-color: rgba(60, 199, 7, 0.4);
@@ -2628,8 +2694,8 @@ button.load-day:not(:disabled):hover {
   padding: 20px 18px;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.025),
-    rgba(255, 255, 255, 0.006)
+    rgba(var(--fg-rgb), 0.025),
+    rgba(var(--fg-rgb), 0.006)
   );
   color: var(--text);
   cursor: pointer;
@@ -2645,7 +2711,7 @@ button.load-day:not(:disabled):hover {
   background: linear-gradient(
     180deg,
     rgba(60, 199, 7, 0.07),
-    rgba(255, 255, 255, 0.01)
+    rgba(var(--fg-rgb), 0.01)
   );
 }
 .gate-card .av {
@@ -2689,7 +2755,7 @@ button.load-day:not(:disabled):hover {
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #5f665c;
+  color: var(--muted-3);
 }
 .gate-card .lock svg {
   width: 11px;
@@ -2706,7 +2772,7 @@ button.load-day:not(:disabled):hover {
   border: 1px solid var(--line);
   border-radius: 13px;
   padding: 16px 17px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(var(--fg-rgb), 0.015);
   transition: border-color 0.18s;
 }
 .st-card:hover {
@@ -2799,7 +2865,7 @@ button.load-day:not(:disabled):hover {
 .st-none {
   font-family: "Space Mono";
   font-size: 12px;
-  color: #5f665c;
+  color: var(--muted-3);
   letter-spacing: 0.05em;
 }
 
@@ -2833,7 +2899,7 @@ button.load-day:not(:disabled):hover {
 }
 .perm-row:hover {
   border-color: var(--line);
-  background: rgba(255, 255, 255, 0.014);
+  background: rgba(var(--fg-rgb), 0.014);
 }
 .perm-row input {
   appearance: none;
@@ -2941,7 +3007,7 @@ button.load-day:not(:disabled):hover {
   border: 1px solid var(--line);
   border-radius: 11px;
   padding: 13px 14px;
-  background: rgba(255, 255, 255, 0.014);
+  background: rgba(var(--fg-rgb), 0.014);
 }
 .wk-field.has-warn {
   border-color: rgba(240, 180, 41, 0.35);
@@ -2949,7 +3015,7 @@ button.load-day:not(:disabled):hover {
 /* встроенное поле количества — его нельзя убрать или переставить */
 .wk-field-fixed {
   border-style: dashed;
-  background: rgba(255, 255, 255, 0.022);
+  background: rgba(var(--fg-rgb), 0.022);
 }
 .wk-fixed-tag {
   flex: 0 0 auto;
@@ -2998,7 +3064,7 @@ button.load-day:not(:disabled):hover {
   color: var(--muted);
 }
 .wk-kind select {
-  background-color: rgba(0, 0, 0, 0.32);
+  background-color: var(--field-bg);
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 9px 11px;
@@ -3023,7 +3089,7 @@ button.load-day:not(:disabled):hover {
   grid-column: 1/-1;
   font-family: "Space Mono";
   font-size: 11.5px;
-  color: #6d746a;
+  color: var(--muted-2);
   letter-spacing: 0.03em;
   line-height: 1.5;
   margin-top: 2px;
@@ -3133,7 +3199,7 @@ button.load-day:not(:disabled):hover {
   flex: 0 0 130px;
 }
 .wk-test input {
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--field-bg);
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 8px 10px;
@@ -3197,7 +3263,7 @@ button.load-day:not(:disabled):hover {
 }
 .wk-quick-row input,
 .wk-quick-row select {
-  background-color: rgba(0, 0, 0, 0.35);
+  background-color: var(--inset-bg);
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 8px 10px;
@@ -3219,7 +3285,7 @@ button.load-day:not(:disabled):hover {
 .wk-quick-hint {
   font-family: "Space Mono";
   font-size: 11.5px;
-  color: #6d746a;
+  color: var(--muted-2);
   letter-spacing: 0.03em;
   margin-top: 9px;
 }
@@ -3241,7 +3307,7 @@ button.load-day:not(:disabled):hover {
 }
 .wk-field-top select {
   flex: 0 0 auto;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--field-bg);
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 7px 10px;
@@ -3273,7 +3339,7 @@ button.load-day:not(:disabled):hover {
 }
 .wk-cell select,
 .wk-cell input {
-  background-color: rgba(0, 0, 0, 0.32);
+  background-color: var(--field-bg);
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 8px 10px;
@@ -3351,7 +3417,7 @@ button.load-day:not(:disabled):hover {
 .dz-empty .ic {
   width: 34px;
   height: 34px;
-  color: #5f665c;
+  color: var(--muted-3);
 }
 .dz-empty .ic svg {
   width: 100%;
@@ -3381,7 +3447,7 @@ button.load-day:not(:disabled):hover {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.014);
+  background: rgba(var(--fg-rgb), 0.014);
   transition:
     border-color 0.18s,
     background 0.18s;
@@ -3395,7 +3461,7 @@ button.load-day:not(:disabled):hover {
   position: relative;
   border: 1px solid var(--line-strong);
   background: repeating-conic-gradient(
-      rgba(255, 255, 255, 0.045) 0% 25%,
+      rgba(var(--fg-rgb), 0.045) 0% 25%,
       transparent 0% 50%
     )
     50%/16px 16px;
@@ -3419,7 +3485,7 @@ button.load-day:not(:disabled):hover {
 .dz-preview.none .ic {
   width: 30px;
   height: 30px;
-  color: #4e554b;
+  color: var(--muted-2);
 }
 .dz-preview.none .ic svg {
   width: 100%;
@@ -3429,7 +3495,7 @@ button.load-day:not(:disabled):hover {
 .dz-nopreview {
   font-family: "Space Mono";
   font-size: 11.5px;
-  color: #6d746a;
+  color: var(--muted-2);
   letter-spacing: 0.05em;
   text-align: center;
   padding: 0 10px;
@@ -3527,7 +3593,7 @@ button.load-day:not(:disabled):hover {
   object-fit: contain;
   border-radius: 8px;
   background: repeating-conic-gradient(
-      rgba(255, 255, 255, 0.05) 0% 25%,
+      rgba(var(--fg-rgb), 0.05) 0% 25%,
       transparent 0% 50%
     )
     50%/20px 20px;
@@ -3610,7 +3676,7 @@ button.load-day:not(:disabled):hover {
   cursor: not-allowed;
 }
 .pg-gap {
-  color: #5f665c;
+  color: var(--muted-3);
   padding: 0 2px;
   font-family: "Space Mono";
   font-size: 12.5px;
@@ -3619,7 +3685,7 @@ button.load-day:not(:disabled):hover {
   margin-left: auto;
   font-family: "Space Mono";
   font-size: 11.5px;
-  color: #6d746a;
+  color: var(--muted-2);
   letter-spacing: 0.04em;
 }
 #clOrdersPager {
@@ -3652,7 +3718,7 @@ button.load-day:not(:disabled):hover {
 }
 .cl-search input {
   width: 100%;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--inset-bg);
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   padding: 11px 14px 11px 40px;
@@ -3700,7 +3766,7 @@ button.load-day:not(:disabled):hover {
   margin-bottom: 18px;
   border: 1px solid var(--line);
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(var(--fg-rgb), 0.015);
   font-family: "Space Mono";
   font-size: 12px;
   letter-spacing: 0.05em;
@@ -3727,7 +3793,7 @@ button.load-day:not(:disabled):hover {
   padding: 13px 15px;
   border: 1px solid var(--line);
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.012);
+  background: rgba(var(--fg-rgb), 0.012);
   color: var(--text);
   cursor: pointer;
   font-family: "Inter";
@@ -3825,7 +3891,7 @@ button.load-day:not(:disabled):hover {
   text-align: right;
   font-family: "Space Mono";
   font-size: 12px;
-  color: #6d746a;
+  color: var(--muted-2);
 }
 
 /* карточка клиента */
@@ -3911,7 +3977,7 @@ button.load-day:not(:disabled):hover {
   cursor: pointer;
   padding: 9px 12px;
   border-radius: 9px;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--field-bg);
   border: 1px solid var(--line-strong);
   color: var(--text);
   font-family: "Inter";
@@ -3956,7 +4022,7 @@ button.load-day:not(:disabled):hover {
   margin-left: 0;
 }
 .price-ref.empty .path {
-  color: #6d746a;
+  color: var(--muted-2);
 }
 
 /* окно выбора: плитки чуть плотнее, чем на странице прайса */
@@ -4010,7 +4076,7 @@ button.load-day:not(:disabled):hover {
   display: block;
   font-family: "Space Mono";
   font-size: 11.5px;
-  color: #5f665c;
+  color: var(--muted-3);
   letter-spacing: 0.06em;
   margin-top: 2px;
 }
@@ -4050,7 +4116,7 @@ button.load-day:not(:disabled):hover {
   padding: 18px 17px;
   border: 1px solid var(--line);
   border-radius: 13px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(var(--fg-rgb), 0.015);
   color: var(--text);
   cursor: pointer;
   font-family: "Inter";
@@ -4172,7 +4238,7 @@ button.load-day:not(:disabled):hover {
 .pr-note {
   font-family: "Space Mono";
   font-size: 12.5px;
-  color: #6d746a;
+  color: var(--muted-2);
   letter-spacing: 0.04em;
   line-height: 1.6;
   border-left: 2px solid var(--line-strong);
@@ -4197,7 +4263,7 @@ button.load-day:not(:disabled):hover {
 }
 .pr-row:hover {
   border-color: var(--line);
-  background: rgba(255, 255, 255, 0.014);
+  background: rgba(var(--fg-rgb), 0.014);
 }
 .pr-row.off {
   opacity: 0.45;
@@ -4247,7 +4313,7 @@ button.load-day:not(:disabled):hover {
   display: block;
   font-family: "Space Mono";
   font-size: 11.5px;
-  color: #5f665c;
+  color: var(--muted-3);
   letter-spacing: 0.06em;
   margin-top: 2px;
 }
@@ -4260,7 +4326,7 @@ button.load-day:not(:disabled):hover {
 .pr-row .val {
   width: 104px;
   flex: 0 0 auto;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--field-bg);
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 8px 10px;
@@ -4290,7 +4356,7 @@ button.load-day:not(:disabled):hover {
 .pr-row .unit-pick {
   width: 98px;
   flex: 0 0 auto;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--field-bg);
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 8px 22px 8px 10px;
@@ -4324,7 +4390,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 8px;
   border: 1px solid transparent;
   background: none;
-  color: #5f665c;
+  color: var(--muted-3);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -4348,7 +4414,7 @@ button.load-day:not(:disabled):hover {
   cursor: not-allowed;
 }
 .pr-act:disabled:hover {
-  color: #5f665c;
+  color: var(--muted-3);
   border-color: transparent;
 }
 .pr-add {
@@ -4373,7 +4439,7 @@ button.load-day:not(:disabled):hover {
 .pr-add input,
 .pr-add select {
   width: 100%;
-  background-color: rgba(0, 0, 0, 0.32);
+  background-color: var(--field-bg);
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 9px 11px;
@@ -4423,7 +4489,7 @@ button.load-day:not(:disabled):hover {
   color: #f0b429;
 }
 .pay-none {
-  color: #8a9182;
+  color: var(--muted-2);
 }
 .pay-refunded {
   color: var(--red);
@@ -4453,7 +4519,7 @@ button.load-day:not(:disabled):hover {
   background: #f0b429;
 }
 .card.mark-none::after {
-  background: rgba(255, 255, 255, 0.13);
+  background: rgba(var(--fg-rgb), 0.13);
 }
 .card.mark-refunded::after {
   background: var(--red);
@@ -4483,7 +4549,7 @@ button.load-day:not(:disabled):hover {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 13px 15px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(var(--fg-rgb), 0.015);
 }
 .pay-cell span {
   display: block;
@@ -4530,7 +4596,7 @@ button.load-day:not(:disabled):hover {
   line-height: 1.5;
   border: 1px solid rgba(229, 72, 77, 0.35);
   background: rgba(229, 72, 77, 0.07);
-  color: #dfe2db;
+  color: var(--text-1);
 }
 .cancel-note span {
   display: block;
@@ -4652,7 +4718,7 @@ button.load-day:not(:disabled):hover {
   padding: 10px 11px;
   font-family: "Space Mono";
   font-size: 12.5px;
-  color: #6d746a;
+  color: var(--muted-2);
   letter-spacing: 0.05em;
 }
 .client-linked {
@@ -4750,7 +4816,7 @@ button.load-day:not(:disabled):hover {
 }
 .confirm-text {
   font-size: 15px;
-  color: #c4c8c0;
+  color: var(--text-2);
   line-height: 1.55;
   margin: 0;
 }
@@ -5032,7 +5098,7 @@ button.load-day:not(:disabled):hover {
     font-family: "Space Mono";
     font-size: 12px;
     letter-spacing: 0.06em;
-    color: #5f665c;
+    color: var(--muted-3);
     margin: -18px 0 26px;
   }
   .gate-card.locked {
@@ -5044,8 +5110,8 @@ button.load-day:not(:disabled):hover {
     border-color: var(--line);
     background: linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.025),
-      rgba(255, 255, 255, 0.006)
+      rgba(var(--fg-rgb), 0.025),
+      rgba(var(--fg-rgb), 0.006)
     );
   }
   .gate-card .lock.pin {
@@ -5066,7 +5132,7 @@ button.load-day:not(:disabled):hover {
     border: 1px solid var(--line);
     border-radius: 13px;
     padding: 15px 17px;
-    background: rgba(255, 255, 255, 0.015);
+    background: rgba(var(--fg-rgb), 0.015);
   }
   .dv-card.current {
     border-color: rgba(60, 199, 7, 0.4);
@@ -5856,7 +5922,7 @@ button.load-day:not(:disabled):hover {
   padding: 11px 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(var(--fg-rgb), 0.015);
   color: var(--text);
   text-align: left;
   cursor: pointer;
@@ -5950,7 +6016,7 @@ button.load-day:not(:disabled):hover {
   border-left: 3px solid transparent;
 }
 .log-line:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
 }
 .log-time {
   color: #5f6a5c;
@@ -6112,7 +6178,7 @@ button.load-day:not(:disabled):hover {
   padding: 2px 8px;
   border-radius: 6px;
   border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   font-family: "Space Mono";
   font-size: 12px;
   color: var(--text);
@@ -6217,7 +6283,7 @@ body.touch-dragging {
   gap: 10px;
   text-align: left;
   cursor: pointer;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--field-bg);
   border: 1px solid var(--line-strong);
   border-radius: 9px;
   padding: 11px 13px;
@@ -6228,7 +6294,7 @@ body.touch-dragging {
   transition: border-color 0.2s;
 }
 .sel-btn:hover {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(var(--fg-rgb), 0.25);
 }
 .sel-btn:focus-visible,
 .sel.open .sel-btn {
@@ -6248,7 +6314,7 @@ body.touch-dragging {
   white-space: nowrap;
 }
 .sel-value.empty {
-  color: #6d746a;
+  color: var(--muted-2);
 }
 .sel-arrow {
   flex: 0 0 auto;
@@ -6595,7 +6661,7 @@ body.touch-dragging {
   padding: 14px 14px 16px 16px;
   border: 1px solid rgba(60, 199, 7, 0.45);
   border-radius: 12px;
-  background: #0f130f;
+  background: var(--panel-2);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6);
   overflow: hidden;
   animation: notice-in 0.28s var(--ease);
@@ -6731,7 +6797,7 @@ body.touch-dragging {
   font-size: 10.5px;
   line-height: 18px;
   text-align: center;
-  border: 2px solid #0a0b0a;
+  border: 2px solid var(--ink);
   pointer-events: none;
 }
 .nav-tab {
@@ -6811,7 +6877,7 @@ body.touch-dragging {
   transition: background 0.14s;
 }
 .mail-row:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
 }
 .mail-row.on {
   background: rgba(60, 199, 7, 0.08);
@@ -6831,7 +6897,7 @@ body.touch-dragging {
   height: 40px;
   border-radius: 50%;
   border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6954,7 +7020,7 @@ body.touch-dragging {
   padding: 8px 12px;
   border-radius: 9px;
   border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   color: var(--text);
   font: inherit;
   font-size: 13px;
@@ -6989,16 +7055,19 @@ body.touch-dragging {
   word-break: break-word;
   max-width: 78ch;
 }
-/* письмо с оформлением: белый лист в тёмном интерфейсе, как бумага */
+/* Письмо с оформлением — в цветах темы, а не белым листом: белый
+   прямоугольник посреди тёмного интерфейса резал глаз. Как это сделано —
+   см. HtmlMail в MailPage: в тёмной теме документ внутри рамки
+   инвертируется, картинки — обратно. */
 .mail-frame {
   display: block;
   width: 100%;
   max-width: 900px;
   margin-top: 20px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
-  color-scheme: light;
+  background: var(--panel-2);
+  color-scheme: inherit;
 }
 .mail-view-toggle {
   display: inline-block;
@@ -7083,5 +7152,24 @@ body.touch-dragging {
   .mail-back {
     display: inline-flex;
   }
+}
+
+/* ---------- переключатель темы ---------- */
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  position: relative;
+  overflow: hidden;
+}
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  transition:
+    transform 0.4s var(--ease),
+    opacity 0.3s;
+}
+.theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--green);
 }
 

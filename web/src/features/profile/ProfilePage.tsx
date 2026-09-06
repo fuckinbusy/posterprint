@@ -13,6 +13,7 @@ import { useAuth } from '@/app/AuthProvider';
 import { useConfirm } from '@/app/ConfirmProvider';
 import { useModal } from '@/app/ModalProvider';
 import { BOARD_REFRESH, BOARD_REFRESH_LABEL, usePref, type BoardRefresh } from '@/app/prefs';
+import { setTheme, useTheme, type Theme } from '@/app/theme';
 import { useToast } from '@/app/ToastProvider';
 import { Select } from '@/components/Select';
 import { Field, KeyValue, PageHead, Section } from '@/components/ui';
@@ -80,6 +81,7 @@ export function ProfilePage() {
   });
 
   const [refresh, setRefresh] = usePref<BoardRefresh>('board.refresh', '0', BOARD_REFRESH);
+  const theme = useTheme();
   const [sound, setSound] = usePref<NotifySound>('notify.sound', 'on', NOTIFY_SOUND);
   const [systemAllowed, setSystemAllowed] = useState(systemNoticesAllowed());
 
@@ -151,6 +153,23 @@ export function ProfilePage() {
               ['Сервер', window.location.host],
             ]}
           />
+        </Section>
+
+        <Section title="Оформление">
+          <Field
+            label="Тема"
+            hint="Хранится в этом браузере: тема — про экран и освещение в комнате, а не про профиль. Переключатель есть и в шапке, рядом с именем."
+          >
+            <Select
+              value={theme}
+              options={[
+                { value: 'dark', label: 'Тёмная' },
+                { value: 'light', label: 'Светлая' },
+              ]}
+              onChange={(v) => setTheme(v as Theme)}
+              aria-label="Тема оформления"
+            />
+          </Field>
         </Section>
 
         <Section title="Доска">

@@ -297,9 +297,12 @@ class _Sanitizer(HTMLParser):
         pass  # условные комментарии Outlook и трекинг — не нужны
 
 
+# Фон документу не задаём: рамка прозрачная, цвет подкладывает интерфейс
+# под свою тему (см. HtmlMail в MailPage). Текст тёмный, как в письме
+# «на бумаге», — в тёмной теме рамка целиком инвертируется.
 FRAME_STYLE = (
     "body{margin:0;padding:18px 22px;font:15px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;"
-    "color:#111;background:#fff;word-break:break-word}"
+    "color:#111;word-break:break-word}"
     "img{max-width:100%;height:auto}table{max-width:100%}a{color:#0a58ca}"
     "blockquote{margin:8px 0;padding-left:12px;border-left:3px solid #ccc;color:#555}"
 )

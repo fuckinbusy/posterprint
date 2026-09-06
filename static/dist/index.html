@@ -9,8 +9,15 @@
 <!-- Шрифты лежат рядом с системой: в мастерской может не быть интернета,
      а с ним Google Fonts не всегда доступен и всегда задерживает первый показ. -->
 <link href="/static/fonts/fonts.css" rel="stylesheet">
-  <script type="module" crossorigin src="/static/dist/assets/index-CbMNKkKq.js"></script>
-  <link rel="stylesheet" crossorigin href="/static/dist/assets/index-CxIUbwpE.css">
+<!-- Тема — до стилей и до React: иначе в светлой теме страница на миг
+     вспыхивает тёмным. Ключ тот же, что читает app/theme.ts. -->
+<script>
+  try {
+    if (localStorage.getItem('poster.theme') === 'light') document.documentElement.dataset.theme = 'light';
+  } catch (e) {}
+</script>
+  <script type="module" crossorigin src="/static/dist/assets/index-DoSbtGMW.js"></script>
+  <link rel="stylesheet" crossorigin href="/static/dist/assets/index-C_dj28U6.css">
 </head>
 <body>
 <div id="root"></div>
