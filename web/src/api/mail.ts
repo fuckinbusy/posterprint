@@ -48,6 +48,8 @@ export interface MailDetail extends MailSummary {
   cc: MailAddress[];
   text: string;
   was_html: boolean;
+  /** вычищенный HTML для изолированной рамки; пусто — письмо текстовое */
+  html: string;
   attachments: MailAttachment[];
 }
 

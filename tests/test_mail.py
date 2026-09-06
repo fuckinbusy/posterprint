@@ -99,3 +99,44 @@ def test_разбор_ответа_fetch():
     assert set(parsed) == {501, 502}
     assert mail._flags(parsed[501][0]) == {"\\Seen"}
     assert mail._flags(parsed[502][0]) == set()
+
+
+def test_html_вычищается_но_оформление_и_картинки_остаются():
+    raw = (
+        "<html><head><script>alert(1)</script><style>p{color:red;background:url(x)}</style></head>"
+        "<body onload=\"evil()\"><p style=\"color:blue;expression(x)\">Привет</p>"
+        "<img src=\"https://cdn.example.com/a.png\" onerror=\"evil()\">"
+        "<img src=\"http://plain.example.com/b.png\">"
+        "<img src=\"cid:logo@mail\">"
+        "<a href=\"javascript:evil()\">плохая</a><a href=\"https://example.com\">хорошая</a>"
+        "<iframe src=\"https://evil\"></iframe><form><input></form></body></html>"
+    )
+    out = mail.sanitize_html(raw, {"logo@mail": "data:image/png;base64,AAAA"})
+    assert "alert" not in out and "evil" not in out and "<iframe" not in out and "<form" not in out
+    assert "expression" not in out and "url(" not in out
+    assert "color:red" in out and "color:blue" in out
+    assert 'src="https://cdn.example.com/a.png"' in out
+    assert "plain.example.com" not in out  # http-картинку выбросили
+    assert 'src="data:image/png;base64,AAAA"' in out  # cid подставился
+    assert 'href="https://example.com"' in out and "target=\"_blank\"" in out
+    assert "javascript:" not in out
+    assert out.startswith("<!doctype html>")
+
+
+def test_вшитая_картинка_становится_data_строкой():
+    msg = EmailMessage()
+    msg["From"] = "a@b.c"
+    msg.set_content("текст")
+    msg.add_alternative('<p>лого: <img src="cid:pic1"></p>', subtype="html")
+    msg.get_payload()[1].add_related(b"\x89PNG", maintype="image", subtype="png", cid="<pic1>")
+    images = mail.inline_images(msg)
+    assert "pic1" in images and images["pic1"].startswith("data:image/png;base64,")
+    html = mail.html_body(msg)
+    assert "data:image/png;base64," in html
+
+
+def test_текстовое_письмо_без_html():
+    msg = EmailMessage()
+    msg.set_content("только текст")
+    assert mail.html_body(msg) == ""
+

@@ -20,7 +20,9 @@
 
 from __future__ import annotations
 
+import base64
 import email
+import html as html_lib
 import imaplib
 import logging
 import os
@@ -165,6 +167,199 @@ def html_to_text(html: str) -> str:
     except Exception:  # noqa: BLE001
         return re.sub(r"<[^>]+>", "", html)
     return parser.text()
+
+
+# ---------------------------------------------------------------- HTML письма
+# Показывать чужой HTML как есть нельзя: это чужой код на нашей странице.
+# Поэтому разметка переписывается заново по белому списку — остаются только
+# теги оформления и безопасные атрибуты, ссылки только http/https/mailto,
+# картинки только https и вложенные (cid → data:). Скрипты, формы, фреймы,
+# обработчики on* и опасные конструкции CSS выбрасываются. Результат ещё и
+# показывается в изолированной рамке без скриптов (см. MailPage).
+ALLOWED_TAGS = {
+    "a", "abbr", "b", "big", "blockquote", "br", "caption", "center", "cite", "code", "dd", "del", "div",
+    "dl", "dt", "em", "font", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img", "ins", "li", "mark",
+    "ol", "p", "pre", "q", "s", "small", "span", "strike", "strong", "sub", "sup", "table", "tbody",
+    "td", "tfoot", "th", "thead", "tr", "tt", "u", "ul", "body", "html", "section", "article", "header",
+    "footer", "main", "nav", "figure", "figcaption", "picture", "source", "label",
+}
+VOID_TAGS = {"br", "img", "hr", "source"}
+# всё внутри этих тегов выбрасывается целиком
+DROP_WITH_CONTENT = {
+    "script", "iframe", "object", "applet", "form", "button", "select", "textarea",
+    "noscript", "svg", "math", "template", "title", "audio", "video",
+}
+# у этих тегов нет закрывающего — выбрасываем сам тег, не трогая то, что после
+DROP_VOID = {"meta", "link", "base", "input", "embed", "param", "track"}
+ALLOWED_ATTRS = {
+    "href", "src", "srcset", "alt", "title", "width", "height", "align", "valign", "colspan", "rowspan",
+    "style", "border", "cellpadding", "cellspacing", "bgcolor", "color", "size", "face", "dir", "lang",
+    "class", "type", "start", "media",
+}
+_BAD_CSS = re.compile(r"(expression\s*\(|javascript:|vbscript:|behavior\s*:|-moz-binding|@import|url\s*\()", re.I)
+_CTRL = re.compile(r"[\x00-\x20]+")
+MAX_HTML_BYTES = 2_000_000
+MAX_INLINE_IMAGE = 2_000_000
+MAX_INLINE_TOTAL = 6_000_000
+
+
+def _clean_url(value: str, tag: str, attr: str, cid_map: dict[str, str]) -> str | None:
+    raw = (value or "").strip()
+    low = _CTRL.sub("", raw).lower()
+    if low.startswith("cid:"):
+        return cid_map.get(raw[4:].strip().strip("<>"))
+    if tag == "img" or attr in ("src", "srcset"):
+        # http-картинки браузер и так заблокирует на https-странице, а
+        # data: пропускаем только с картинками
+        if low.startswith("https://") or low.startswith("data:image/"):
+            return raw
+        return None
+    if low.startswith(("https://", "http://", "mailto:", "tel:")):
+        return raw
+    return None
+
+
+class _Sanitizer(HTMLParser):
+    def __init__(self, cid_map: dict[str, str]):
+        super().__init__(convert_charrefs=True)
+        self.cid_map = cid_map
+        self.out: list[str] = []
+        self.drop: list[str] = []      # стек тегов, чьё содержимое выбрасываем
+        self.in_style = False
+
+    def _attrs(self, tag: str, attrs) -> str:
+        parts = []
+        for name, value in attrs:
+            name = (name or "").lower()
+            if name.startswith("on") or name not in ALLOWED_ATTRS:
+                continue
+            value = value or ""
+            if name in ("href", "src", "srcset"):
+                cleaned = _clean_url(value, tag, name, self.cid_map)
+                if cleaned is None:
+                    continue
+                value = cleaned
+            elif name == "style":
+                value = _BAD_CSS.sub("", value)
+            parts.append(f' {name}="{html_lib.escape(value, quote=True)}"')
+        if tag == "a":
+            parts.append(' target="_blank" rel="noopener noreferrer"')
+        if tag == "img":
+            parts.append(' loading="lazy"')
+        return "".join(parts)
+
+    def handle_starttag(self, tag, attrs):
+        tag = tag.lower()
+        if tag in DROP_VOID:
+            return
+        if self.drop:
+            if tag in DROP_WITH_CONTENT:
+                self.drop.append(tag)
+            return
+        if tag in DROP_WITH_CONTENT:
+            self.drop.append(tag)
+            return
+        if tag == "style":
+            self.in_style = True
+            self.out.append("<style>")
+            return
+        if tag not in ALLOWED_TAGS:
+            return  # тег выбрасываем, содержимое остаётся
+        self.out.append(f"<{tag}{self._attrs(tag, attrs)}>")
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        if tag.lower() not in VOID_TAGS:
+            self.handle_endtag(tag)
+
+    def handle_endtag(self, tag):
+        tag = tag.lower()
+        if self.drop:
+            if tag == self.drop[-1]:
+                self.drop.pop()
+            return
+        if tag == "style":
+            self.in_style = False
+            self.out.append("</style>")
+            return
+        if tag in ALLOWED_TAGS and tag not in VOID_TAGS:
+            self.out.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        if self.drop:
+            return
+        if self.in_style:
+            self.out.append(_BAD_CSS.sub("", data))
+        else:
+            self.out.append(html_lib.escape(data, quote=False))
+
+    def handle_comment(self, data):
+        pass  # условные комментарии Outlook и трекинг — не нужны
+
+
+FRAME_STYLE = (
+    "body{margin:0;padding:18px 22px;font:15px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;"
+    "color:#111;background:#fff;word-break:break-word}"
+    "img{max-width:100%;height:auto}table{max-width:100%}a{color:#0a58ca}"
+    "blockquote{margin:8px 0;padding-left:12px;border-left:3px solid #ccc;color:#555}"
+)
+
+
+def sanitize_html(raw: str, cid_map: dict[str, str] | None = None) -> str:
+    """HTML письма → безопасный документ для изолированной рамки."""
+    parser = _Sanitizer(cid_map or {})
+    try:
+        parser.feed(raw)
+        parser.close()
+    except Exception:  # noqa: BLE001 — сломанную разметку показываем текстом
+        return ""
+    body = "".join(parser.out).strip()
+    if not body:
+        return ""
+    return (
+        '<!doctype html><html><head><meta charset="utf-8"><base target="_blank">'
+        f"<style>{FRAME_STYLE}</style></head><body>{body}</body></html>"
+    )
+
+
+def inline_images(msg: Message) -> dict[str, str]:
+    """Картинки, вшитые в письмо (Content-ID) → data:-строки для подстановки
+    вместо cid:. Ограничены по размеру: письмо с десятком мегабайт картинок
+    браузеру не нужно целиком."""
+    out: dict[str, str] = {}
+    total = 0
+    for part in msg.walk():
+        if part.is_multipart() or not part.get_content_type().startswith("image/"):
+            continue
+        cid = (part.get("Content-ID") or "").strip().strip("<>")
+        if not cid:
+            continue
+        payload = part.get_payload(decode=True) or b""
+        if not payload or len(payload) > MAX_INLINE_IMAGE or total + len(payload) > MAX_INLINE_TOTAL:
+            continue
+        total += len(payload)
+        out[cid] = f"data:{part.get_content_type()};base64,{base64.b64encode(payload).decode('ascii')}"
+    return out
+
+
+def html_body(msg: Message) -> str:
+    """Вычищенный HTML письма или пустая строка, если письмо текстовое,
+    разметка не разобралась или слишком велика."""
+    chunks: list[str] = []
+    for part in msg.walk():
+        if part.is_multipart() or part.get_filename() or part.get_content_type() != "text/html":
+            continue
+        try:
+            chunks.append(part.get_content())
+        except Exception:  # noqa: BLE001
+            payload = part.get_payload(decode=True) or b""
+            chunks.append(payload.decode(part.get_content_charset() or "utf-8", errors="replace"))
+    if not chunks:
+        return ""
+    raw = "\n".join(chunks)
+    if len(raw.encode("utf-8", errors="ignore")) > MAX_HTML_BYTES:
+        return ""
+    return sanitize_html(raw, inline_images(msg))
 
 
 def body_text(msg: Message) -> tuple[str, bool]:
@@ -425,6 +620,9 @@ class Mailbox:
             "cc": addresses(msg.get("Cc")),
             "text": text,
             "was_html": was_html,
+            # вычищенная разметка с картинками — показывается в рамке;
+            # текст остаётся запасным видом и для цитаты в ответе
+            "html": html_body(msg),
             "attachments": attachments_of(msg),
         }
 

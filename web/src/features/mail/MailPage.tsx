@@ -163,31 +163,34 @@ function MailList({
   }, [list]);
 
   /* вверх: новые письма вставляются в начало, лишние старые — выбрасываются */
-  const loadNewer = useCallback(async (force = false) => {
-    // без force — только если сверху действительно что-то выброшено:
-    // иначе каждый показ верхнего часового ходил бы на сервер зря
-    if (busy.current || list.items.length === 0 || (!list.newer && !force)) return;
-    busy.current = true;
-    try {
-      const first = list.items[0];
-      const page = await fetchMailPage({ after: first.uid });
-      if (page.messages.length === 0) {
-        setList((prev) => ({ ...prev, newer: page.has_newer }));
-        return;
+  const loadNewer = useCallback(
+    async (force = false) => {
+      // без force — только если сверху действительно что-то выброшено:
+      // иначе каждый показ верхнего часового ходил бы на сервер зря
+      if (busy.current || list.items.length === 0 || (!list.newer && !force)) return;
+      busy.current = true;
+      try {
+        const first = list.items[0];
+        const page = await fetchMailPage({ after: first.uid });
+        if (page.messages.length === 0) {
+          setList((prev) => ({ ...prev, newer: page.has_newer }));
+          return;
+        }
+        keepFrom.current = scroller.current?.scrollHeight ?? null;
+        setList((prev) => {
+          let items = [...page.messages, ...prev.items];
+          const dropped = items.length > WINDOW;
+          if (dropped) items = items.slice(0, WINDOW);
+          return { items, newer: page.has_newer, older: dropped || prev.older };
+        });
+      } catch {
+        /* следующая прокрутка попробует снова */
+      } finally {
+        busy.current = false;
       }
-      keepFrom.current = scroller.current?.scrollHeight ?? null;
-      setList((prev) => {
-        let items = [...page.messages, ...prev.items];
-        const dropped = items.length > WINDOW;
-        if (dropped) items = items.slice(0, WINDOW);
-        return { items, newer: page.has_newer, older: dropped || prev.older };
-      });
-    } catch {
-      /* следующая прокрутка попробует снова */
-    } finally {
-      busy.current = false;
-    }
-  }, [list]);
+    },
+    [list],
+  );
 
   // после вставки сверху сдвигаем прокрутку на высоту вставленного
   useLayoutEffect(() => {
@@ -352,6 +355,10 @@ function MailReader({
     );
   }
 
+  // письмо с оформлением — в рамке; по желанию — только текст
+  const [asText, setAsText] = useState(false);
+  useEffect(() => setAsText(false), [uid]);
+
   const m = detail.data;
   return (
     <section className="mail-read" aria-label="Письмо">
@@ -397,15 +404,71 @@ function MailReader({
             </div>
           )}
 
-          <div className="mail-body">{m.text || <em className="hint">Письмо без текста.</em>}</div>
-          {m.was_html && (
-            <div className="mail-note">Письмо пришло в HTML, показан только текст — так безопаснее.</div>
+          {m.html && !asText ? (
+            <HtmlMail html={m.html} />
+          ) : (
+            <div className="mail-body">{m.text || <em className="hint">Письмо без текста.</em>}</div>
+          )}
+          {m.html && (
+            <button className="btn-link mail-view-toggle" type="button" onClick={() => setAsText((v) => !v)}>
+              {asText ? 'Показать письмо с оформлением' : 'Показать только текст'}
+            </button>
           )}
 
           <ReplyBox uid={m.uid} to={m.reply_to} />
         </>
       )}
     </section>
+  );
+}
+
+/* HTML письма в изолированной рамке. sandbox без allow-scripts: внутри
+   ничего не выполняется, даже если что-то проскочило через очистку на
+   сервере. allow-same-origin нужен только чтобы измерить высоту содержимого
+   и подогнать рамку — без скриптов это безопасно. Ссылки открываются в
+   новой вкладке. */
+function HtmlMail({ html }: { html: string }) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(320);
+
+  const measure = useCallback(() => {
+    const doc = frame.current?.contentDocument;
+    const root = doc?.documentElement;
+    if (!root) return;
+    const next = Math.min(Math.max(root.scrollHeight, 120), 20_000);
+    setHeight((prev) => (Math.abs(prev - next) > 2 ? next : prev));
+  }, []);
+
+  // картинки догружаются после load — меряем ещё несколько раз и следим
+  // за размером содержимого, пока письмо открыто
+  useEffect(() => {
+    const timers = [150, 600, 1500, 3500].map((ms) => window.setTimeout(measure, ms));
+    let observer: ResizeObserver | null = null;
+    const attach = window.setTimeout(() => {
+      const root = frame.current?.contentDocument?.documentElement;
+      if (root && typeof ResizeObserver !== 'undefined') {
+        observer = new ResizeObserver(measure);
+        observer.observe(root);
+      }
+    }, 200);
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      window.clearTimeout(attach);
+      observer?.disconnect();
+    };
+  }, [html, measure]);
+
+  return (
+    <iframe
+      ref={frame}
+      className="mail-frame"
+      title="Письмо"
+      sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+      referrerPolicy="no-referrer"
+      srcDoc={html}
+      style={{ height }}
+      onLoad={measure}
+    />
   );
 }
 
