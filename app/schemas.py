@@ -11,6 +11,18 @@ from app.models import OrderStatus
 
 # Длины повторяют колонки в models.py. SQLite длину не проверяет и молча
 # примет мегабайт в поле телефона, Postgres — упадёт с 500; проверяем сами.
+class ExtraIn(BaseModel):
+    """Доп. услуга к заказу: ключ позиции раздела «Услуги» и сколько раз."""
+
+    key: str = Field(min_length=1, max_length=80)
+    qty: float = Field(default=1, gt=0, le=100_000)
+
+
+class ExtraOut(ExtraIn):
+    title: str = ""
+    rate: float = 0.0
+
+
 class OrderBase(BaseModel):
     title: str = Field(default="", max_length=160)
     client_id: int | None = None
@@ -19,6 +31,7 @@ class OrderBase(BaseModel):
     client_contact: str = Field(default="", max_length=120)
     quantity: int = Field(default=1, ge=1)
     params: dict = Field(default_factory=dict)
+    extras: list[ExtraIn] = Field(default_factory=list)
     price: float = Field(default=0.0, ge=0)
     prepaid: float = Field(default=0.0, ge=0)
     refunded: bool = False
@@ -50,6 +63,7 @@ class OrderUpdate(BaseModel):
     client_contact: str | None = Field(default=None, max_length=120)
     quantity: int | None = Field(default=None, ge=1)
     params: dict | None = None
+    extras: list[ExtraIn] | None = None
     price: float | None = Field(default=None, ge=0)
     prepaid: float | None = Field(default=None, ge=0)
     refunded: bool | None = None
@@ -89,6 +103,7 @@ class OrderOut(OrderBase):
     number: str
     template_key: str
     status: OrderStatus
+    extras: list[ExtraOut] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
     summary: str = ""
@@ -168,6 +183,7 @@ class EstimateRequest(BaseModel):
     template_key: str
     quantity: int = Field(default=1, ge=1)
     params: dict = Field(default_factory=dict)
+    extras: list[ExtraIn] = Field(default_factory=list)
 
 
 class EstimateLine(BaseModel):

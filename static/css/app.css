@@ -7376,3 +7376,113 @@ body.touch-dragging {
   max-width: 640px;
 }
 
+/* ---------- доп. услуги в форме заказа ---------- */
+.extras {
+  margin-top: 18px;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(var(--fg-rgb), 0.02);
+}
+.extras-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.extras-title {
+  font-family: "Space Mono";
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+.extras-hint {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.extras-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.extra-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    border-color 0.16s,
+    background 0.16s,
+    color 0.16s;
+}
+.extra-chip em {
+  font-style: normal;
+  font-family: "Space Mono";
+  font-size: 11px;
+  color: var(--muted);
+}
+.extra-chip:hover {
+  border-color: var(--green);
+}
+.extra-chip.on {
+  background: var(--green);
+  border-color: var(--green);
+  color: #06210a;
+  font-weight: 600;
+}
+.extra-chip.on em {
+  color: #06210a;
+  opacity: 0.75;
+}
+.extras-list {
+  margin-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.extra-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+}
+.extra-row.total {
+  border-bottom: 0;
+  padding-top: 10px;
+}
+.extra-row.total .extra-sum {
+  color: var(--green);
+}
+.extra-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.extra-qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.extra-qty input {
+  width: 72px;
+  padding: 5px 8px;
+}
+.extra-sum {
+  font-family: "Space Mono";
+  font-size: 13px;
+  white-space: nowrap;
+}
+

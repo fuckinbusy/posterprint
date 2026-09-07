@@ -10,6 +10,7 @@ import type {
   Estimate,
   Order,
   OrderCreatePayload,
+  OrderExtraIn,
   OrderParams,
   OrderPayment,
   OrderStatus,
@@ -86,10 +87,11 @@ export const estimatePrice = (
   templateKey: string,
   quantity: number,
   params: OrderParams,
+  extras: OrderExtraIn[] = [],
 ): Promise<Estimate> =>
   request<Estimate>('/price/estimate', {
     method: 'POST',
-    body: { template_key: templateKey, quantity, params },
+    body: { template_key: templateKey, quantity, params, extras },
   });
 
 /* ---------------------------------------------------- хуки мутаций */

@@ -38,7 +38,10 @@
   step_per_unit выбирает таблицу (бумагу, формат, изделие), поля с ролью
   step_key уточняют столбец (цветность, стороны, тип печати), а тираж
   заказа выбирает строку;
-* услуги — цена за штуку или за заказ.
+* услуги — цена за штуку или за заказ; раздел «Услуги» особенный: его
+  позиции добавляются к ЛЮБОМУ заказу как доп. услуги (блок в форме заказа,
+  `pricing.EXTRAS_GROUP`), а отдельный вид работ «Дизайн и услуги» нужен
+  только когда печати нет вовсе — логотип, брендбук.
 
 Что в прайсе не влезло в расчёт и отдано на усмотрение приёмки: фиксированная
 цена табличек меньше 0,5 м² (18 000–21 500 ₽/м²), «80 ₽ × число проходов»
@@ -546,7 +549,6 @@ TEMPLATES: list[dict] = [
              F(price_item="Ламинирование 75 мк")),
             ("corners", "Скругление углов", "bool", "price", "viz_dop", "per_unit", "", False,
              F(price_item="Скругление углов")),
-            ("design", "Макет", "select", "price", "uslugi", "per_order", "", False, F()),
         ],
     },
     {
@@ -563,7 +565,6 @@ TEMPLATES: list[dict] = [
              F(options=["Полноцвет", "CMYK+W(L)", "CMYK+W+L"])),
             ("sides", "Стороны", "select", "list", "", "step_key", "4+0", True,
              F(options=["4+0", "4+4"])),
-            ("design", "Макет", "select", "price", "uslugi", "per_order", "", False, F()),
         ],
     },
     {
@@ -606,7 +607,6 @@ TEMPLATES: list[dict] = [
             ("format", "Формат", "select", "list", "flaery", "step_per_unit", "А5", True,
              F(options=list(FLYERS))),
             ("sides", "Стороны", "select", "list", "", "step_key", "4+0", True, F(options=["4+0", "4+4"])),
-            ("design", "Макет", "select", "price", "uslugi", "per_order", "", False, F()),
         ],
     },
     {
@@ -619,7 +619,6 @@ TEMPLATES: list[dict] = [
         "fields": [
             ("paper", "Бумага", "select", "list", "buklety", "step_per_unit", "Глянец 115 г", True,
              F(options=["Глянец 115 г"])),
-            ("design", "Макет", "select", "price", "uslugi", "per_order", "", False, F()),
         ],
     },
     {
@@ -698,7 +697,7 @@ TEMPLATES: list[dict] = [
         "key": "services",
         "title": "Дизайн и услуги",
         "short": "Услуги",
-        "hint": "Макеты, вёрстка, логотип, замеры, монтаж; количество — штук или страниц",
+        "hint": "Только услуга, без печати: логотип, брендбук, выезд. К заказу с печатью услуги добавляются в его форме",
         "icon": "doc",
         "quantity_label": "Количество, шт",
         "fields": [

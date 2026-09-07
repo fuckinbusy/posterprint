@@ -212,8 +212,29 @@ export interface SettingsSnapshot {
   qr_ready: boolean;
 }
 
+/** позиция раздела «Услуги», которую можно добавить к любому заказу */
+export interface ExtraOption {
+  key: string;
+  title: string;
+  price: number;
+  unit: string;
+}
+
+/** доп. услуга в заказе: что выбрали и сколько раз */
+export interface OrderExtraIn {
+  key: string;
+  qty: number;
+}
+
+/** то же в сохранённом заказе — со снимком названия и ставки */
+export interface OrderExtra extends OrderExtraIn {
+  title: string;
+  rate: number;
+}
+
 export interface Catalog {
   templates: FormTemplate[];
+  extras: ExtraOption[];
   shop: ShopDetails;
   statuses: StatusMeta[];
   /** из какого статуса в какие можно перейти */
@@ -242,6 +263,7 @@ export interface Order {
   client_contact: string;
   quantity: number;
   params: OrderParams;
+  extras: OrderExtra[];
   price: number;
   prepaid: number;
   refunded: boolean;
@@ -272,6 +294,7 @@ export interface OrderCreatePayload {
   client_contact: string;
   quantity: number;
   params: OrderParams;
+  extras?: OrderExtraIn[];
   price?: number;
   prepaid?: number;
   refunded?: boolean;

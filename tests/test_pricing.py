@@ -321,3 +321,17 @@ def test_голые_ступени_не_путаются_с_таблицами()
     fields = [field("tier", "step_per_unit", group="cards")]
     assert estimate_from_fields(table, fields, 100, {"tier": "100"})["price"] == 1200
 
+
+def test_доп_услуги_прибавляются_к_любому_заказу():
+    """Макет и замеры — не отдельный заказ, а строки в смете любого."""
+    from app.pricing import extras_lines
+
+    items = [
+        {"key": "Простой макет", "title": "Простой макет", "price": 800, "unit": "₽"},
+        {"key": "Вёрстка", "title": "Вёрстка, за страницу", "price": 75, "unit": "₽/шт"},
+    ]
+    lines, lost = extras_lines(items, [{"key": "Простой макет", "qty": 1}, {"key": "Вёрстка", "qty": 12}, {"key": "Нет такой"}])
+    assert [round(line["amount"]) for line in lines] == [800, 900]
+    assert lines[1]["label"].startswith("Вёрстка, за страницу · 12 × 75")
+    assert lost == ["Нет такой"]
+

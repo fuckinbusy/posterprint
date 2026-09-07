@@ -15,10 +15,21 @@ const SIZE_ROLES = ['width', 'height', 'length'];
  *  app/pricing.py), и в списке из полутора десятков полей нули только мешают
  *  читать. К размерам дописывается единица самого поля — «2» без «м» можно
  *  прочитать как что угодно. */
-export function orderParamRows(
-  template: FormTemplate | undefined,
-  order: Order,
-): [string, string][] {
+export function orderParamRows(template: FormTemplate | undefined, order: Order): [string, string][] {
+  return [...fieldRows(template, order), ...extraRows(order)];
+}
+
+/** Доп. услуги — теми же строками, что и параметры: «Простой макет: да»,
+ *  «Вёрстка, за страницу: 12 шт». Так они попадают и в карточку, и в наряд,
+ *  и в квитанцию. */
+export function extraRows(order: Order): [string, string][] {
+  return (order.extras ?? []).map((e): [string, string] => [
+    e.title || e.key,
+    e.qty === 1 ? 'да' : `${e.qty} шт`,
+  ]);
+}
+
+function fieldRows(template: FormTemplate | undefined, order: Order): [string, string][] {
   return (template?.fields ?? [])
     .map((field) => ({ field, value: order.params?.[field.key] ?? null }))
     .filter(({ value }) => value !== undefined && value !== null && value !== '' && value !== false)

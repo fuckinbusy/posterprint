@@ -64,6 +64,11 @@ from app.models import PriceItem
 WORK_GROUP = "work"
 MIN_ORDER_KEY = "min_order"
 
+# Раздел прайса, позиции которого можно добавить к ЛЮБОМУ заказу как доп.
+# услугу: макет, вёрстка, замеры, монтаж. Раньше это был отдельный вид работ,
+# и заказ «баннер + макет» приходилось оформлять двумя заказами.
+EXTRAS_GROUP = "uslugi"
+
 # внутри всё считается в миллиметрах; человек вводит в удобных ему единицах
 UNIT_TO_MM = {"мм": 1.0, "см": 10.0, "м": 1000.0}
 
@@ -392,11 +397,75 @@ def estimate_from_fields(
     }
 
 
-def estimate(db: Session, template_key: str, quantity: int, params: dict | None) -> dict:
-    """Точка входа: находит шаблон и считает по его полям."""
+def extras_catalog(db: Session) -> list[dict]:
+    """Что можно добавить к заказу доп. услугой: позиции раздела «Услуги»."""
+    rows = db.scalars(
+        select(PriceItem)
+        .where(PriceItem.group_key == EXTRAS_GROUP, PriceItem.active.is_(True))
+        .order_by(PriceItem.sort_order, PriceItem.item_key)
+    ).all()
+    return [{"key": r.item_key, "title": r.title, "price": float(r.value), "unit": r.unit or "₽"} for r in rows]
+
+
+def normalize_extras(db: Session, extras: list | None) -> list[dict]:
+    """Доп. услуги к записи в заказ: только существующие позиции, со снимком
+    названия и ставки. Неизвестный ключ молча выбрасывается — в форме его
+    выбрать нельзя, значит это старые данные или подделка запроса."""
+    if not extras:
+        return []
+    known = {item["key"]: item for item in extras_catalog(db)}
+    out: list[dict] = []
+    seen: set[str] = set()
+    for raw in extras:
+        item = raw if isinstance(raw, dict) else raw.model_dump()
+        key = str(item.get("key") or "")
+        if key not in known or key in seen:
+            continue
+        seen.add(key)
+        qty = max(float(item.get("qty") or 1), 0.01)
+        out.append({"key": key, "title": known[key]["title"], "qty": qty, "rate": known[key]["price"]})
+    return out
+
+
+def extras_lines(catalog_items: list[dict], extras: list | None) -> tuple[list[dict], list[str]]:
+    """Строки сметы за доп. услуги и то, чего в прайсе не нашлось."""
+    rates = {item["key"]: item for item in catalog_items}
+    lines: list[dict] = []
+    lost: list[str] = []
+    for raw in extras or []:
+        item = raw if isinstance(raw, dict) else raw.model_dump()
+        key = str(item.get("key") or "")
+        qty = max(float(item.get("qty") or 1), 0.01)
+        found = rates.get(key)
+        if not found:
+            lost.append(item.get("title") or key)
+            continue
+        amount = found["price"] * qty
+        label = found["title"] if qty == 1 else f"{found['title']} · {qty:g} × {found['price']:g} ₽"
+        lines.append({"label": label, "amount": amount})
+    return lines, lost
+
+
+def estimate(
+    db: Session,
+    template_key: str,
+    quantity: int,
+    params: dict | None,
+    extras: list | None = None,
+) -> dict:
+    """Точка входа: находит шаблон, считает по его полям, добавляет доп. услуги."""
     from app import catalog
 
     template = catalog.get_template(db, template_key)
     if template is None:
         return {"price": None, "breakdown": [], "note": "Неизвестный вид работ"}
-    return estimate_from_fields(load_rates(db), template["fields"], quantity, params)
+    result = estimate_from_fields(load_rates(db), template["fields"], quantity, params)
+    if extras:
+        lines, lost = extras_lines(extras_catalog(db), extras)
+        result["breakdown"] = list(result["breakdown"]) + lines
+        if result["price"] is not None:
+            result["price"] = round(result["price"] + sum(line["amount"] for line in lines), 2)
+        if lost:
+            note = "Нет в прайсе услуг: " + ", ".join(lost)
+            result["note"] = f"{result['note']}. {note}" if result.get("note") else note
+    return result

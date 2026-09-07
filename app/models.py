@@ -295,6 +295,10 @@ class Order(Base):
     # производство
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     params: Mapped[dict] = mapped_column(JSON, default=dict)  # поля конкретного шаблона
+    # доп. услуги к любому заказу: макет, замеры, монтаж — [{key, title, qty, rate}].
+    # Название и ставка — снимок на момент сохранения: прайс потом меняется,
+    # а в квитанции должно быть то, за что платили
+    extras: Mapped[list] = mapped_column(JSON, default=list)
 
     # деньги
     price: Mapped[float] = mapped_column(Float, default=0.0)

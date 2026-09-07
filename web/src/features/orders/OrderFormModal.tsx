@@ -8,6 +8,7 @@
 import { useState } from 'react';
 
 import { useCatalog } from '@/api/catalog';
+import { ExtrasPicker } from './ExtrasPicker';
 import { useClient } from '@/api/clients';
 import { estimatePrice, useCreateOrder, useUpdateOrder } from '@/api/orders';
 import { uploadDesign } from '@/api/designs';
@@ -22,7 +23,16 @@ import { useMoveStatus } from '@/features/board/useMoveStatus';
 import { ClientCardModal } from '@/features/clients/ClientCardModal';
 import { money, plural } from '@/lib/format';
 import { formatPhone, phoneProblem, phoneProblemInline } from '@/lib/phone';
-import type { Estimate, FormTemplate, Order, OrderParams, ParamValue, PayMethod } from '@/types/api';
+import type {
+  Estimate,
+  ExtraOption,
+  FormTemplate,
+  Order,
+  OrderExtraIn,
+  OrderParams,
+  ParamValue,
+  PayMethod,
+} from '@/types/api';
 
 import { ClientSearchField } from './ClientSearchField';
 import { isDimension, neededDimensions } from './dimensions';
@@ -40,6 +50,8 @@ interface FormState {
   title: string;
   quantity: string;
   params: OrderParams;
+  /* доп. услуги: макет, замеры, монтаж — к любому заказу */
+  extras: OrderExtraIn[];
   clientId: number | null;
   clientName: string;
   clientPhone: string;
@@ -84,6 +96,7 @@ function initialState(
     title: order?.title || template.title,
     quantity: String(order?.quantity ?? 1),
     params,
+    extras: (order?.extras ?? []).map((e) => ({ key: e.key, qty: e.qty })),
     clientId: order?.client_id ?? null,
     clientName: order?.client_name ?? '',
     clientPhone: order?.client_phone ?? '',
@@ -121,6 +134,7 @@ export function OrderFormModal({ templateKey, order }: OrderFormModalProps) {
   // ключ пересоздаёт форму, если сменился вид работ или заказ
   return (
     <OrderForm
+      extraOptions={catalog.data?.extras ?? []}
       key={`${activeKey}:${order?.id ?? 'new'}`}
       template={template}
       order={order}
@@ -139,9 +153,12 @@ function OrderForm({
   template,
   order,
   carry,
+  extraOptions,
   onSwitchTemplate,
 }: {
   template: FormTemplate;
+  /** доп. услуги из раздела «Услуги» прайса — к любому заказу */
+  extraOptions: ExtraOption[];
   order: Order | null;
   carry: FormState | null;
   onSwitchTemplate: (key: string, state: FormState, oldTitle: string) => void;
@@ -221,6 +238,7 @@ function OrderForm({
     client_contact: form.clientContact.trim(),
     quantity,
     params: form.params,
+    extras: form.extras,
     due_date: form.dueDate || null,
     notes: form.notes.trim(),
     // без права на цену эти поля не отправляем вовсе: сервер их всё равно
@@ -241,7 +259,7 @@ function OrderForm({
       return;
     }
     try {
-      const result = await estimatePrice(template.key, quantity, form.params);
+      const result = await estimatePrice(template.key, quantity, form.params, form.extras);
       setEstimate(result);
       if (result.price !== null) set('price', String(Math.round(result.price)));
     } catch (e) {
@@ -378,9 +396,7 @@ function OrderForm({
           <button
             className="btn btn-ghost"
             type="button"
-            onClick={() =>
-              order ? modal.replace(<OrderCardModal orderId={order.id} />) : frame.closeAll()
-            }
+            onClick={() => (order ? modal.replace(<OrderCardModal orderId={order.id} />) : frame.closeAll())}
           >
             Отмена
           </button>
@@ -529,14 +545,14 @@ function OrderForm({
         )}
       </Section>
 
-        {/* Правка телефона или имени снимает связь с карточкой — молча это
+      {/* Правка телефона или имени снимает связь с карточкой — молча это
             выглядело как потеря. Говорим, что произошло и что будет дальше. */}
-        {!form.clientId && unlinked && (
-          <div className="hint" style={{ marginTop: -8, marginBottom: 16 }}>
-            Связь с карточкой «{unlinked}» снята. При сохранении карточку найдём по новому
-            номеру или заведём новую — прежняя останется как была.
-          </div>
-        )}
+      {!form.clientId && unlinked && (
+        <div className="hint" style={{ marginTop: -8, marginBottom: 16 }}>
+          Связь с карточкой «{unlinked}» снята. При сохранении карточку найдём по новому номеру или заведём
+          новую — прежняя останется как была.
+        </div>
+      )}
 
       <Section title={can('orders.price.edit') ? 'Деньги и срок' : 'Срок'}>
         <div className="grid">
@@ -569,11 +585,7 @@ function OrderForm({
             </>
           )}
           <Field label="Срок сдачи">
-            <input
-              type="date"
-              value={form.dueDate}
-              onChange={(e) => set('dueDate', e.target.value)}
-            />
+            <input type="date" value={form.dueDate} onChange={(e) => set('dueDate', e.target.value)} />
           </Field>
         </div>
 
@@ -583,6 +595,14 @@ function OrderForm({
           </div>
         )}
 
+        {/* Услуги — не отдельный заказ, а строки в смете этого */}
+        {extraOptions.length > 0 && (
+          <ExtrasPicker
+            options={extraOptions}
+            value={form.extras}
+            onChange={(extras) => set('extras', extras)}
+          />
+        )}
 
         {/* Деньги одним блоком: быстрые действия, состояние оплаты и расчёт
             по прайсу раньше были тремя не связанными между собой кусками. */}
@@ -659,9 +679,7 @@ function OrderForm({
                 {estimate && (
                   <div className="calc-lines show">
                     {estimate.price === null ? (
-                      <div className="calc-note">
-                        {estimate.note || 'Не хватает данных для расчёта'}
-                      </div>
+                      <div className="calc-note">{estimate.note || 'Не хватает данных для расчёта'}</div>
                     ) : (
                       <>
                         {estimate.breakdown.map((line, i) => (
@@ -693,17 +711,12 @@ function OrderForm({
           <Field
             hint={
               <>
-                Необязательно. Файл прикрепится к заказу сразу после создания — ему нужен номер, а
-                он присваивается при сохранении. Позже макет можно загрузить или заменить в
-                карточке заказа.
+                Необязательно. Файл прикрепится к заказу сразу после создания — ему нужен номер, а он
+                присваивается при сохранении. Позже макет можно загрузить или заменить в карточке заказа.
               </>
             }
           >
-            <input
-              type="file"
-              accept=".cdr"
-              onChange={(e) => setDesignFile(e.target.files?.[0] ?? null)}
-            />
+            <input type="file" accept=".cdr" onChange={(e) => setDesignFile(e.target.files?.[0] ?? null)} />
           </Field>
         </Section>
       )}
@@ -726,15 +739,7 @@ function OrderForm({
  *  Раньше это выяснялось только после сохранения, в карточке заказа. Здесь
  *  та же логика, что и на сервере (payment_state в routers/orders.py):
  *  внесли столько же или больше — оплачен, часть — остаток, ничего — к оплате. */
-function PaymentState({
-  price,
-  prepaid,
-  refunded,
-}: {
-  price: number;
-  prepaid: number;
-  refunded: boolean;
-}) {
+function PaymentState({ price, prepaid, refunded }: { price: number; prepaid: number; refunded: boolean }) {
   if (refunded) {
     return <span className="money-state refund">Вернули {money(prepaid) || 'внесённое'}</span>;
   }

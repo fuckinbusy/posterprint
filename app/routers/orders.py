@@ -160,6 +160,8 @@ def get_order_or_404(db: Session, order_id: int) -> Order:
 def get_catalog(db: Session = Depends(get_db)) -> dict:
     return {
         "templates": catalog.all_templates(db),
+        # доп. услуги к любому заказу — из раздела «Услуги» прайса
+        "extras": pricing.extras_catalog(db),
         # реквизиты мастерской для шапки квитанции: справочник, который
         # читается один раз вместе с остальными
         "shop": shop.details(settings_logic.overrides(db)),
@@ -323,6 +325,7 @@ def create_order(
             client_contact=payload.client_contact.strip(),
             quantity=payload.quantity,
             params=params,
+            extras=pricing.normalize_extras(db, payload.extras),
             price=payload.price,
             prepaid=payload.prepaid,
             due_date=payload.due_date,
@@ -438,6 +441,8 @@ def update_order(
 
     if "template_key" in changes and not catalog.exists(db, changes["template_key"]):
         raise HTTPException(422, "Неизвестный шаблон заказа")
+    if "extras" in changes:
+        changes["extras"] = pricing.normalize_extras(db, changes["extras"])
 
     changed_labels: list[str] = []
     for field, value in changes.items():
@@ -468,6 +473,7 @@ def update_order(
             "price": "стоимость",
             "quantity": "тираж",
             "params": "параметры",
+            "extras": "доп. услуги",
             "due_date": "срок",
             "client_name": "клиент",
             "client_phone": "телефон",
@@ -578,7 +584,7 @@ def estimate_price(
 ) -> EstimateResponse:
     if not catalog.exists(db, payload.template_key):
         raise HTTPException(422, "Неизвестный вид работ")
-    result = pricing.estimate(db, payload.template_key, payload.quantity, payload.params)
+    result = pricing.estimate(db, payload.template_key, payload.quantity, payload.params, payload.extras)
     return EstimateResponse(**result)
 
 

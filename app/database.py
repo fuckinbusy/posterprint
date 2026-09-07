@@ -126,6 +126,7 @@ def sqlite_file() -> Path | None:
 # Формат: таблица -> {колонка: тип с умолчанием}
 ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "orders": {
+        "extras": "JSON",
         "completed_at": "TIMESTAMP",
         "client_id": "INTEGER",
         # FALSE, а не 0: Postgres не примет число в умолчании булевой колонки
@@ -279,6 +280,9 @@ def _fill_defaults() -> None:
     if "template_fields" in set(inspector.get_table_names()):
         with engine.begin() as conn:
             conn.execute(text("UPDATE template_fields SET unit = 'мм' WHERE unit IS NULL OR unit = ''"))
+    if "orders" in set(inspector.get_table_names()):
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE orders SET extras = '[]' WHERE extras IS NULL"))
 
     # Единица переехала с раздела прайса на позицию: раньше «₽/пог.м» стояло
     # на всём разделе, из-за чего люверсы (₽/шт) приходилось выносить в
