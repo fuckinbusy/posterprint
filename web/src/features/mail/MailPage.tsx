@@ -20,6 +20,7 @@ import {
   PAGE,
   attachmentPath,
   fetchMailMessage,
+  fetchMailContacts,
   fetchMailPage,
   fetchMailRef,
   fetchMailStatus,
@@ -862,6 +863,30 @@ function ComposeModal() {
   const [text, setText] = useState('');
   const markClean = useUnsavedGuard(Boolean(to || subject || text));
   const send = useMutation({ mutationFn: () => sendMail(to, subject, text) });
+  // свои адресаты: директор, цех — сотруднику не нужно помнить их почту
+  const contacts = useQuery({
+    queryKey: ['mail', 'contacts'],
+    queryFn: fetchMailContacts,
+    staleTime: 5 * 60 * 1000,
+  });
+  const recipients = to
+    .split(/[,;]/)
+    .map((a) => a.trim().toLowerCase())
+    .filter(Boolean);
+  const toggleContact = (email: string) => {
+    const key = email.toLowerCase();
+    if (recipients.includes(key)) {
+      setTo(
+        to
+          .split(/[,;]/)
+          .map((a) => a.trim())
+          .filter((a) => a && a.toLowerCase() !== key)
+          .join(', '),
+      );
+    } else {
+      setTo(recipients.length ? `${to.replace(/[\s,;]+$/, '')}, ${email}` : email);
+    }
+  };
 
   const submit = async () => {
     try {
@@ -905,6 +930,26 @@ function ComposeModal() {
           onChange={(e) => setTo(e.target.value)}
         />
       </Field>
+      {(contacts.data?.contacts.length ?? 0) > 0 && (
+        <div className="mail-contacts" aria-label="Свои адресаты">
+          <span className="mail-contacts-label">Свои</span>
+          {contacts.data!.contacts.map((c) => {
+            const on = recipients.includes(c.email.toLowerCase());
+            return (
+              <button
+                key={c.email}
+                className={on ? 'mail-contact on' : 'mail-contact'}
+                type="button"
+                aria-pressed={on}
+                title={c.email}
+                onClick={() => toggleContact(c.email)}
+              >
+                {c.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <Field label="Тема">
         <input
           type="text"

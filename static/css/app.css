@@ -7323,3 +7323,56 @@ body.touch-dragging {
   }
 }
 
+/* ---------- свои адресаты ---------- */
+.mail-contacts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin: -6px 0 16px;
+}
+.mail-contacts-label {
+  font-family: "Space Mono";
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 4px;
+}
+.mail-contact {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    border-color 0.16s,
+    background 0.16s,
+    color 0.16s;
+}
+.mail-contact:hover {
+  border-color: var(--green);
+}
+.mail-contact.on {
+  background: var(--green);
+  border-color: var(--green);
+  color: #06210a;
+  font-weight: 600;
+}
+.contacts-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.contacts-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(200px, 1.6fr) auto;
+  gap: 8px;
+  width: 100%;
+  max-width: 640px;
+}
+

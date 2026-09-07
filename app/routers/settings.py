@@ -82,6 +82,8 @@ def write_settings(
     if not values.get("mail_user", "x").strip():
         values["mail_password"] = ""
     try:
+        if "mail_contacts" in values:
+            values["mail_contacts"] = mail.normalize_contacts(values["mail_contacts"])
         settings_logic.save(db, values)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from None

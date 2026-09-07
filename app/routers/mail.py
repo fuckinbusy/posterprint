@@ -52,6 +52,12 @@ class SeenIn(BaseModel):
     seen: bool = True
 
 
+@router.get("/contacts")
+def contacts(db: Session = Depends(get_db)) -> dict:
+    """Свои адресаты для окна «Написать»: имя и адрес. Задаются в настройках."""
+    return {"contacts": mail.contacts(settings_logic.overrides(db))}
+
+
 @router.get("/status")
 def status(db: Session = Depends(get_db)) -> dict:
     """Настроен ли ящик и сколько непрочитанных — для значка в шапке."""

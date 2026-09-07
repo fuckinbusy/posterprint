@@ -24,6 +24,7 @@ import base64
 import email
 import html as html_lib
 import imaplib
+import json
 import logging
 import os
 import re
@@ -94,6 +95,60 @@ def config(overrides: dict[str, str] | None = None) -> MailConfig:
         smtp_port=smtp_port,
         sender_name=pick("mail_sender", "POSTER_MAIL_SENDER") or pick("shop_name", "POSTER_SHOP_NAME") or "ПОСТЕР",
     )
+
+
+# ---------------------------------------------------------------- свои адресаты
+MAX_CONTACTS = 50
+
+
+def contacts(overrides: dict[str, str] | None = None) -> list[dict]:
+    """Заготовленные адресаты — «Директор», «Цех»: сотруднику не нужно знать
+    почту, он выбирает имя при написании письма. Хранятся в настройках
+    JSON-списком; битое значение — пустой список, а не ошибка на странице."""
+    raw = settings_logic.pick(overrides, "mail_contacts", "")
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return []
+    out: list[dict] = []
+    for item in data if isinstance(data, list) else []:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        email_ = str(item.get("email") or "").strip()
+        if email_:
+            out.append({"name": name or email_, "email": email_})
+    return out[:MAX_CONTACTS]
+
+
+def normalize_contacts(raw: str) -> str:
+    """Проверить список перед записью: адрес обязателен и похож на адрес,
+    имя не длиннее строки. Возвращает JSON, каким его и хранить."""
+    raw = (raw or "").strip()
+    if not raw:
+        return ""
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        raise ValueError("Список адресатов повреждён") from None
+    if not isinstance(data, list):
+        raise ValueError("Список адресатов должен быть списком")
+    if len(data) > MAX_CONTACTS:
+        raise ValueError(f"Адресатов не больше {MAX_CONTACTS}")
+    out: list[dict] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()[:80]
+        email_ = str(item.get("email") or "").strip()
+        if not email_ and not name:
+            continue
+        if "@" not in email_ or " " in email_:
+            raise ValueError(f"У адресата «{name or email_}» неправильный адрес")
+        out.append({"name": name or email_, "email": email_})
+    return json.dumps(out, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------- разбор писем

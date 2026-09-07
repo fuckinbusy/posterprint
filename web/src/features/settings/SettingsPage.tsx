@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { checkMail, type MailCheck } from '@/api/mail';
+import { checkMail, type MailAddress, type MailCheck } from '@/api/mail';
 import { useSaveSettings, useSettings } from '@/api/settings';
 import { useToast } from '@/app/ToastProvider';
 import { Select } from '@/components/Select';
@@ -17,6 +17,23 @@ import type { SettingsSnapshot } from '@/types/api';
 const MAX_LOGO_BYTES = 400 * 1024;
 
 const SOURCE_LABEL = { db: 'сохранено здесь', env: 'из .env', empty: '' } as const;
+
+/* свои адресаты хранятся одной строкой JSON — разбираем и собираем здесь */
+function parseContacts(raw: string | undefined): MailAddress[] {
+  if (!raw) return [];
+  try {
+    const data = JSON.parse(raw) as unknown;
+    return Array.isArray(data)
+      ? data
+          .filter((c): c is MailAddress => typeof c === 'object' && c !== null)
+          .map((c) => ({ name: String(c.name ?? ''), email: String(c.email ?? '') }))
+      : [];
+  } catch {
+    return [];
+  }
+}
+const serializeContacts = (list: MailAddress[]): string =>
+  list.length ? JSON.stringify(list.map((c) => ({ name: c.name.trim(), email: c.email.trim() }))) : '';
 
 export function SettingsPage() {
   const settings = useSettings();
@@ -110,7 +127,12 @@ export function SettingsPage() {
           title="Реквизиты"
           sub="Что печатается в шапке квитанции и что показывается клиенту на вопрос «куда платить». Значение, сохранённое здесь, главнее того, что записано в .env."
           actions={
-            <button className="btn btn-green" type="button" disabled={save.isPending || !dirty} onClick={submit}>
+            <button
+              className="btn btn-green"
+              type="button"
+              disabled={save.isPending || !dirty}
+              onClick={submit}
+            >
               {save.isPending ? 'Сохраняю…' : 'Сохранить'}
             </button>
           }
@@ -119,7 +141,9 @@ export function SettingsPage() {
         <Section title="Мастерская — шапка квитанции">
           <div className="grid">
             <Field label={<>Название {source('shop_name')}</>}>{text('shop_name', 'ПОСТЕР')}</Field>
-            <Field label={<>Телефон {source('shop_phone')}</>}>{text('shop_phone', '+7 (988) 000-00-00')}</Field>
+            <Field label={<>Телефон {source('shop_phone')}</>}>
+              {text('shop_phone', '+7 (988) 000-00-00')}
+            </Field>
           </div>
           <div className="grid" style={{ marginTop: 13 }}>
             <Field label={<>Адрес {source('shop_address')}</>}>{text('shop_address', 'ул. Ленина, 1')}</Field>
@@ -176,12 +200,20 @@ export function SettingsPage() {
             <Field label={<>Сервер SMTP {source('mail_smtp')}</>} hint="Отправка. Пусто — smtp.yandex.ru:465">
               {text('mail_smtp', 'smtp.yandex.ru:465')}
             </Field>
-            <Field label={<>Имя отправителя {source('mail_sender')}</>} hint="Как подписаны исходящие. Пусто — название мастерской">
+            <Field
+              label={<>Имя отправителя {source('mail_sender')}</>}
+              hint="Как подписаны исходящие. Пусто — название мастерской"
+            >
               {text('mail_sender', 'Печатный цех ПОСТЕР')}
             </Field>
           </div>
           <div className="settings-check">
-            <button className="btn btn-ghost" type="button" disabled={checking || dirty} onClick={() => void runMailCheck()}>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              disabled={checking || dirty}
+              onClick={() => void runMailCheck()}
+            >
               {checking ? 'Проверяю…' : 'Проверить соединение'}
             </button>
             {dirty && <span className="hint">Сначала сохраните.</span>}
@@ -194,9 +226,21 @@ export function SettingsPage() {
             )}
           </div>
           <p className="hint">
-            Яндекс: включите IMAP в настройках ящика (Почта → Настройки → Почтовые программы) и выпустите пароль
-            приложения. Нужна двухфакторная защита аккаунта — без неё Яндекс пароли приложений не выдаёт.
+            Яндекс: включите IMAP в настройках ящика (Почта → Настройки → Почтовые программы) и выпустите
+            пароль приложения. Нужна двухфакторная защита аккаунта — без неё Яндекс пароли приложений не
+            выдаёт.
           </p>
+        </Section>
+
+        <Section title="Почта — свои адресаты">
+          <p className="settings-sub">
+            Кому сотрудники пишут чаще всего: директор, цех, бухгалтерия. В окне «Написать» эти адреса
+            подставляются одним нажатием — помнить почту не нужно.
+          </p>
+          <ContactsEditor
+            list={parseContacts(values.mail_contacts)}
+            onChange={(list) => set('mail_contacts', serializeContacts(list))}
+          />
         </Section>
 
         <Section title="Оплата — что видит клиент">
@@ -215,14 +259,19 @@ export function SettingsPage() {
                 onChange={(v) => set('pay_mode', v)}
               />
             </Field>
-            <Field label={<>Ссылка на перевод {source('pay_link')}</>} hint="{phone} — подставится номер ниже, {amount} — сумма заказа">
+            <Field
+              label={<>Ссылка на перевод {source('pay_link')}</>}
+              hint="{phone} — подставится номер ниже, {amount} — сумма заказа"
+            >
               {text('pay_link', 'https://www.sberbank.ru/ru/choise_bank?requisiteNumber={phone}&bankCode=…')}
             </Field>
           </div>
 
           <div className="grid" style={{ marginTop: 13 }}>
             <Field label={<>Карта {source('pay_card')}</>}>{text('pay_card', '2202 2002 1234 5678')}</Field>
-            <Field label={<>Телефон для перевода {source('pay_phone')}</>}>{text('pay_phone', '+7 (988) 160-32-18')}</Field>
+            <Field label={<>Телефон для перевода {source('pay_phone')}</>}>
+              {text('pay_phone', '+7 (988) 160-32-18')}
+            </Field>
           </div>
           <div className="grid one" style={{ marginTop: 13 }}>
             <Field label={<>Строка под реквизитами {source('pay_note')}</>}>
@@ -240,12 +289,17 @@ export function SettingsPage() {
             <Field label={<>БИК, 9 цифр {source('pay_bic')}</>}>{text('pay_bic')}</Field>
           </div>
           <div className="grid" style={{ marginTop: 13 }}>
-            <Field label={<>Корр. счёт, 20 цифр {source('pay_corr_account')}</>}>{text('pay_corr_account')}</Field>
+            <Field label={<>Корр. счёт, 20 цифр {source('pay_corr_account')}</>}>
+              {text('pay_corr_account')}
+            </Field>
             <Field label={<>ИНН {source('pay_inn')}</>}>{text('pay_inn')}</Field>
           </div>
           <div className="grid" style={{ marginTop: 13 }}>
             <Field label={<>КПП {source('pay_kpp')}</>}>{text('pay_kpp')}</Field>
-            <Field label="Кодировка строки" hint="Если приложение какого-то банка не читает QR — попробуйте win1251">
+            <Field
+              label="Кодировка строки"
+              hint="Если приложение какого-то банка не читает QR — попробуйте win1251"
+            >
               <Select
                 value={values.pay_encoding || 'utf8'}
                 options={[
@@ -284,5 +338,57 @@ export function SettingsPage() {
         </Section>
       </div>
     </main>
+  );
+}
+
+/* Список «имя — адрес» с добавлением и удалением строк. */
+function ContactsEditor({
+  list,
+  onChange,
+}: {
+  list: MailAddress[];
+  onChange: (list: MailAddress[]) => void;
+}) {
+  const update = (i: number, patch: Partial<MailAddress>) =>
+    onChange(list.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+  return (
+    <div className="contacts-editor">
+      {list.map((c, i) => (
+        <div className="contacts-row" key={i}>
+          <input
+            type="text"
+            value={c.name}
+            placeholder="Директор"
+            aria-label="Имя адресата"
+            onChange={(e) => update(i, { name: e.target.value })}
+          />
+          <input
+            type="email"
+            value={c.email}
+            placeholder="director@example.com"
+            aria-label="Адрес"
+            onChange={(e) => update(i, { email: e.target.value })}
+          />
+          <button
+            className="icon-btn"
+            type="button"
+            aria-label="Убрать адресата"
+            title="Убрать"
+            onClick={() => onChange(list.filter((_, idx) => idx !== i))}
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+      ))}
+      <button
+        className="btn btn-ghost"
+        type="button"
+        onClick={() => onChange([...list, { name: '', email: '' }])}
+      >
+        + Добавить адресата
+      </button>
+    </div>
   );
 }

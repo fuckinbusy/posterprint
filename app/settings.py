@@ -43,6 +43,8 @@ KEYS: dict[str, str] = {
     "mail_imap": "POSTER_MAIL_IMAP",
     "mail_smtp": "POSTER_MAIL_SMTP",
     "mail_sender": "POSTER_MAIL_SENDER",
+    # свои адресаты для сотрудников: JSON-список {name, email}; только в базе
+    "mail_contacts": "",
 }
 
 # что не показываем обратно в интерфейс: только «задано / не задано»

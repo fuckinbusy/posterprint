@@ -83,6 +83,9 @@ export const PAGE = 30;
 
 export const fetchMailStatus = (): Promise<MailStatus> => request<MailStatus>('/mail/status');
 
+/** Свои адресаты — «Директор», «Цех»: задаются в настройках, подставляются в «Кому». */
+export const fetchMailContacts = (): Promise<{ contacts: MailAddress[] }> => request('/mail/contacts');
+
 export function fetchMailPage(
   opts: { before?: number; after?: number; limit?: number } = {},
 ): Promise<MailPageData> {

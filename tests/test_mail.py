@@ -167,3 +167,25 @@ def test_имя_папки_в_кавычках_для_imap():
     assert mail._quote_folder("Sent Items") == '"Sent Items"'
     assert mail._quote_folder('"Sent"') == '"Sent"'
 
+
+def test_свои_адресаты_читаются_и_терпят_мусор():
+    raw = '[{"name": "Директор", "email": "boss@example.com"}, {"email": "ceh@example.com"}, "мусор", {"name": "без адреса"}]'
+    got = mail.contacts({"mail_contacts": raw})
+    assert got == [
+        {"name": "Директор", "email": "boss@example.com"},
+        {"name": "ceh@example.com", "email": "ceh@example.com"},
+    ]
+    assert mail.contacts({"mail_contacts": "не json"}) == []
+    assert mail.contacts({}) == []
+
+
+def test_адресат_без_собаки_не_сохраняется():
+    import pytest
+
+    with pytest.raises(ValueError):
+        mail.normalize_contacts('[{"name": "Цех", "email": "ceh"}]')
+    assert mail.normalize_contacts("") == ""
+    assert mail.normalize_contacts('[{"name": " Цех ", "email": "ceh@example.com"}]') == (
+        '[{"name": "Цех", "email": "ceh@example.com"}]'
+    )
+
