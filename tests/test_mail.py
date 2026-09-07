@@ -140,3 +140,30 @@ def test_текстовое_письмо_без_html():
     msg.set_content("только текст")
     assert mail.html_body(msg) == ""
 
+
+def test_папка_отправленных_по_флагу_sent():
+    lines = [
+        b'(\\HasNoChildren) "|" "INBOX"',
+        b'(\\HasNoChildren \\Sent) "|" "Sent"',
+        b'(\\HasNoChildren \\Trash) "|" "Trash"',
+    ]
+    assert mail.pick_sent(lines) == "Sent"
+
+
+def test_папка_отправленных_по_имени_если_флага_нет():
+    lines = [b'(\\HasNoChildren) "/" INBOX', b'(\\HasNoChildren) "/" "Sent Items"']
+    assert mail.pick_sent(lines) == "Sent Items"
+    assert mail.pick_sent([b'(\\HasNoChildren) "/" INBOX']) is None
+
+
+def test_первый_message_id_из_заголовка():
+    assert mail.first_message_id("<a@x> <b@y>") == "<a@x>"
+    assert mail.first_message_id(" <only@z>\r\n") == "<only@z>"
+    assert mail.first_message_id("") == "" and mail.first_message_id(None) == ""
+
+
+def test_имя_папки_в_кавычках_для_imap():
+    assert mail._quote_folder("INBOX") == "INBOX"
+    assert mail._quote_folder("Sent Items") == '"Sent Items"'
+    assert mail._quote_folder('"Sent"') == '"Sent"'
+

@@ -44,6 +44,10 @@ export interface MailAttachment {
 }
 
 export interface MailDetail extends MailSummary {
+  /** папка: INBOX или отправленные — ссылка «в ответ на» может вести в обе */
+  folder: string;
+  /** Message-ID письма, на которое это отвечает; пусто — не ответ */
+  in_reply_to: string;
   reply_to: MailAddress;
   cc: MailAddress[];
   text: string;
@@ -89,8 +93,17 @@ export function fetchMailPage(
   return request<MailPageData>(`/mail/messages?${q}`);
 }
 
-export const fetchMailMessage = (uid: number): Promise<MailDetail> =>
-  request<MailDetail>(`/mail/messages/${uid}`);
+export const INBOX = 'INBOX';
+
+const folderQuery = (folder: string): string =>
+  folder && folder !== INBOX ? `?folder=${encodeURIComponent(folder)}` : '';
+
+export const fetchMailMessage = (uid: number, folder = INBOX): Promise<MailDetail> =>
+  request<MailDetail>(`/mail/messages/${uid}${folderQuery(folder)}`);
+
+/** Письмо, на которое ссылаются (In-Reply-To): ищется во входящих и отправленных. */
+export const fetchMailRef = (messageId: string): Promise<{ found: boolean; message: MailDetail | null }> =>
+  request(`/mail/ref?id=${encodeURIComponent(messageId)}`);
 
 export const fetchMailFresh = (after: number | null): Promise<MailFresh> =>
   request<MailFresh>(`/mail/fresh${after === null ? '' : `?after=${after}`}`);
@@ -106,8 +119,8 @@ export const sendMail = (to: string, subject: string, text: string): Promise<{ t
 
 export const checkMail = (): Promise<MailCheck> => request<MailCheck>('/mail/check', { method: 'POST' });
 
-export const attachmentPath = (uid: number, index: number): string =>
-  `/mail/messages/${uid}/attachments/${index}`;
+export const attachmentPath = (uid: number, index: number, folder = INBOX): string =>
+  `/mail/messages/${uid}/attachments/${index}${folderQuery(folder)}`;
 
 /* ---------------------------------------------------- непрочитанные и свежие */
 interface MailStore {

@@ -416,6 +416,45 @@ def attachment_part(msg: Message, index: int) -> Message | None:
     return None
 
 
+INBOX = "INBOX"
+# как папка отправленных называется у разных серверов, если сервер не
+# пометил её флагом \Sent
+SENT_NAMES = ("Sent", "Отправленные", "Sent Items", "Sent Messages", "INBOX/Sent", "INBOX.Sent")
+_LIST_RE = re.compile(rb'^\((?P<flags>[^)]*)\) (?:"[^"]*"|NIL) (?P<name>"(?:[^"\\]|\\.)*"|\S+)$')
+
+
+def pick_sent(lines: list[bytes]) -> str | None:
+    """Имя папки отправленных из ответа LIST: по флагу Sent, иначе по имени."""
+    named: dict[str, str] = {}
+    for raw in lines:
+        if not isinstance(raw, bytes):
+            continue
+        m = _LIST_RE.match(raw.strip())
+        if not m:
+            continue
+        name = m.group("name").decode("ascii", errors="replace").strip()
+        if name.startswith('"') and name.endswith('"'):
+            name = name[1:-1].replace('\\"', '"')
+        flags = m.group("flags").decode("ascii", errors="replace").lower()
+        if "\\sent" in flags:
+            return name
+        named[name.lower()] = name
+    for candidate in SENT_NAMES:
+        if candidate.lower() in named:
+            return named[candidate.lower()]
+    return None
+
+
+def _quote_folder(name: str) -> str:
+    return name if name == INBOX or (name.startswith('"') and name.endswith('"')) else f'"{name}"'
+
+
+def first_message_id(value: str | None) -> str:
+    """Первый <id> из заголовка In-Reply-To/References — со скобками, как в письме."""
+    m = re.search(r"<[^>]+>", value or "")
+    return m.group(0) if m else ""
+
+
 _UID_RE = re.compile(rb"UID (\d+)")
 _FLAGS_RE = re.compile(rb"FLAGS \(([^)]*)\)")
 
@@ -446,8 +485,10 @@ class Mailbox:
         self._conn: imaplib.IMAP4_SSL | None = None
         self._cfg: MailConfig | None = None
         self._uids: tuple[float, list[int]] = (0.0, [])
-        self._headers: dict[int, dict] = {}         # uid → неизменные поля письма
+        self._headers: dict[tuple[str, int], dict] = {}  # (папка, uid) → неизменные поля письма
         self._fresh: tuple[float, dict] = (0.0, {})
+        self._sent: str | None | bool = False        # False — ещё не искали
+        self._by_id: dict[str, tuple[float, dict | None]] = {}  # Message-ID → (когда, где лежит)
 
     # ------------------------------------------------ соединение
     def _connect(self, cfg: MailConfig) -> imaplib.IMAP4_SSL:
@@ -480,6 +521,8 @@ class Mailbox:
             self._uids = (0.0, [])
             self._headers.clear()
             self._fresh = (0.0, {})
+            self._sent = False
+            self._by_id.clear()
 
     def _ensure(self, cfg: MailConfig) -> imaplib.IMAP4_SSL:
         if not cfg.configured:
@@ -508,6 +551,31 @@ class Mailbox:
             except imaplib.IMAP4.error as exc:
                 raise MailError(f"Почтовый сервер ответил ошибкой: {exc}") from exc
 
+    def _in_folder(self, conn, folder: str, fn):
+        """Выполнить команду в другой папке и вернуться во «Входящие»: всё
+        остальное в классе считает, что выбран INBOX."""
+        if folder == INBOX:
+            return fn()
+        status, _ = conn.select(_quote_folder(folder), readonly=True)
+        if status != "OK":
+            raise MailError(f"Папка «{folder}» не открывается")
+        try:
+            return fn()
+        finally:
+            conn.select(INBOX)
+
+    def sent_folder(self, cfg: MailConfig) -> str | None:
+        """Где лежат отправленные. Ищется один раз на соединение."""
+        if self._sent is not False:
+            return self._sent  # type: ignore[return-value]
+
+        def run(conn):
+            status, data = conn.list()
+            return pick_sent(data or []) if status == "OK" else None
+
+        self._sent = self._call(cfg, run)
+        return self._sent  # type: ignore[return-value]
+
     # ------------------------------------------------ список
     def uids(self, cfg: MailConfig, force: bool = False) -> list[int]:
         stamp, cached = self._uids
@@ -525,14 +593,17 @@ class Mailbox:
         self._uids = (time.monotonic(), result)
         return result
 
-    def _summaries(self, cfg: MailConfig, uids: list[int]) -> list[dict]:
+    def _summaries(self, cfg: MailConfig, uids: list[int], folder: str = INBOX) -> list[dict]:
         """Краткие карточки писем: заголовки из кэша, флаги — свежие."""
         if not uids:
             return []
-        missing = [u for u in uids if u not in self._headers]
+        missing = [u for u in uids if (folder, u) not in self._headers]
         uid_set = ",".join(str(u) for u in uids)
 
         def run(conn):
+            return self._in_folder(conn, folder, lambda: fetch(conn))
+
+        def fetch(conn):
             flags_by_uid: dict[int, set[str]] = {}
             status, data = conn.uid("FETCH", uid_set, "(FLAGS)")
             if status == "OK":
@@ -553,8 +624,9 @@ class Mailbox:
                 if status == "OK":
                     for uid, (meta, payload) in _parse_fetch(data).items():
                         head = email.message_from_bytes(payload, policy=policy.default)
-                        self._headers[uid] = {
+                        self._headers[(folder, uid)] = {
                             "uid": uid,
+                            "folder": folder,
                             "from": address(head.get("From")),
                             "to": addresses(head.get("To")),
                             "subject": decode(head.get("Subject")) or "(без темы)",
@@ -569,7 +641,7 @@ class Mailbox:
         flags_by_uid = self._call(cfg, run)
         out = []
         for uid in uids:
-            head = self._headers.get(uid)
+            head = self._headers.get((folder, uid))
             if not head:
                 continue
             flags = flags_by_uid.get(uid, set())
@@ -599,26 +671,33 @@ class Mailbox:
         }
 
     # ------------------------------------------------ письмо
-    def raw(self, cfg: MailConfig, uid: int) -> Message:
+    def raw(self, cfg: MailConfig, uid: int, folder: str = INBOX) -> Message:
         def run(conn):
-            status, data = conn.uid("FETCH", str(uid), "(BODY.PEEK[])")
-            if status != "OK":
-                raise MailError("Письмо не удалось прочитать")
-            parsed = _parse_fetch(data)
-            if uid not in parsed:
-                raise MailError("Такого письма уже нет в ящике")
-            return email.message_from_bytes(parsed[uid][1], policy=policy.default)
+            def fetch():
+                status, data = conn.uid("FETCH", str(uid), "(BODY.PEEK[])")
+                if status != "OK":
+                    raise MailError("Письмо не удалось прочитать")
+                parsed = _parse_fetch(data)
+                if uid not in parsed:
+                    raise MailError("Такого письма уже нет в ящике")
+                return email.message_from_bytes(parsed[uid][1], policy=policy.default)
+
+            return self._in_folder(conn, folder, fetch)
 
         return self._call(cfg, run)
 
-    def message(self, cfg: MailConfig, uid: int) -> dict:
-        msg = self.raw(cfg, uid)
+    def message(self, cfg: MailConfig, uid: int, folder: str = INBOX) -> dict:
+        msg = self.raw(cfg, uid, folder)
         text, was_html = body_text(msg)
-        summary = self._summaries(cfg, [uid])
+        summary = self._summaries(cfg, [uid], folder)
         head = summary[0] if summary else {}
         return {
             **head,
             "uid": uid,
+            "folder": folder,
+            # на что это письмо отвечает — по нему интерфейс показывает
+            # исходное письмо во всплывающей карточке
+            "in_reply_to": first_message_id(msg.get("In-Reply-To")) or first_message_id(msg.get("References")),
             "reply_to": address(msg.get("Reply-To") or msg.get("From")),
             "cc": addresses(msg.get("Cc")),
             "text": text,
@@ -629,13 +708,57 @@ class Mailbox:
             "attachments": attachments_of(msg),
         }
 
-    def attachment(self, cfg: MailConfig, uid: int, index: int) -> tuple[str, str, bytes]:
-        msg = self.raw(cfg, uid)
+    def attachment(self, cfg: MailConfig, uid: int, index: int, folder: str = INBOX) -> tuple[str, str, bytes]:
+        msg = self.raw(cfg, uid, folder)
         part = attachment_part(msg, index)
         if part is None:
             raise MailError("Вложения с таким номером нет")
         payload = part.get_payload(decode=True) or b""
         return decode(part.get_filename()) or "attachment", part.get_content_type(), payload
+
+    NEGATIVE_TTL = 60  # секунд помним «не нашли»: письмо могло ещё не долететь
+
+    def locate(self, cfg: MailConfig, message_id: str) -> dict | None:
+        """Где лежит письмо с таким Message-ID: {folder, uid} или None.
+
+        Ищем во «Входящих» и в «Отправленных»: клиент отвечает на наше письмо,
+        а наше лежит в отправленных — иначе ссылку «в ответ на» было бы не
+        разрешить. Найденное помним навсегда (письма не переезжают), не
+        найденное — минуту.
+        """
+        message_id = message_id.strip()
+        if not message_id:
+            return None
+        cached = self._by_id.get(message_id)
+        if cached and (cached[1] is not None or time.monotonic() - cached[0] < self.NEGATIVE_TTL):
+            return cached[1]
+
+        folders = [INBOX]
+        sent = self.sent_folder(cfg)
+        if sent and sent != INBOX:
+            folders.append(sent)
+
+        def run(conn):
+            for folder in folders:
+                def search():
+                    status, data = conn.uid("SEARCH", None, "HEADER", "Message-ID", f'"{message_id}"')
+                    return [int(x) for x in (data[0] or b"").split()] if status == "OK" else []
+
+                found = self._in_folder(conn, folder, search)
+                if found:
+                    return {"folder": folder, "uid": found[-1]}
+            return None
+
+        result = self._call(cfg, run)
+        self._by_id[message_id] = (time.monotonic(), result)
+        return result
+
+    def referenced(self, cfg: MailConfig, message_id: str) -> dict:
+        """Письмо, на которое ссылаются: целиком, для всплывающей карточки."""
+        where = self.locate(cfg, message_id)
+        if not where:
+            return {"found": False, "message": None}
+        return {"found": True, "message": self.message(cfg, where["uid"], where["folder"])}
 
     def set_seen(self, cfg: MailConfig, uid: int, seen: bool) -> None:
         def run(conn):

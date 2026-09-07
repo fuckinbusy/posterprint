@@ -86,13 +86,27 @@ def fresh(
     return {"configured": True, **_guard(mail.mailbox.fresh_since, cfg, after)}
 
 
+FOLDER = Query(default=mail.INBOX, max_length=200, description="папка; по умолчанию входящие")
+
+
+@router.get("/ref")
+def referenced(
+    id: str = Query(min_length=3, max_length=300, description="Message-ID письма, на которое ссылаются"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Письмо, на которое отвечает открытое: ищется во входящих и отправленных.
+    Так по ответу клиента можно одним наведением увидеть, что мы ему писали."""
+    return _guard(mail.mailbox.referenced, _cfg(db), id)
+
+
 @router.get("/messages/{uid}")
-def message(uid: int, db: Session = Depends(get_db)) -> dict:
+def message(uid: int, folder: str = FOLDER, db: Session = Depends(get_db)) -> dict:
     """Письмо целиком. Открыли — значит прочитали: снимаем «непрочитанное»,
-    как любая почтовая программа."""
+    как любая почтовая программа (только во входящих: отправленные и так
+    свои)."""
     cfg = _cfg(db)
-    detail = _guard(mail.mailbox.message, cfg, uid)
-    if not detail.get("seen"):
+    detail = _guard(mail.mailbox.message, cfg, uid, folder)
+    if folder == mail.INBOX and not detail.get("seen"):
         try:
             mail.mailbox.set_seen(cfg, uid, True)
             detail["seen"] = True
@@ -108,8 +122,8 @@ def set_seen(uid: int, payload: SeenIn, db: Session = Depends(get_db)) -> dict:
 
 
 @router.get("/messages/{uid}/attachments/{index}")
-def attachment(uid: int, index: int, db: Session = Depends(get_db)) -> Response:
-    filename, ctype, payload = _guard(mail.mailbox.attachment, _cfg(db), uid, index)
+def attachment(uid: int, index: int, folder: str = FOLDER, db: Session = Depends(get_db)) -> Response:
+    filename, ctype, payload = _guard(mail.mailbox.attachment, _cfg(db), uid, index, folder)
     # имя с кириллицей — через RFC 5987, иначе браузер сохранит «attachment»
     disposition = f"attachment; filename*=UTF-8''{quote(filename)}"
     return Response(content=payload, media_type=ctype, headers={"Content-Disposition": disposition})

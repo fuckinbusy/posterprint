@@ -12,27 +12,38 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { NavLink, useSearchParams } from 'react-router-dom';
+import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { downloadCsv } from '@/api/export';
 import {
+  INBOX,
   PAGE,
   attachmentPath,
   fetchMailMessage,
   fetchMailPage,
+  fetchMailRef,
   fetchMailStatus,
   noteSeen,
   replyMail,
   sendMail,
   useMailStore,
   type MailAttachment,
+  type MailDetail,
   type MailSummary,
 } from '@/api/mail';
 import { useCan } from '@/app/AuthProvider';
 import { useTheme } from '@/app/theme';
 import { ModalShell, useModal, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
-import { ArrowLeftIcon, DownloadIcon, EditIcon, FileIcon, PlusIcon } from '@/components/Icons';
+import {
+  ArrowLeftIcon,
+  CloseIcon,
+  DownloadIcon,
+  EditIcon,
+  FileIcon,
+  OpenIcon,
+  PlusIcon,
+} from '@/components/Icons';
 import { Empty, Field, Loading } from '@/components/ui';
 import { fileSize, initials } from '@/lib/format';
 
@@ -60,6 +71,9 @@ const who = (a: { name: string; email: string }): string => a.name || a.email ||
 export function MailPage() {
   const [params, setParams] = useSearchParams();
   const selected = Number(params.get('uid')) || null;
+  // папка в адресе появляется только у писем из отправленных — к ним ведёт
+  // ссылка «в ответ на»; список слева всегда про входящие
+  const folder = params.get('folder') || INBOX;
   const select = useCallback(
     (uid: number | null) => setParams(uid ? { uid: String(uid) } : {}, { replace: true }),
     [setParams],
@@ -92,7 +106,7 @@ export function MailPage() {
   return (
     <main className="page mail-page" aria-label="Почта">
       <MailList selected={selected} onSelect={select} seenUid={seenUid} user={status.data?.user ?? ''} />
-      <MailReader uid={selected} onSeen={setSeenUid} onBack={() => select(null)} />
+      <MailReader uid={selected} folder={folder} onSeen={setSeenUid} onBack={() => select(null)} />
     </main>
   );
 }
@@ -321,28 +335,36 @@ function MailRow({
 /* ==================================================== письмо */
 function MailReader({
   uid,
+  folder,
   onSeen,
   onBack,
 }: {
   uid: number | null;
+  folder: string;
   onSeen: (uid: number) => void;
   onBack: () => void;
 }) {
   const detail = useQuery({
-    queryKey: ['mail', 'message', uid],
-    queryFn: () => fetchMailMessage(uid as number),
+    queryKey: ['mail', 'message', folder, uid],
+    queryFn: () => fetchMailMessage(uid as number, folder),
     enabled: uid !== null,
     staleTime: 5 * 60 * 1000,
   });
 
   // письмо открылось — список и значок узнают, что оно прочитано
-  const reported = useRef<number | null>(null);
+  // (только входящие: отправленные в списке не живут и непрочитанными не бывают)
+  const reported = useRef<string | null>(null);
   useEffect(() => {
     const data = detail.data;
-    if (!data || reported.current === data.uid) return;
-    reported.current = data.uid;
-    onSeen(data.uid);
-    noteSeen();
+    const key = data ? `${data.folder}:${data.uid}` : null;
+    if (!data || !key || reported.current === key) return;
+    reported.current = key;
+    if (data.folder === INBOX && !data.seen) {
+      onSeen(data.uid);
+      noteSeen();
+    } else if (data.folder === INBOX) {
+      onSeen(data.uid);
+    }
   }, [detail.data, onSeen]);
 
   // «показать только текст» — до раннего return ниже: хуки после return
@@ -375,6 +397,9 @@ function MailReader({
       {m && (
         <>
           <header className="mail-head">
+            {m.folder !== INBOX && (
+              <span className="mail-folder">Отправленные · письмо с рабочего ящика</span>
+            )}
             <h1>{m.subject}</h1>
             <div className="mail-meta">
               <span className="mail-avatar big" aria-hidden="true">
@@ -401,10 +426,12 @@ function MailReader({
             </div>
           </header>
 
+          {m.in_reply_to && <ReplyRef messageId={m.in_reply_to} />}
+
           {m.attachments.length > 0 && (
             <div className="mail-atts" aria-label="Вложения">
               {m.attachments.map((a) => (
-                <Attachment key={a.index} uid={m.uid} att={a} />
+                <Attachment key={a.index} uid={m.uid} folder={m.folder} att={a} />
               ))}
             </div>
           )}
@@ -420,10 +447,235 @@ function MailReader({
             </button>
           )}
 
-          <ReplyBox uid={m.uid} to={m.reply_to} />
+          {m.folder === INBOX ? (
+            <ReplyBox uid={m.uid} to={m.reply_to} />
+          ) : (
+            <div className="mail-reply-cta">
+              <span className="hint">
+                Это наше письмо. Отвечать на него не на что — ответ клиента придёт во входящие.
+              </span>
+            </div>
+          )}
         </>
       )}
     </section>
+  );
+}
+
+/* ---------------------------------------------------- «в ответ на» */
+/* Ссылка на письмо, на которое отвечает открытое. Наведение (или нажатие —
+   для планшета) раскрывает карточку с самим письмом: кто, когда, текст с
+   оформлением, вложения — и кнопка перейти к нему. Работает в обе стороны:
+   ответ клиента ссылается на наше письмо в отправленных, наше — на письмо
+   клиента во входящих. */
+function ReplyRef({ messageId }: { messageId: string }) {
+  const ref = useQuery({
+    queryKey: ['mail', 'ref', messageId],
+    queryFn: () => fetchMailRef(messageId),
+    staleTime: 10 * 60 * 1000,
+  });
+  const chip = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const timer = useRef(0);
+
+  const clear = () => window.clearTimeout(timer.current);
+  const show = () => {
+    clear();
+    timer.current = window.setTimeout(() => setOpen(true), 160);
+  };
+  const hide = () => {
+    clear();
+    if (pinned) return;
+    timer.current = window.setTimeout(() => setOpen(false), 240);
+  };
+  const close = useCallback(() => {
+    clear();
+    setPinned(false);
+    setOpen(false);
+  }, []);
+
+  useEffect(() => close(), [messageId, close]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, close]);
+
+  const found = ref.data?.found ? ref.data.message : null;
+  const label = ref.isLoading
+    ? 'В ответ на письмо…'
+    : found
+      ? `В ответ на: ${found.subject}`
+      : 'В ответ на письмо, которого нет в ящике';
+
+  return (
+    <div className="mail-ref-wrap">
+      <button
+        ref={chip}
+        className={['mail-ref', found ? '' : 'missing', open ? 'on' : ''].filter(Boolean).join(' ')}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title={found ? `${who(found.from)} · ${mailDate(found.date)}` : undefined}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+        onClick={() => {
+          clear();
+          setPinned((p) => !p);
+          setOpen(true);
+        }}
+      >
+        <span className="mail-ref-arrow" aria-hidden="true">
+          ↩
+        </span>
+        <span className="mail-ref-text">{label}</span>
+        {found && <small>{who(found.from)}</small>}
+      </button>
+      {open && (
+        <RefCard
+          anchor={chip.current}
+          message={found}
+          loading={ref.isLoading}
+          pinned={pinned}
+          onEnter={clear}
+          onLeave={hide}
+          onClose={close}
+        />
+      )}
+    </div>
+  );
+}
+
+const CARD_W = 560;
+
+function RefCard({
+  anchor,
+  message,
+  loading,
+  pinned,
+  onEnter,
+  onLeave,
+  onClose,
+}: {
+  anchor: HTMLElement | null;
+  message: MailDetail | null;
+  loading: boolean;
+  pinned: boolean;
+  onEnter: () => void;
+  onLeave: () => void;
+  onClose: () => void;
+}) {
+  const navigate = useNavigate();
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number; maxH: number }>({
+    left: 16,
+    top: 80,
+    maxH: 480,
+  });
+
+  // карточка — position: fixed, под чипом; внизу не помещается — над ним
+  useLayoutEffect(() => {
+    const box = anchor?.getBoundingClientRect();
+    if (!box) return;
+    const width = Math.min(CARD_W, window.innerWidth - 32);
+    const left = Math.max(16, Math.min(box.left, window.innerWidth - width - 16));
+    const below = window.innerHeight - box.bottom - 16;
+    const above = box.top - 16;
+    if (below >= 320 || below >= above) {
+      setPos({ left, top: box.bottom + 8, maxH: Math.max(240, Math.min(560, below - 8)) });
+    } else {
+      setPos({
+        left,
+        bottom: window.innerHeight - box.top + 8,
+        maxH: Math.max(240, Math.min(560, above - 8)),
+      });
+    }
+  }, [anchor]);
+
+  const openIt = () => {
+    if (!message) return;
+    onClose();
+    navigate(
+      message.folder === INBOX
+        ? `/mail?uid=${message.uid}`
+        : `/mail?uid=${message.uid}&folder=${encodeURIComponent(message.folder)}`,
+    );
+  };
+
+  return (
+    <div
+      className={pinned ? 'refcard pinned' : 'refcard'}
+      role="dialog"
+      aria-label="Письмо, на которое отвечают"
+      style={{
+        left: pos.left,
+        top: pos.top,
+        bottom: pos.bottom,
+        width: Math.min(CARD_W, window.innerWidth - 32),
+        maxHeight: pos.maxH,
+      }}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+    >
+      {loading && <Loading>Ищу письмо…</Loading>}
+      {!loading && !message && (
+        <div className="refcard-empty">
+          Письма с таким номером в ящике нет: его могли удалить, или оно отправлено не с этого ящика.
+        </div>
+      )}
+      {message && (
+        <>
+          <div className="refcard-head">
+            <span className="mail-avatar" aria-hidden="true">
+              {initials(message.from.name || message.from.email)}
+            </span>
+            <div className="refcard-who">
+              <b>{who(message.from)}</b>
+              <span>
+                {message.folder === INBOX ? 'входящие' : 'отправленные'} ·{' '}
+                {message.date
+                  ? new Date(message.date).toLocaleString('ru-RU', {
+                      day: 'numeric',
+                      month: 'long',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : ''}
+              </span>
+            </div>
+            <button className="icon-btn" type="button" aria-label="Закрыть" onClick={onClose}>
+              <CloseIcon />
+            </button>
+          </div>
+          <div className="refcard-subject">{message.subject}</div>
+          {message.attachments.length > 0 && (
+            <div className="mail-atts compact" aria-label="Вложения">
+              {message.attachments.map((a) => (
+                <Attachment key={a.index} uid={message.uid} folder={message.folder} att={a} />
+              ))}
+            </div>
+          )}
+          <div className="refcard-body">
+            {message.html ? (
+              <HtmlMail html={message.html} />
+            ) : (
+              <div className="mail-body">{message.text || <em className="hint">Письмо без текста.</em>}</div>
+            )}
+          </div>
+          <div className="refcard-foot">
+            <button className="btn btn-green" type="button" onClick={openIt}>
+              <OpenIcon />
+              Открыть письмо
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -500,12 +752,12 @@ function HtmlMail({ html }: { html: string }) {
   );
 }
 
-function Attachment({ uid, att }: { uid: number; att: MailAttachment }) {
+function Attachment({ uid, folder = INBOX, att }: { uid: number; folder?: string; att: MailAttachment }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const download = async () => {
     setBusy(true);
-    const ok = await downloadCsv(attachmentPath(uid, att.index), att.filename);
+    const ok = await downloadCsv(attachmentPath(uid, att.index, folder), att.filename);
     setBusy(false);
     if (!ok) toast('Не удалось скачать вложение');
   };
