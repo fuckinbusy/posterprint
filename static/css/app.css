@@ -31,6 +31,10 @@
   --r: 14px;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --topbar-h: 70px;
+  /* Один шрифт на всё — Inter: у него есть кириллица. Archivo и Space Mono
+     были без неё, и русский текст в заголовках и подписях уезжал в Times и
+     Courier. Цифры — табличные (см. body), чтобы суммы стояли ровно. */
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
 }
 /* Светлая тема. Зелёный темнее: яркий #3cc707 на белом не читается. */
 html[data-theme="light"] {
@@ -162,9 +166,10 @@ body {
   margin: 0;
   background: var(--ink);
   color: var(--text);
-  font-family: "Inter", system-ui, Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 15px;
   line-height: 1.5;
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   display: flex;
   flex-direction: column;
@@ -192,7 +197,7 @@ a {
 h1,
 h2,
 h3 {
-  font-family: "Archivo", sans-serif;
+  font-family: var(--font-ui);
   line-height: 1.05;
   margin: 0;
   letter-spacing: -0.01em;
@@ -295,8 +300,8 @@ svg {
   display: flex;
   align-items: center;
   gap: 11px;
-  font-family: "Archivo";
-  font-weight: 900;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 21px;
   letter-spacing: 0.02em;
 }
@@ -304,7 +309,7 @@ svg {
   color: var(--green);
 }
 .brand small {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-weight: 400;
   font-size: 11.5px;
   letter-spacing: 0.12em;
@@ -334,7 +339,7 @@ svg {
   border-radius: 10px;
   padding: 11px 14px 11px 40px;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
   transition: border-color 0.2s;
 }
@@ -355,7 +360,7 @@ svg {
 /* счётчик «в работе» — в одну строку, иначе шапка распухает */
 .counter {
   flex: 0 0 auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -402,7 +407,7 @@ svg {
   gap: 8px;
   cursor: pointer;
   border: none;
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-weight: 600;
   font-size: 14px;
   padding: 11px 18px;
@@ -523,7 +528,7 @@ svg {
   overflow: hidden;
   opacity: 0;
   margin-left: 0;
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-weight: 500;
   font-size: 14px;
   white-space: nowrap;
@@ -560,7 +565,7 @@ svg {
   margin-bottom: 26px;
 }
 .page-eyebrow {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -657,14 +662,14 @@ svg {
   flex: 0 0 auto;
 }
 .sort > span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
 }
 .filters > button {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0.04em;
   padding: 8px 16px;
@@ -803,7 +808,7 @@ svg {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -823,7 +828,7 @@ svg {
   border: 1px solid var(--line-strong);
   background: transparent;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 13px;
   cursor: pointer;
   transition:
@@ -832,7 +837,7 @@ svg {
     color 0.16s;
 }
 .today-pill b {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   min-width: 20px;
   text-align: center;
@@ -872,7 +877,7 @@ svg {
   border-radius: 999px;
   padding: 6px 12px;
   color: var(--muted);
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -945,7 +950,7 @@ button.load-day:not(:disabled):hover {
   opacity: 0.75;
 }
 .load-date {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -962,7 +967,7 @@ button.load-day:not(:disabled):hover {
   font-size: 14px;
 }
 .load-area {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   color: var(--green);
   min-height: 1.3em;
@@ -998,7 +1003,7 @@ button.load-day:not(:disabled):hover {
   gap: 3px;
 }
 .cash-total span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1033,7 +1038,7 @@ button.load-day:not(:disabled):hover {
   text-align: left;
 }
 .cash-table th {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1042,7 +1047,7 @@ button.load-day:not(:disabled):hover {
 }
 .cash-table .num {
   text-align: right;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   white-space: nowrap;
 }
 .cash-list {
@@ -1069,7 +1074,7 @@ button.load-day:not(:disabled):hover {
   border-color: rgba(var(--fg-rgb), 0.28);
 }
 .cash-time {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   color: var(--muted);
 }
@@ -1079,7 +1084,7 @@ button.load-day:not(:disabled):hover {
   min-width: 0;
 }
 .cash-order b {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
 }
 .cash-order span {
@@ -1101,7 +1106,7 @@ button.load-day:not(:disabled):hover {
   font-size: 11.5px;
 }
 .cash-amount {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--green);
   white-space: nowrap;
@@ -1151,7 +1156,7 @@ button.load-day:not(:disabled):hover {
   flex: 0 0 auto;
 }
 .col-title {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1159,12 +1164,12 @@ button.load-day:not(:disabled):hover {
 }
 .col-count {
   margin-left: auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   color: var(--muted);
 }
 .col-sum {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   color: var(--muted);
   letter-spacing: 0.06em;
@@ -1196,7 +1201,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 12px;
   padding: 22px 14px;
   text-align: center;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0.08em;
   color: var(--muted-3);
@@ -1256,14 +1261,14 @@ button.load-day:not(:disabled):hover {
   margin-bottom: 9px;
 }
 .card-num {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0.06em;
   color: var(--green);
 }
 .card-tag {
   margin-left: auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1273,7 +1278,7 @@ button.load-day:not(:disabled):hover {
   padding: 3px 7px;
 }
 .card-title {
-  font-family: "Archivo";
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: 15.5px;
   letter-spacing: -0.01em;
@@ -1308,7 +1313,7 @@ button.load-day:not(:disabled):hover {
   border-top: 1px dashed var(--line);
 }
 .card-price {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--text);
   white-space: nowrap;
@@ -1322,7 +1327,7 @@ button.load-day:not(:disabled):hover {
   font-size: 13px;
 }
 .card-due {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -1430,7 +1435,7 @@ button.load-day:not(:disabled):hover {
   border-bottom: 1px solid var(--line);
 }
 .modal-eyebrow {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1477,7 +1482,7 @@ button.load-day:not(:disabled):hover {
   background: transparent;
   color: var(--text);
   cursor: pointer;
-  font-family: "Inter";
+  font-family: var(--font-ui);
   transition:
     border-color 0.16s,
     background 0.16s,
@@ -1516,7 +1521,7 @@ button.load-day:not(:disabled):hover {
   gap: 2px;
 }
 .tpl .txt b {
-  font-family: "Archivo";
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 0.01em;
@@ -1557,7 +1562,7 @@ button.load-day:not(:disabled):hover {
   margin-bottom: 0;
 }
 .form-sec > h3 {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: 12.5px;
   letter-spacing: 0.12em;
@@ -1581,7 +1586,7 @@ button.load-day:not(:disabled):hover {
   grid-template-columns: 1fr;
 }
 .field label {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.1em;
   color: var(--muted);
@@ -1598,7 +1603,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 9px;
   padding: 11px 13px;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
   transition: border-color 0.2s;
 }
@@ -1633,7 +1638,7 @@ button.load-day:not(:disabled):hover {
   border: 1px solid var(--line-strong);
   background: transparent;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 13px;
   transition: 0.18s;
 }
@@ -1694,7 +1699,7 @@ button.load-day:not(:disabled):hover {
    подсказки, стоящие сами по себе, оставались без оформления и выпадали из
    вида — например «Заказ будет записан на профиль …» в форме заказа. */
 .hint {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   /* был #6d746a — около 4.1:1 на тёмном фоне, ниже AA для мелкого текста */
   color: var(--muted);
@@ -1824,15 +1829,15 @@ button.load-day:not(:disabled):hover {
   align-items: baseline;
   gap: 9px;
   white-space: nowrap;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
 }
 .money-state b {
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 19px;
   letter-spacing: -0.02em;
 }
@@ -1874,7 +1879,7 @@ button.load-day:not(:disabled):hover {
   margin-bottom: 0;
 }
 .calc-title b {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1883,7 +1888,7 @@ button.load-day:not(:disabled):hover {
 /* пояснение под заголовком: пустой блок с одной кнопкой ничего не объяснял */
 .calc-title span {
   display: block;
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   color: var(--muted-2);
   margin-top: 5px;
@@ -1907,7 +1912,7 @@ button.load-day:not(:disabled):hover {
   display: flex;
   gap: 16px;
   align-items: baseline;
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 13.5px;
   color: var(--text-2);
   padding: 7px 0;
@@ -1915,7 +1920,7 @@ button.load-day:not(:disabled):hover {
 }
 .calc-line span:last-child {
   margin-left: auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13.5px;
   color: var(--text);
   white-space: nowrap;
@@ -1935,7 +1940,7 @@ button.load-day:not(:disabled):hover {
   font-weight: 700;
 }
 .calc-note {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted-2);
   margin-top: 9px;
@@ -1970,7 +1975,7 @@ button.load-day:not(:disabled):hover {
 }
 .feed time {
   display: block;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted-2);
   margin-top: 3px;
@@ -1984,7 +1989,7 @@ button.load-day:not(:disabled):hover {
   gap: 8px;
 }
 .status-pill {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0.08em;
   padding: 8px 14px;
@@ -2015,7 +2020,7 @@ button.load-day:not(:disabled):hover {
   font-size: 14px;
 }
 .kv dt {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2055,8 +2060,8 @@ button.load-day:not(:disabled):hover {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  font-family: "Archivo";
-  font-weight: 900;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 30px;
   letter-spacing: 0.02em;
   margin-bottom: 16px;
@@ -2096,7 +2101,7 @@ button.load-day:not(:disabled):hover {
   justify-content: center;
 }
 .gate-pass-err {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   color: var(--red);
   margin-top: 10px;
@@ -2117,7 +2122,7 @@ button.load-day:not(:disabled):hover {
   color: var(--muted);
   cursor: pointer;
   padding: 8px 14px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0.08em;
   transition: 0.2s;
@@ -2153,7 +2158,7 @@ button.load-day:not(:disabled):hover {
   margin-bottom: 22px;
 }
 .mx-tabs button {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0.06em;
   padding: 8px 15px;
@@ -2188,7 +2193,7 @@ button.load-day:not(:disabled):hover {
   background: rgba(var(--fg-rgb), 0.015);
 }
 .mx-cell .k {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -2197,8 +2202,8 @@ button.load-day:not(:disabled):hover {
   line-height: 1.4;
 }
 .mx-cell .v {
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 23px;
   letter-spacing: -0.02em;
 }
@@ -2239,7 +2244,7 @@ button.load-day:not(:disabled):hover {
 .mx-axis {
   display: flex;
   justify-content: space-between;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: var(--muted-2);
   margin-top: 8px;
@@ -2269,12 +2274,12 @@ button.load-day:not(:disabled):hover {
   white-space: nowrap;
 }
 .mx-list .ct {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   color: var(--muted);
 }
 .mx-list .sm {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--green);
   min-width: 90px;
@@ -2298,7 +2303,7 @@ button.load-day:not(:disabled):hover {
   background: rgba(var(--fg-rgb), 0.015);
   color: var(--text);
   cursor: pointer;
-  font-family: "Inter";
+  font-family: var(--font-ui);
   transition:
     transform 0.16s var(--ease),
     border-color 0.2s,
@@ -2311,7 +2316,7 @@ button.load-day:not(:disabled):hover {
 }
 .mx-open .k {
   display: block;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -2320,8 +2325,8 @@ button.load-day:not(:disabled):hover {
 }
 .mx-open .v {
   display: block;
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 23px;
   letter-spacing: -0.02em;
   margin-bottom: 12px;
@@ -2336,7 +2341,7 @@ button.load-day:not(:disabled):hover {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2359,15 +2364,15 @@ button.load-day:not(:disabled):hover {
   background: rgba(var(--fg-rgb), 0.015);
 }
 .mx-sum span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
 }
 .mx-sum b {
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 24px;
   color: var(--green);
   letter-spacing: -0.02em;
@@ -2386,7 +2391,7 @@ button.load-day:not(:disabled):hover {
   align-items: flex-start;
 }
 .mx-rank-row .i {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   color: var(--muted-3);
   width: 20px;
@@ -2414,7 +2419,7 @@ button.load-day:not(:disabled):hover {
   font-weight: 500;
 }
 .mx-rank-row .sm {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--green);
   flex: 0 0 auto;
@@ -2436,13 +2441,13 @@ button.load-day:not(:disabled):hover {
   gap: 16px;
   flex-wrap: wrap;
   margin-top: 7px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted-2);
   letter-spacing: 0.04em;
 }
 .mx-empty {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   color: var(--muted-3);
   letter-spacing: 0.06em;
@@ -2450,7 +2455,7 @@ button.load-day:not(:disabled):hover {
 }
 
 .gate-device {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.06em;
   color: var(--muted-3);
@@ -2514,13 +2519,13 @@ button.load-day:not(:disabled):hover {
 }
 .dv-main b {
   display: block;
-  font-family: "Archivo";
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: 15.5px;
   margin-bottom: 4px;
 }
 .dv-main .meta {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted);
   letter-spacing: 0.04em;
@@ -2532,7 +2537,7 @@ button.load-day:not(:disabled):hover {
   flex: 0 0 auto;
 }
 .dv-tag {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.04em;
   color: var(--green);
@@ -2601,7 +2606,7 @@ button.load-day:not(:disabled):hover {
   font-weight: 500;
 }
 .dev-opt .txt span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: var(--muted);
   letter-spacing: 0.04em;
@@ -2630,7 +2635,7 @@ button.load-day:not(:disabled):hover {
   border: 1px solid var(--line-strong);
   background: transparent;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   transition: 0.18s;
 }
 .mode-btn b {
@@ -2670,7 +2675,7 @@ button.load-day:not(:disabled):hover {
   );
   color: var(--text);
   cursor: pointer;
-  font-family: "Inter";
+  font-family: var(--font-ui);
   transition:
     transform 0.18s var(--ease),
     border-color 0.2s,
@@ -2694,8 +2699,8 @@ button.load-day:not(:disabled):hover {
   align-items: center;
   justify-content: center;
   margin-bottom: 14px;
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 18px;
   color: var(--green);
 }
@@ -2705,8 +2710,8 @@ button.load-day:not(:disabled):hover {
 }
 .gate-card b {
   display: block;
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 16px;
   text-transform: uppercase;
   margin-bottom: 6px;
@@ -2722,7 +2727,7 @@ button.load-day:not(:disabled):hover {
   align-items: center;
   gap: 5px;
   margin-top: 11px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2767,8 +2772,8 @@ button.load-day:not(:disabled):hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 16px;
   color: var(--green);
 }
@@ -2778,18 +2783,18 @@ button.load-day:not(:disabled):hover {
 }
 .st-name b {
   display: block;
-  font-family: "Archivo";
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: 16px;
 }
 .st-name span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted);
   letter-spacing: 0.05em;
 }
 .st-badge {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2821,7 +2826,7 @@ button.load-day:not(:disabled):hover {
   border-top: 1px dashed var(--line);
 }
 .st-perm {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.04em;
   color: var(--muted);
@@ -2834,7 +2839,7 @@ button.load-day:not(:disabled):hover {
   border-color: rgba(240, 180, 41, 0.3);
 }
 .st-none {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted-3);
   letter-spacing: 0.05em;
@@ -2845,7 +2850,7 @@ button.load-day:not(:disabled):hover {
   margin-bottom: 22px;
 }
 .perm-group h4 {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: 12.5px;
   letter-spacing: 0.12em;
@@ -2920,7 +2925,7 @@ button.load-day:not(:disabled):hover {
   margin-bottom: 20px;
 }
 .perm-presets button {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.06em;
   padding: 7px 13px;
@@ -2990,7 +2995,7 @@ button.load-day:not(:disabled):hover {
 }
 .wk-fixed-tag {
   flex: 0 0 auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3018,7 +3023,7 @@ button.load-day:not(:disabled):hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted);
 }
@@ -3028,7 +3033,7 @@ button.load-day:not(:disabled):hover {
   gap: 5px;
 }
 .wk-kind > span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3040,7 +3045,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 8px;
   padding: 9px 11px;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
   width: 100%;
   cursor: pointer;
@@ -3050,7 +3055,7 @@ button.load-day:not(:disabled):hover {
   border-color: var(--green);
 }
 .wk-kind-hint {
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 13px;
   color: var(--muted);
   line-height: 1.45;
@@ -3058,7 +3063,7 @@ button.load-day:not(:disabled):hover {
 }
 .wk-unit-note {
   grid-column: 1/-1;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: var(--muted-2);
   letter-spacing: 0.03em;
@@ -3072,7 +3077,7 @@ button.load-day:not(:disabled):hover {
   margin-top: 11px;
 }
 .wk-warn span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: #f0b429;
   letter-spacing: 0.03em;
@@ -3175,7 +3180,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 8px;
   padding: 8px 10px;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
   width: 100%;
 }
@@ -3200,7 +3205,7 @@ button.load-day:not(:disabled):hover {
   position: absolute;
   right: 13px;
   pointer-events: none;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -3215,7 +3220,7 @@ button.load-day:not(:disabled):hover {
   background: rgba(60, 199, 7, 0.04);
 }
 .wk-quick-title {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -3239,7 +3244,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 8px;
   padding: 8px 10px;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
   width: 100%;
 }
@@ -3254,7 +3259,7 @@ button.load-day:not(:disabled):hover {
   font-size: 13.5px;
 }
 .wk-quick-hint {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: var(--muted-2);
   letter-spacing: 0.03em;
@@ -3267,7 +3272,7 @@ button.load-day:not(:disabled):hover {
   border: none;
   border-bottom: 1px solid var(--line-strong);
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14.5px;
   font-weight: 500;
   padding: 5px 0;
@@ -3283,7 +3288,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 8px;
   padding: 7px 10px;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 13.5px;
   cursor: pointer;
 }
@@ -3302,7 +3307,7 @@ button.load-day:not(:disabled):hover {
   grid-column: span 2;
 }
 .wk-cell > span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3315,7 +3320,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 8px;
   padding: 8px 10px;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
   width: 100%;
 }
@@ -3358,7 +3363,7 @@ button.load-day:not(:disabled):hover {
 
 /* ---------- макет заказа ---------- */
 .dz-loading {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted);
   letter-spacing: 0.04em;
@@ -3396,7 +3401,7 @@ button.load-day:not(:disabled):hover {
   stroke-width: 1.4;
 }
 .dz-empty b {
-  font-family: "Archivo";
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: 15px;
   text-transform: uppercase;
@@ -3464,7 +3469,7 @@ button.load-day:not(:disabled):hover {
   stroke-width: 1.4;
 }
 .dz-nopreview {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: var(--muted-2);
   letter-spacing: 0.05em;
@@ -3508,13 +3513,13 @@ button.load-day:not(:disabled):hover {
   word-break: break-all;
 }
 .dz-facts {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted);
   letter-spacing: 0.04em;
 }
 .dz-note {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: #f0b429;
   letter-spacing: 0.02em;
@@ -3576,7 +3581,7 @@ button.load-day:not(:disabled):hover {
   width: 100%;
   max-width: 96vw;
   margin-bottom: 14px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   color: var(--muted);
   letter-spacing: 0.05em;
@@ -3617,7 +3622,7 @@ button.load-day:not(:disabled):hover {
   border: 1px solid var(--line-strong);
   background: transparent;
   color: var(--muted);
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   display: flex;
   align-items: center;
@@ -3649,12 +3654,12 @@ button.load-day:not(:disabled):hover {
 .pg-gap {
   color: var(--muted-3);
   padding: 0 2px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
 }
 .pg-info {
   margin-left: auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: var(--muted-2);
   letter-spacing: 0.04em;
@@ -3694,7 +3699,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 10px;
   padding: 11px 14px 11px 40px;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
   transition: border-color 0.2s;
 }
@@ -3709,7 +3714,7 @@ button.load-day:not(:disabled):hover {
   flex-wrap: wrap;
 }
 .cl-sorts button {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.04em;
   padding: 8px 14px;
@@ -3738,7 +3743,7 @@ button.load-day:not(:disabled):hover {
   border: 1px solid var(--line);
   border-radius: 11px;
   background: rgba(var(--fg-rgb), 0.015);
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.05em;
   color: var(--muted);
@@ -3767,7 +3772,7 @@ button.load-day:not(:disabled):hover {
   background: rgba(var(--fg-rgb), 0.012);
   color: var(--text);
   cursor: pointer;
-  font-family: "Inter";
+  font-family: var(--font-ui);
   transition:
     border-color 0.16s,
     background 0.16s,
@@ -3787,8 +3792,8 @@ button.load-day:not(:disabled):hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 15px;
   color: var(--green);
 }
@@ -3812,7 +3817,7 @@ button.load-day:not(:disabled):hover {
   white-space: nowrap;
 }
 .cl-main .meta {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted);
   letter-spacing: 0.03em;
@@ -3828,19 +3833,19 @@ button.load-day:not(:disabled):hover {
 }
 .cl-nums .n {
   display: block;
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 17px;
 }
 .cl-nums .l {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: var(--muted);
   letter-spacing: 0.04em;
 }
 .cl-badge {
   flex: 0 0 auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.04em;
   color: var(--green);
@@ -3852,7 +3857,7 @@ button.load-day:not(:disabled):hover {
   flex: 0 0 auto;
   min-width: 96px;
   text-align: right;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13.5px;
   color: var(--text);
 }
@@ -3860,7 +3865,7 @@ button.load-day:not(:disabled):hover {
   flex: 0 0 auto;
   min-width: 56px;
   text-align: right;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted-2);
 }
@@ -3880,13 +3885,13 @@ button.load-day:not(:disabled):hover {
 }
 .cl-stat b {
   display: block;
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 19px;
   line-height: 1.2;
 }
 .cl-stat span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: var(--muted);
   letter-spacing: 0.07em;
@@ -3922,7 +3927,7 @@ button.load-day:not(:disabled):hover {
   background: none;
   border: none;
   cursor: pointer;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
 }
 .client-linked #clientOpen[hidden] {
@@ -3951,7 +3956,7 @@ button.load-day:not(:disabled):hover {
   background: var(--field-bg);
   border: 1px solid var(--line-strong);
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 13.5px;
   line-height: 1.35;
   display: flex;
@@ -3966,7 +3971,7 @@ button.load-day:not(:disabled):hover {
   background: rgba(60, 199, 7, 0.05);
 }
 .price-ref .path {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 14px;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -3984,7 +3989,7 @@ button.load-day:not(:disabled):hover {
   font-style: normal;
   margin-left: auto;
   flex: 0 0 auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   color: var(--green);
 }
@@ -4021,7 +4026,7 @@ button.load-day:not(:disabled):hover {
   background: transparent;
   color: var(--text);
   border: 1px solid var(--line);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
   transition:
     border-color 0.15s,
@@ -4045,7 +4050,7 @@ button.load-day:not(:disabled):hover {
 }
 .pick-item .key {
   display: block;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: var(--muted-3);
   letter-spacing: 0.06em;
@@ -4053,7 +4058,7 @@ button.load-day:not(:disabled):hover {
 }
 .pick-item .val {
   flex: 0 0 auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--green);
   letter-spacing: 0.02em;
@@ -4065,7 +4070,7 @@ button.load-day:not(:disabled):hover {
 }
 .pr-sub h2,
 .pr-sub-title {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: 12.5px;
   letter-spacing: 0.12em;
@@ -4090,7 +4095,7 @@ button.load-day:not(:disabled):hover {
   background: rgba(var(--fg-rgb), 0.015);
   color: var(--text);
   cursor: pointer;
-  font-family: "Inter";
+  font-family: var(--font-ui);
   transition:
     transform 0.16s var(--ease),
     border-color 0.18s,
@@ -4129,7 +4134,7 @@ button.load-day:not(:disabled):hover {
 }
 .pr-tile .unit {
   margin-left: auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -4139,7 +4144,7 @@ button.load-day:not(:disabled):hover {
   flex: 0 0 auto;
 }
 .pr-tile b {
-  font-family: "Archivo";
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: 15px;
   text-transform: uppercase;
@@ -4162,12 +4167,12 @@ button.load-day:not(:disabled):hover {
   border-top: 1px dashed var(--line);
 }
 .pr-tile .cnt {
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 19px;
 }
 .pr-tile .cnt-label {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -4175,7 +4180,7 @@ button.load-day:not(:disabled):hover {
 }
 .pr-tile .off-cnt {
   margin-left: auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: #f0b429;
   letter-spacing: 0.06em;
@@ -4189,7 +4194,7 @@ button.load-day:not(:disabled):hover {
   background: none;
   border: none;
   cursor: pointer;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -4207,7 +4212,7 @@ button.load-day:not(:disabled):hover {
   color: var(--green);
 }
 .pr-note {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   color: var(--muted-2);
   letter-spacing: 0.04em;
@@ -4257,7 +4262,7 @@ button.load-day:not(:disabled):hover {
   flex: 0 0 auto;
   min-width: 118px;
   text-align: right;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 14px;
   color: var(--green);
   letter-spacing: 0.02em;
@@ -4271,7 +4276,7 @@ button.load-day:not(:disabled):hover {
   background: transparent;
   border: none;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
   padding: 4px 0;
   border-bottom: 1px solid transparent;
@@ -4282,7 +4287,7 @@ button.load-day:not(:disabled):hover {
 }
 .pr-row .key {
   display: block;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   color: var(--muted-3);
   letter-spacing: 0.06em;
@@ -4302,7 +4307,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 8px;
   padding: 8px 10px;
   color: var(--text);
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 14px;
   text-align: right;
 }
@@ -4397,7 +4402,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 8px;
   padding: 9px 11px;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
 }
 .pr-add input:focus,
@@ -4419,7 +4424,7 @@ button.load-day:not(:disabled):hover {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -4506,7 +4511,7 @@ button.load-day:not(:disabled):hover {
 }
 .pay-cell span {
   display: block;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -4515,8 +4520,8 @@ button.load-day:not(:disabled):hover {
   line-height: 1.4;
 }
 .pay-cell b {
-  font-family: "Archivo";
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-weight: 700;
   font-size: 22px;
   letter-spacing: -0.02em;
   white-space: nowrap;
@@ -4553,7 +4558,7 @@ button.load-day:not(:disabled):hover {
 }
 .cancel-note span {
   display: block;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -4569,7 +4574,7 @@ button.load-day:not(:disabled):hover {
   margin-bottom: 16px;
 }
 .cancel-presets button {
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 13.5px;
   padding: 8px 13px;
   border-radius: 999px;
@@ -4601,7 +4606,7 @@ button.load-day:not(:disabled):hover {
   background: rgba(240, 180, 41, 0.12);
   border: 1px solid rgba(240, 180, 41, 0.35);
   color: #f0b429;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -4645,7 +4650,7 @@ button.load-day:not(:disabled):hover {
   background: transparent;
   color: var(--text);
   cursor: pointer;
-  font-family: "Inter";
+  font-family: var(--font-ui);
   transition: background 0.13s;
 }
 .client-opt:hover,
@@ -4659,7 +4664,7 @@ button.load-day:not(:disabled):hover {
   margin-bottom: 3px;
 }
 .client-opt span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   color: var(--muted);
   letter-spacing: 0.04em;
@@ -4669,7 +4674,7 @@ button.load-day:not(:disabled):hover {
 }
 .client-drop .none {
   padding: 10px 11px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   color: var(--muted-2);
   letter-spacing: 0.05em;
@@ -4679,7 +4684,7 @@ button.load-day:not(:disabled):hover {
   align-items: center;
   gap: 8px;
   margin-top: 9px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.06em;
   color: var(--green);
@@ -4692,7 +4697,7 @@ button.load-day:not(:disabled):hover {
   border: none;
   color: var(--muted);
   cursor: pointer;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   text-decoration: underline;
   padding: 0;
@@ -4720,7 +4725,7 @@ button.load-day:not(:disabled):hover {
   border-bottom: none;
 }
 .cl-orders .num {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   color: var(--green);
   flex: 0 0 auto;
@@ -4733,14 +4738,14 @@ button.load-day:not(:disabled):hover {
   white-space: nowrap;
 }
 .cl-orders .st {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
 }
 .cl-orders .pr {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13.5px;
   min-width: 78px;
   text-align: right;
@@ -4780,7 +4785,7 @@ button.load-day:not(:disabled):hover {
   color: var(--text);
 }
 .confirm-note {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: #f0b429;
   letter-spacing: 0.03em;
@@ -4827,7 +4832,7 @@ button.load-day:not(:disabled):hover {
   }
 }
 .ctx-head {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -4835,7 +4840,7 @@ button.load-day:not(:disabled):hover {
   padding: 9px 11px 6px;
 }
 .ctx-num {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   color: var(--muted);
   padding: 2px 11px 9px;
@@ -4853,7 +4858,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 8px;
   background: transparent;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
   text-align: left;
   cursor: pointer;
@@ -5048,7 +5053,7 @@ button.load-day:not(:disabled):hover {
     flex: 1;
   }
   .gate-device {
-    font-family: "Space Mono";
+    font-family: var(--font-ui);
     font-size: 12px;
     letter-spacing: 0.06em;
     color: var(--muted-3);
@@ -5112,13 +5117,13 @@ button.load-day:not(:disabled):hover {
   }
   .dv-main b {
     display: block;
-    font-family: "Archivo";
+    font-family: var(--font-ui);
     font-weight: 700;
     font-size: 15.5px;
     margin-bottom: 4px;
   }
   .dv-main .meta {
-    font-family: "Space Mono";
+    font-family: var(--font-ui);
     font-size: 12px;
     color: var(--muted);
     letter-spacing: 0.04em;
@@ -5130,7 +5135,7 @@ button.load-day:not(:disabled):hover {
     flex: 0 0 auto;
   }
   .dv-tag {
-    font-family: "Space Mono";
+    font-family: var(--font-ui);
     font-size: 11.5px;
     letter-spacing: 0.04em;
     color: var(--green);
@@ -5199,7 +5204,7 @@ button.load-day:not(:disabled):hover {
     font-weight: 500;
   }
   .dev-opt .txt span {
-    font-family: "Space Mono";
+    font-family: var(--font-ui);
     font-size: 11.5px;
     color: var(--muted);
     letter-spacing: 0.04em;
@@ -5228,7 +5233,7 @@ button.load-day:not(:disabled):hover {
     border: 1px solid var(--line-strong);
     background: transparent;
     color: var(--text);
-    font-family: "Inter";
+    font-family: var(--font-ui);
     transition: 0.18s;
   }
   .mode-btn b {
@@ -5282,7 +5287,7 @@ button.load-day:not(:disabled):hover {
   margin-bottom: 18px;
 }
 .print-switch button {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0.06em;
   padding: 8px 15px;
@@ -5330,7 +5335,7 @@ button.load-day:not(:disabled):hover {
   border-bottom: 2px solid #111;
 }
 .ps-shop b {
-  font-family: Archivo, Inter, sans-serif;
+  font-family: var(--font-ui);
   font-size: 20px;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -5353,7 +5358,7 @@ button.load-day:not(:disabled):hover {
   color: #444;
 }
 .ps-title b {
-  font-family: "Space Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 22px;
 }
 .ps-sub {
@@ -5369,7 +5374,7 @@ button.load-day:not(:disabled):hover {
   padding: 4px 10px;
   border: 2px solid #111;
   border-radius: 4px;
-  font-family: "Space Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -5392,7 +5397,7 @@ button.load-day:not(:disabled):hover {
   color: #555;
 }
 .ps-work-head b {
-  font-family: "Space Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 26px;
   line-height: 1.1;
 }
@@ -5403,7 +5408,7 @@ button.load-day:not(:disabled):hover {
   font-size: 20px;
 }
 .ps-name {
-  font-family: Archivo, Inter, sans-serif;
+  font-family: var(--font-ui);
   font-size: 18px;
   font-weight: 700;
   margin: 14px 0 10px;
@@ -5530,7 +5535,7 @@ button.load-day:not(:disabled):hover {
 }
 .ps-printed {
   margin-top: 10px;
-  font-size: 10.5px;
+  font-size: 11px;
   color: #888;
 }
 
@@ -5615,7 +5620,7 @@ button.load-day:not(:disabled):hover {
 }
 .print-opts-label {
   align-self: center;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -5641,7 +5646,7 @@ button.load-day:not(:disabled):hover {
   gap: 4mm;
 }
 .pl-num {
-  font-family: "Space Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 20pt;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -5695,7 +5700,7 @@ button.load-day:not(:disabled):hover {
   flex-wrap: wrap;
 }
 .pay-kinds button {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   padding: 8px 14px;
   border-radius: 999px;
@@ -5731,14 +5736,14 @@ button.load-day:not(:disabled):hover {
 }
 .pay-sum span {
   display: block;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
 }
 .pay-sum b {
-  font-family: Archivo, Inter, sans-serif;
+  font-family: var(--font-ui);
   font-size: 38px;
   line-height: 1.1;
   color: var(--green);
@@ -5786,7 +5791,7 @@ button.load-day:not(:disabled):hover {
   border-bottom: 1px solid var(--line);
 }
 .pay-line span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -5887,7 +5892,7 @@ button.load-day:not(:disabled):hover {
   outline: none;
 }
 .pr-hit-path {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -5900,7 +5905,7 @@ button.load-day:not(:disabled):hover {
   color: var(--muted);
 }
 .pr-hit-val {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   white-space: nowrap;
 }
@@ -5919,7 +5924,7 @@ button.load-day:not(:disabled):hover {
   gap: 6px;
 }
 .log-tools label:not(.check) > span {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -5928,7 +5933,7 @@ button.load-day:not(:disabled):hover {
 .log-tools .log-count {
   margin-left: auto;
   align-self: center;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -5976,7 +5981,7 @@ button.load-day:not(:disabled):hover {
   display: inline-block;
   min-width: 58px;
   margin-right: 10px;
-  font-size: 10.5px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   color: #7f8a7b;
 }
@@ -6027,7 +6032,7 @@ button.load-day:not(:disabled):hover {
   min-width: 0;
 }
 .backup-title {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -6081,7 +6086,7 @@ button.load-day:not(:disabled):hover {
 }
 .backup-list li em {
   font-style: normal;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted);
 }
@@ -6103,7 +6108,7 @@ button.load-day:not(:disabled):hover {
 .perm-group-title {
   display: block;
   margin-bottom: 7px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -6129,7 +6134,7 @@ button.load-day:not(:disabled):hover {
   border-radius: 6px;
   border: 1px solid var(--line-strong);
   background: rgba(var(--fg-rgb), 0.04);
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--text);
 }
@@ -6238,7 +6243,7 @@ body.touch-dragging {
   border-radius: 9px;
   padding: 11px 13px;
   color: var(--text);
-  font-family: "Inter";
+  font-family: var(--font-ui);
   font-size: 14px;
   line-height: 1.25;
   transition: border-color 0.2s;
@@ -6314,8 +6319,8 @@ body.touch-dragging {
 }
 .sel-group {
   padding: 6px 10px 4px;
-  font-family: "Space Mono";
-  font-size: 10.5px;
+  font-family: var(--font-ui);
+  font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
@@ -6356,7 +6361,7 @@ body.touch-dragging {
 }
 .sel-opt-hint {
   flex: 0 0 auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted);
 }
@@ -6373,7 +6378,7 @@ body.touch-dragging {
 .sel-pill .sel-btn {
   border-radius: 999px;
   padding: 8px 15px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -6383,7 +6388,7 @@ body.touch-dragging {
   right: 0;
 }
 .sel-pill .sel-opt {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
 }
 
@@ -6393,7 +6398,7 @@ body.touch-dragging {
 }
 .sel-compact .sel-btn {
   padding: 7px 10px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12.5px;
   border-radius: 8px;
 }
@@ -6480,8 +6485,8 @@ body.touch-dragging {
 
 /* ---------- настройки ---------- */
 .settings-src {
-  font-family: "Space Mono";
-  font-size: 10.5px;
+  font-family: var(--font-ui);
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -6526,7 +6531,7 @@ body.touch-dragging {
 }
 .settings-sub {
   margin: 22px 0 12px;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -6660,8 +6665,8 @@ body.touch-dragging {
   min-width: 0;
 }
 .notice-eyebrow {
-  font-family: "Space Mono";
-  font-size: 10.5px;
+  font-family: var(--font-ui);
+  font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--green);
@@ -6742,9 +6747,9 @@ body.touch-dragging {
   border-radius: 999px;
   background: var(--red);
   color: #fff;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-style: normal;
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 18px;
   text-align: center;
   border: 2px solid var(--ink);
@@ -6761,8 +6766,8 @@ body.touch-dragging {
 }
 .mail-eyebrow {
   display: block;
-  font-family: "Space Mono";
-  font-size: 10.5px;
+  font-family: var(--font-ui);
+  font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--green);
@@ -6851,7 +6856,7 @@ body.touch-dragging {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0.04em;
   color: var(--muted);
@@ -6884,7 +6889,7 @@ body.touch-dragging {
 }
 .mail-date {
   flex: 0 0 auto;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11px;
   color: var(--muted);
 }
@@ -6952,7 +6957,7 @@ body.touch-dragging {
   color: var(--muted);
 }
 .mail-when {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
@@ -6987,7 +6992,7 @@ body.touch-dragging {
 }
 .mail-att em {
   font-style: normal;
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11px;
   color: var(--muted);
 }
@@ -7127,8 +7132,8 @@ body.touch-dragging {
 .mail-folder {
   display: inline-block;
   margin-bottom: 8px;
-  font-family: "Space Mono";
-  font-size: 10.5px;
+  font-family: var(--font-ui);
+  font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
@@ -7282,8 +7287,8 @@ body.touch-dragging {
   margin: -6px 0 16px;
 }
 .mail-contacts-label {
-  font-family: "Space Mono";
-  font-size: 10.5px;
+  font-family: var(--font-ui);
+  font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
@@ -7344,7 +7349,7 @@ body.touch-dragging {
   flex-wrap: wrap;
 }
 .extras-title {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -7355,7 +7360,7 @@ body.touch-dragging {
   color: var(--muted);
 }
 .extras-total {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--muted);
 }
@@ -7397,7 +7402,7 @@ body.touch-dragging {
   font-size: 13px;
 }
 .extra-sum {
-  font-family: "Space Mono";
+  font-family: var(--font-ui);
   font-size: 13px;
   text-align: right;
   white-space: nowrap;
