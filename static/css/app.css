@@ -663,35 +663,6 @@ svg {
   text-transform: uppercase;
   color: var(--muted);
 }
-.sort select {
-  appearance: none;
-  cursor: pointer;
-  background: var(--field-bg);
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  padding: 8px 32px 8px 15px;
-  color: var(--text);
-  font-family: "Space Mono";
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  transition: border-color 0.2s;
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-  background-position:
-    calc(100% - 17px) 50%,
-    calc(100% - 12px) 50%;
-  background-size: 5px 5px;
-  background-repeat: no-repeat;
-}
-.sort select:hover {
-  border-color: var(--green);
-}
-.sort select:focus {
-  outline: none;
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px var(--green-glow);
-}
 .filters > button {
   font-family: "Space Mono";
   font-size: 13px;
@@ -4352,36 +4323,18 @@ button.load-day:not(:disabled):hover {
   border-color: var(--green);
 }
 /* за что берётся цена — у каждой позиции своё. Показываем только единицу,
-   расшифровка «— за штуку» разворачивается в самой выпадашке */
+   расшифровка «— за штуку» разворачивается в самой выпадашке. Это наш
+   компактный Select: стрелку он рисует сам, свои рамки тоже — здесь только
+   ширина (раньше тут были стили нативного select, и стрелка удваивалась) */
 .pr-row .unit-pick {
-  width: 98px;
+  width: 118px;
   flex: 0 0 auto;
-  background: var(--field-bg);
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  padding: 8px 22px 8px 10px;
+}
+.pr-row .unit-pick .sel-btn {
   color: var(--muted);
-  cursor: pointer;
-  font-family: "Space Mono";
-  font-size: 12.5px;
-  appearance: none;
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-  background-position:
-    calc(100% - 13px) 50%,
-    calc(100% - 8px) 50%;
-  background-size: 5px 5px;
-  background-repeat: no-repeat;
 }
-.pr-row .unit-pick:hover {
+.pr-row .unit-pick .sel-btn:hover {
   color: var(--text);
-  border-color: var(--green);
-}
-.pr-row .unit-pick:focus {
-  outline: none;
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px var(--green-glow);
 }
 .pr-act {
   width: 30px;
@@ -5091,7 +5044,7 @@ button.load-day:not(:disabled):hover {
   .sort {
     width: 100%;
   }
-  .sort select {
+  .sort .sel {
     flex: 1;
   }
   .gate-device {
@@ -5971,9 +5924,6 @@ button.load-day:not(:disabled):hover {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
-}
-.log-tools select {
-  min-width: 140px;
 }
 .log-tools .log-count {
   margin-left: auto;

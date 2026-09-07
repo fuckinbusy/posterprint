@@ -11,7 +11,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env               # и задайте пароль администратора
 
-python -m scripts.seed_demo        # необязательно: 13 демо-заказов по всем статусам
+python -m scripts.seed_demo        # необязательно: симуляция — 160 заказов, 80 клиентов, касса за квартал
 uvicorn app.main:app --reload
 ```
 
@@ -104,7 +104,7 @@ static/
   index.html, js/   прежний интерфейс, запасной вариант на /legacy
 scripts/
   seed_workshop.py  залить каталог (--wipe — сначала стереть всё)
-  seed_demo.py      демо-заказы
+  seed_demo.py      симуляция живой мастерской: заказы, клиенты, касса (--orders, --clients, --seed)
   backup.py         резервное копирование
   restore.py        восстановление
   check_db.py       диагностика базы
