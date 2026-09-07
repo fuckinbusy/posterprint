@@ -144,6 +144,7 @@ export type PricingRole =
   | 'none'
   | 'per_unit'
   | 'step_per_unit'
+  | 'step_key'
   | 'per_sqm'
   | 'per_m'
   | 'per_length'

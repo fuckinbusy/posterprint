@@ -114,7 +114,10 @@ export const MONEY_ROLES: { key: PricingRole; title: string; kinds: FieldKindKey
   { key: 'per_sqm', title: 'Умножить на площадь', kinds: ['price_choice', 'option_paid'] },
   { key: 'per_m', title: 'Умножить на периметр', kinds: ['price_choice', 'option_paid'] },
   { key: 'per_length', title: 'Умножить на длину (пог. м)', kinds: ['price_choice', 'option_paid'] },
-  { key: 'step_per_unit', title: 'Цена по ступеням тиража', kinds: ['price_choice'] },
+  // ступени: у списка из прайса — голые числа 100/500; у списка из своего
+  // набора выбранное значение называет таблицу («Лён:500»)
+  { key: 'step_per_unit', title: 'Цена по ступеням тиража', kinds: ['price_choice', 'choice'] },
+  { key: 'step_key', title: 'Уточняет таблицу тиража (цветность, стороны)', kinds: ['choice'] },
   { key: 'multiplier', title: 'Коэффициент — умножит всё выше', kinds: ['price_choice', 'option_paid'] },
 ];
 
@@ -125,7 +128,7 @@ export const rolesFor = (kind: FieldKindKey) => MONEY_ROLES.filter((r) => r.kind
    «Умножить на длину». Коэффициент сюда не входит: сам по себе он ничего
    не добавляет, только множит то, что выше. */
 export const PAYING_ROLES: PricingRole[] = MONEY_ROLES.map((r) => r.key).filter(
-  (k) => k !== 'multiplier',
+  (k) => k !== 'multiplier' && k !== 'step_key',
 );
 
 /** Роли, которым нужны поля-измерения, и какие именно. */
@@ -250,9 +253,9 @@ export function fieldWarnings(
   if (
     field.pricing_role === 'step_per_unit' &&
     group &&
-    !items.some((item) => /^\d+$/.test(item.item_key))
+    !items.some((item) => /(^|:)\d+$/.test(item.item_key))
   ) {
-    warns.push('в разделе нет позиций-чисел вида 100, 500 — ступени не сработают');
+    warns.push('в разделе нет позиций-чисел вида 100, 500 (или «Лён:500») — ступени не сработают');
   }
 
   const needed = SIZE_REQUIREMENTS[field.pricing_role] ?? [];

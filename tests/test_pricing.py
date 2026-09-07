@@ -291,3 +291,33 @@ def test_needed_dimensions_зависит_от_выбора():
     assert needed_dimensions(fields, without_cut) == {"w", "h"}
     assert needed_dimensions(fields, with_cut) == {"w", "h", "cut_len"}
     assert needed_dimensions(fields, {"material": "", "cut": False}) == set()
+
+
+def test_ступени_с_вариантами_таблиц():
+    """Настоящий прайс: у каждой бумаги и цветности своя таблица тиража.
+    Список «Бумага» называет таблицу, «Цветность» уточняет колонку."""
+    table = {
+        "cards": {
+            "Лён:4+0:100": 9.5, "Лён:4+0:500": 8,
+            "Лён:4+4:100": 10.5, "Лён:4+4:500": 9,
+            "300 г:4+0:100": 6.5, "300 г:4+0:500": 5,
+        },
+    }
+    fields = [
+        field("paper", "step_per_unit", type="select", source="list", group="cards"),
+        field("color", "step_key", type="select", source="list"),
+    ]
+    est = estimate_from_fields(table, fields, 500, {"paper": "Лён", "color": "4+4"})
+    assert est["price"] == 4500          # 500 × 9
+    est = estimate_from_fields(table, fields, 120, {"paper": "300 г", "color": "4+0"})
+    assert est["price"] == 780           # ступень «от 100» по 6,5
+    est = estimate_from_fields(table, fields, 100, {"paper": "Лён", "color": "1+1"})
+    assert est["price"] is None or est["price"] == 0 or "Нет цены" in (est.get("note") or "")
+
+
+def test_голые_ступени_не_путаются_с_таблицами():
+    """Раздел, где есть и «100», и «Лён:100»: без варианта берутся голые числа."""
+    table = {"cards": {"100": 12, "500": 6, "Лён:100": 20}}
+    fields = [field("tier", "step_per_unit", group="cards")]
+    assert estimate_from_fields(table, fields, 100, {"tier": "100"})["price"] == 1200
+

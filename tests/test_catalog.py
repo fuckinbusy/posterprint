@@ -106,6 +106,10 @@ def test_ключи_полей_уникальны_внутри_вида_рабо
 @pytest.mark.parametrize("template, field", CASES)
 def test_поле_ссылается_на_существующий_прайс(template, field):
     key, _label, _type, source, group, role, _default, _required, extra = field
+    if source != "price" and role == "step_per_unit":
+        # список из своего набора называет таблицу прайса — раздел обязан быть
+        assert group in GROUPS and GROUPS[group][6], f"у ступеней «{key}» нет раздела с ценами"
+        return
     if source != "price":
         assert not group, f"поле «{key}» не из прайса, но раздел указан"
         return
@@ -189,9 +193,16 @@ def test_ступени_тиража_это_числа(template):
         if field[5] != "step_per_unit":
             continue
         keys = [item[0] for item in GROUPS[field[4]][6]]
-        assert all(k.isdigit() for k in keys), (
-            f"в разделе «{field[4]}» есть нечисловые ключи: {keys}"
+        # «500» или «Лён:4+4:500» — последняя часть ключа обязана быть числом
+        assert all(k.rsplit(":", 1)[-1].isdigit() for k in keys), (
+            f"в разделе «{field[4]}» есть ключи без числа тиража: {keys[:5]}"
         )
+        # у списка из своего набора каждый вариант должен иметь свою таблицу
+        if field[3] == "list":
+            for option in field[8].get("options", []):
+                assert any(k.startswith(option + ":") for k in keys), (
+                    f"в «{field[4]}» нет таблицы для варианта «{option}»"
+                )
 
 
 @pytest.mark.parametrize("template", TEMPLATES, ids=[t["key"] for t in TEMPLATES])
@@ -201,17 +212,25 @@ def test_в_каждом_виде_работ_есть_на_чём_считать
 
 
 # ------------------------------------------------------------------ то, что уже путали
-def test_плоттерная_резка_считается_по_длине_реза():
-    """Регрессия. Сначала она считалась по периметру изделия — но плоттер
-    режет по контуру: длина реза не выводится из ширины и высоты. Полсотни
-    мелких наклеек на одном листе дают метраж, который знает только
-    программа плоттера, поэтому его вводят руками."""
-    sticker = next(t for t in TEMPLATES if t["key"] == "sticker_print")
-    plotter = next(f for f in fields_of(sticker) if f[0] == "plotter_cut")
+def test_плоттерная_резка_по_площади_как_в_прайсе():
+    """Регрессия наоборот. Раньше плоттерную резку считали по длине реза, и
+    метраж вводили руками. В настоящем прайсе мастерской резка стоит за м²
+    отпечатка (15 ₽/м²), поэтому теперь это галочка по площади: ни длины,
+    ни отдельного поля для неё быть не должно."""
+    film = next(t for t in TEMPLATES if t["key"] == "film_print")
+    plotter = next(f for f in fields_of(film) if f[0] == "plotter")
+    assert plotter[5] == "per_sqm", "плоттерная резка снова считается не по площади"
+    assert plotter[8].get("price_item") == "Плоттерная резка"
+    assert not any(f[5] == "length" for f in fields_of(film)), "лишнее поле длины у самоклейки"
 
-    assert plotter[5] == "per_length", "плоттерная резка снова считается не по длине реза"
-    assert plotter[8].get("source_field") == "cut_length"
 
-    # а ручная режет прямоугольник по краю — там длина реза и есть периметр
-    hand = next(f for f in fields_of(sticker) if f[0] == "hand_cut")
-    assert hand[5] == "per_m"
+def test_визитки_считаются_по_таблицам_прайса():
+    """Бумага называет таблицу, цветность — колонку. Ключи в разделе —
+    «Лён:4+4:500», как строки бумажного прайса."""
+    cards = next(t for t in TEMPLATES if t["key"] == "cards_poly")
+    paper = next(f for f in fields_of(cards) if f[0] == "paper")
+    color = next(f for f in fields_of(cards) if f[0] == "color")
+    assert paper[5] == "step_per_unit" and paper[3] == "list"
+    assert color[5] == "step_key"
+    keys = {item[0] for item in GROUPS["viz_poly"][6]}
+    assert "Лён:4+4:500" in keys and "Бумага 300 г:1+0:100" in keys

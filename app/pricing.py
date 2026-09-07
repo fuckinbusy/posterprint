@@ -21,6 +21,16 @@
                 (двусторонняя ×1.8). Порядок полей важен: коэффициент,
                 стоящий сразу после «Формата», удвоит только печать, а
                 поднятый выше «Бумаги» — ещё и бумагу
+    step_per_unit
+                цена по ступеням тиража: в разделе прайса позиции с ключами-
+                числами (100, 500, 1000 — «от скольких штук»), тираж заказа
+                выбирает ступень. Если поле — список из своего набора
+                (бумага, формат, изделие), выбранное значение называет
+                таблицу: ключи вида «Лён:500». Настоящий прайс так и
+                устроен — у каждой бумаги своя колонка цен
+    step_key    уточняет таблицу тиража: цветность 4+4, тип печати. Само
+                ничего не стоит; значения всех таких полей по порядку
+                дописываются к ключу: «Лён:4+4:500»
     width       ширина в мм — для площади и периметра
     height      высота в мм
     length      длина в мм — для расчёта по длине, второе измерение не нужно
@@ -106,7 +116,7 @@ def contributes(field: dict, params: dict) -> bool:
     нельзя, иначе простая печать без обрезки вообще не считается.
     """
     role = field.get("pricing_role", "none")
-    if role in ("none", "width", "height", "length"):
+    if role in ("none", "width", "height", "length", "step_key"):
         return False
 
     value = params.get(field["key"], field.get("default"))
@@ -149,15 +159,25 @@ def needed_dimensions(fields: list[dict], params: dict | None) -> set[str]:
     return needed
 
 
-def _step_rate(rates: dict, group: str, quantity: int) -> float:
+def _step_rate(rates: dict, group: str, quantity: int, prefix: str = "") -> float:
     """Ставка по ступеням тиража: ключи-числа, берём наибольшую подходящую.
 
-    Так устроены визитки: от 100 шт одна цена, от 500 — другая.
+    Так устроены визитки: от 100 шт одна цена, от 500 — другая. prefix —
+    какую таблицу раздела смотреть: при «Лён:4+4» подходят ключи
+    «Лён:4+4:100», «Лён:4+4:500»; без prefix — только голые числа.
     """
-    steps = sorted(
-        ((int(k), v) for k, v in rates.get(group, {}).items() if str(k).isdigit()),
-        key=lambda pair: pair[0],
-    )
+    steps: list[tuple[int, float]] = []
+    for raw_key, value in rates.get(group, {}).items():
+        key = str(raw_key)
+        if prefix:
+            if not key.startswith(prefix + ":"):
+                continue
+            tail = key[len(prefix) + 1:]
+        else:
+            tail = key
+        if tail.isdigit():
+            steps.append((int(tail), value))
+    steps.sort(key=lambda pair: pair[0])
     if not steps:
         return 0.0
     value = steps[0][1]
@@ -231,15 +251,38 @@ def estimate_from_fields(
     # заказ считался дешевле, и заметить это было нечем.
     lost: list[str] = []
 
+    # уточнения таблицы тиража (цветность, стороны) — по порядку полей
+    variant = [
+        str(params.get(f["key"], f.get("default")) or "")
+        for f in fields
+        if f.get("pricing_role") == "step_key"
+    ]
+
     for field in fields:
         role = field.get("pricing_role", "none")
-        if role in ("none", "width", "height", "length"):
+        if role in ("none", "width", "height", "length", "step_key"):
             continue
 
         key = field["key"]
         value = params.get(key, field.get("default"))
         group = field.get("price_group") or ""
         label = field.get("label", key)
+
+        if role == "step_per_unit":
+            # ставку выбирает тираж, а не то, что ткнули в списке; список
+            # (если он из своего набора) лишь называет таблицу
+            own = str(value or "")
+            parts = ([] if not own or own.isdigit() else [own]) + [v for v in variant if v]
+            prefix = ":".join(parts)
+            step = _step_rate(rates, group, qty, prefix)
+            if not step:
+                lost.append(f"{label} → «{prefix or 'ступени тиража'}»")
+                continue
+            amount = step * qty
+            shown = f"{label}: {', '.join(parts)}" if parts else label
+            subtotal += amount
+            lines.append({"label": f"{shown} · {qty} × {step:g} ₽", "amount": amount})
+            continue
 
         # Сколько «штук» даёт поле. Галочка и список дают одну, поле-счётчик —
         # столько, сколько ввели: люверсов на баннере может быть восемь.
@@ -307,10 +350,6 @@ def estimate_from_fields(
             # разово за заказ: тираж не влияет, а введённое количество — да
             amount = rate * count
             text = label if count == 1 else f"{label} · {count:g} × {rate:g} ₽"
-        elif role == "step_per_unit":
-            step = _step_rate(rates, group, qty)
-            amount = step * qty
-            text = f"{label} · {qty} × {step:g} ₽"
         else:
             continue
 

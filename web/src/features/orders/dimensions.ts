@@ -17,7 +17,8 @@ export const isDimension = (field: FormField): boolean =>
 
 /** Участвует ли поле в цене при этих значениях заказа. */
 export function contributes(field: FormField, params: OrderParams): boolean {
-  if (field.pricing_role === 'none' || isDimension(field)) return false;
+  // step_key лишь уточняет таблицу тиража — сам ничего не стоит
+  if (field.pricing_role === 'none' || field.pricing_role === 'step_key' || isDimension(field)) return false;
 
   const value = params[field.key] ?? field.default;
   if (field.type === 'bool') return Boolean(value);

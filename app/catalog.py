@@ -21,7 +21,7 @@ from app.models import PriceItem, Template, TemplateField
 
 FIELD_TYPES = ("select", "number", "bool", "text")
 PRICING_ROLES = (
-    "none", "per_unit", "step_per_unit", "per_sqm", "per_m", "per_length",
+    "none", "per_unit", "step_per_unit", "step_key", "per_sqm", "per_m", "per_length",
     "per_order", "multiplier", "width", "height", "length",
 )
 
