@@ -2,10 +2,16 @@
 
    Раньше «Дизайн и услуги» были отдельным видом работ, и заказ «баннер плюс
    макет» оформляли двумя заказами. Теперь услуги — блок в форме любого
-   заказа: нажал на «Простой макет» — строка добавилась в смету и в
-   квитанцию, нажал ещё раз — убралась. У штучных услуг (вёрстка за
-   страницу, набор текста за лист) есть количество. */
+   заказа.
 
+   Вид намеренно скупой: один список «Добавить услугу…» и короткие строки
+   выбранного. Первый вариант раскладывал все услуги чипами — с десятью
+   глаза разбегались, а с полусотней стало бы нечитаемо. В списке цена
+   стоит подсказкой справа, выбранное убирается крестиком, у штучных услуг
+   (вёрстка за страницу) есть количество. */
+
+import { Select } from '@/components/Select';
+import { CloseIcon } from '@/components/Icons';
 import { money } from '@/lib/format';
 import type { ExtraOption, OrderExtraIn } from '@/types/api';
 
@@ -17,52 +23,54 @@ interface ExtrasPickerProps {
 
 const perPiece = (option: ExtraOption): boolean => option.unit.includes('шт');
 
+/** Название без скобок с диапазоном цен: «Простой макет (500–800 ₽)» →
+ *  «Простой макет». Диапазон остаётся в подсказке списка и на странице прайса. */
+const shortTitle = (title: string): string => title.replace(/\s*\([^)]*\)\s*$/, '').trim() || title;
+
 export function ExtrasPicker({ options, value, onChange }: ExtrasPickerProps) {
-  const chosen = new Map(value.map((e) => [e.key, e]));
-  const toggle = (option: ExtraOption) => {
-    if (chosen.has(option.key)) onChange(value.filter((e) => e.key !== option.key));
-    else onChange([...value, { key: option.key, qty: 1 }]);
+  const byKey = new Map(options.map((o) => [o.key, o]));
+  const chosen = new Set(value.map((e) => e.key));
+  const total = value.reduce((acc, e) => acc + (byKey.get(e.key)?.price ?? 0) * e.qty, 0);
+
+  const add = (key: string) => {
+    if (!key || chosen.has(key)) return;
+    onChange([...value, { key, qty: 1 }]);
   };
+  const remove = (key: string) => onChange(value.filter((e) => e.key !== key));
   const setQty = (key: string, qty: number) =>
     onChange(value.map((e) => (e.key === key ? { ...e, qty: Math.max(qty, 1) } : e)));
 
-  const total = value.reduce((acc, e) => {
-    const option = options.find((o) => o.key === e.key);
-    return acc + (option ? option.price * e.qty : 0);
-  }, 0);
+  const available = options
+    .filter((o) => !chosen.has(o.key))
+    .map((o) => ({
+      value: o.key,
+      label: shortTitle(o.title),
+      hint: perPiece(o) ? `${money(o.price)} / шт` : money(o.price),
+    }));
 
   return (
     <div className="extras">
       <div className="extras-head">
         <span className="extras-title">Дополнительные услуги</span>
-        <span className="extras-hint">Макет, замеры, монтаж — прибавляются к стоимости заказа</span>
+        {value.length > 0 ? (
+          <span className="extras-total">
+            {value.length} · <b>{money(total)}</b>
+          </span>
+        ) : (
+          <span className="extras-hint">макет, замеры, монтаж — прибавятся к стоимости</span>
+        )}
       </div>
-      <div className="extras-chips">
-        {options.map((option) => {
-          const on = chosen.has(option.key);
-          return (
-            <button
-              key={option.key}
-              className={on ? 'extra-chip on' : 'extra-chip'}
-              type="button"
-              aria-pressed={on}
-              title={`${money(option.price)}${perPiece(option) ? ' за штуку' : ''}`}
-              onClick={() => toggle(option)}
-            >
-              {option.title}
-              <em>{money(option.price)}</em>
-            </button>
-          );
-        })}
-      </div>
+
       {value.length > 0 && (
         <div className="extras-list">
           {value.map((e) => {
-            const option = options.find((o) => o.key === e.key);
+            const option = byKey.get(e.key);
             if (!option) return null;
             return (
               <div className="extra-row" key={e.key}>
-                <span className="extra-name">{option.title}</span>
+                <span className="extra-name" title={option.title}>
+                  {shortTitle(option.title)}
+                </span>
                 {perPiece(option) ? (
                   <label className="extra-qty">
                     <input
@@ -76,16 +84,34 @@ export function ExtrasPicker({ options, value, onChange }: ExtrasPickerProps) {
                     <span>× {money(option.price)}</span>
                   </label>
                 ) : (
-                  <span className="extra-qty">{money(option.price)}</span>
+                  <span className="extra-qty" />
                 )}
                 <b className="extra-sum">{money(option.price * e.qty)}</b>
+                <button
+                  className="extra-remove"
+                  type="button"
+                  aria-label={`Убрать: ${option.title}`}
+                  title="Убрать"
+                  onClick={() => remove(e.key)}
+                >
+                  <CloseIcon />
+                </button>
               </div>
             );
           })}
-          <div className="extra-row total">
-            <span className="extra-name">Услуги всего</span>
-            <b className="extra-sum">{money(total)}</b>
-          </div>
+        </div>
+      )}
+
+      {available.length > 0 && (
+        <div className="extras-add">
+          <Select
+            variant="compact"
+            value=""
+            placeholder={value.length ? '+ Ещё услугу…' : '+ Добавить услугу…'}
+            options={available}
+            onChange={add}
+            aria-label="Добавить услугу"
+          />
         </div>
       )}
     </div>
