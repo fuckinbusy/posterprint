@@ -258,3 +258,25 @@ def test_поля_таблиц_тиража_собраны_из_прайса_а_
                 assert field[4], f"{template['key']}.{field[0]} без раздела"
                 assert not field[8].get("options"), f"{template['key']}.{field[0]} с ручными вариантами"
 
+
+@pytest.mark.parametrize("template", TEMPLATES, ids=[t["key"] for t in TEMPLATES])
+def test_список_из_прайса_владеет_разделом_один(template):
+    """Регрессия. Список берёт варианты из ВСЕГО раздела: когда «Копирка» и
+    «Скрепление» смотрели в один раздел, в копирке предлагалось скрепление.
+    Поэтому раздел списка не делит никто другой в этом виде работ — ни второй
+    список, ни галочка. Исключение — таблица тиража и её уточнения: они по
+    устройству читают один раздел."""
+    by_group: dict[str, list[tuple]] = {}
+    for field in fields_of(template):
+        if field[3] == "price" and field[4] and field[5] not in ("step_per_unit", "step_key"):
+            by_group.setdefault(field[4], []).append(field)
+    for group, fields in by_group.items():
+        selects = [f for f in fields if f[2] == "select"]
+        if not selects:
+            continue
+        others = [f[0] for f in fields if f is not selects[0]]
+        assert not others, (
+            f"«{template['key']}»: список «{selects[0][0]}» делит раздел «{group}» с {others} — "
+            "в его вариантах окажутся чужие позиции"
+        )
+
