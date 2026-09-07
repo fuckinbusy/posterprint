@@ -29,9 +29,8 @@ import type { FormTemplate, Order, ShopDetails } from '@/types/api';
 import { orderParamRows } from './params';
 
 type SheetKind = 'receipt' | 'work' | 'label';
-type PageSize = 'A4' | 'A5';
+type PageSize = 'A4' | 'A5' | 'A4 landscape';
 
-const SIZE_STORAGE = 'poster.print.size';
 const PAIR_STORAGE = 'poster.print.pair';
 const LABELS_STORAGE = 'poster.print.labels';
 /* сколько бирок печатать разом: на каждый рулон или пачку по одной.
@@ -59,29 +58,21 @@ export function PrintOrderModal({ order, initialKind }: { order: Order; initialK
     if (initialKind && (initialKind !== 'receipt' || canReceipt)) return initialKind;
     return canReceipt ? 'receipt' : 'work';
   });
-  const [size, setSize] = useState<PageSize>(() =>
-    remembered<PageSize>(`${SIZE_STORAGE}.${kind}`, kind === 'receipt' ? 'A5' : 'A4', ['A4', 'A5']),
-  );
   // две квитанции на листе: приёмке нужна своя копия, клиенту — своя
-  const [pair, setPair] = useState(() => remembered<'yes' | 'no'>(PAIR_STORAGE, 'no', ['yes', 'no']) === 'yes');
+  const [pair, setPair] = useState(
+    () => remembered<'yes' | 'no'>(PAIR_STORAGE, 'no', ['yes', 'no']) === 'yes',
+  );
   const [labels, setLabels] = useState(() => Number(remembered(LABELS_STORAGE, '1', LABEL_COUNTS)));
 
-  // у бирок поля уже: с обычными 14 мм две бирки по 90 мм на A4 не
-  // помещались рядом и вставали в столбик, оставляя полстраницы пустой
-  usePageSize(pair && kind === 'receipt' ? 'A4 landscape' : size, kind === 'label' ? '10mm' : '14mm');
+  // Размер листа не выбирают здесь — его всё равно выбирают в окне печати
+  // браузера, а наш переключатель только дублировал его. Мы лишь подставляем
+  // разумное умолчание под документ: квитанция — A5, наряд и бирки — A4,
+  // две квитанции — A4 поперёк. У бирок поля уже: с обычными 14 мм две
+  // бирки по 90 мм на A4 не помещались рядом.
+  const pageSize: PageSize = kind === 'receipt' ? (pair ? 'A4 landscape' : 'A5') : 'A4';
+  usePageSize(pageSize, kind === 'label' ? '10mm' : '14mm');
 
-  const switchKind = (next: SheetKind) => {
-    setKind(next);
-    setSize(remembered<PageSize>(`${SIZE_STORAGE}.${next}`, next === 'receipt' ? 'A5' : 'A4', ['A4', 'A5']));
-  };
-  const chooseSize = (next: PageSize) => {
-    setSize(next);
-    try {
-      localStorage.setItem(`${SIZE_STORAGE}.${kind}`, next);
-    } catch {
-      /* без памяти тоже работает */
-    }
-  };
+  const switchKind = (next: SheetKind) => setKind(next);
   const chooseLabels = (next: number) => {
     setLabels(next);
     try {
@@ -122,7 +113,11 @@ export function PrintOrderModal({ order, initialKind }: { order: Order; initialK
     >
       <div className="print-switch">
         {canReceipt && (
-          <button className={kind === 'receipt' ? 'active' : ''} type="button" onClick={() => switchKind('receipt')}>
+          <button
+            className={kind === 'receipt' ? 'active' : ''}
+            type="button"
+            onClick={() => switchKind('receipt')}
+          >
             Квитанция клиенту
           </button>
         )}
@@ -130,25 +125,16 @@ export function PrintOrderModal({ order, initialKind }: { order: Order; initialK
           Наряд в цех
         </button>
         {/* бирка — на рулон или пачку: номер крупно, по нему ищут на полке */}
-        <button className={kind === 'label' ? 'active' : ''} type="button" onClick={() => switchKind('label')}>
+        <button
+          className={kind === 'label' ? 'active' : ''}
+          type="button"
+          onClick={() => switchKind('label')}
+        >
           Бирка
         </button>
       </div>
 
       <div className="print-opts">
-        <div className="print-switch" role="group" aria-label="Размер листа">
-          {(['A5', 'A4'] as PageSize[]).map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={(pair && kind === 'receipt' ? 'A4' : size) === s ? 'active' : ''}
-              disabled={pair && kind === 'receipt'}
-              onClick={() => chooseSize(s)}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
         {kind === 'label' && (
           <div className="print-switch" role="group" aria-label="Сколько бирок">
             <span className="print-opts-label">Штук</span>
@@ -165,7 +151,10 @@ export function PrintOrderModal({ order, initialKind }: { order: Order; initialK
           </div>
         )}
         {kind === 'receipt' && (
-          <label className="check" title="Две одинаковые квитанции рядом на листе A4 поперёк — приёмке и клиенту">
+          <label
+            className="check"
+            title="Две одинаковые квитанции рядом на листе A4 поперёк — приёмке и клиенту"
+          >
             <input type="checkbox" checked={pair} onChange={(e) => togglePair(e.target.checked)} />
             Две на листе
           </label>
@@ -200,7 +189,7 @@ export function PrintOrderModal({ order, initialKind }: { order: Order; initialK
       <p className="print-hint">
         {kind === 'label'
           ? 'Бирка 90 × 55 мм, режется по пунктиру. Плиткой: на A4 помещается восемь (2 × 4), на A5 — три в столбик.'
-          : 'Так документ и напечатается. Поля — в окне печати браузера; размер листа уже выбран.'}
+          : `Так документ и напечатается. Лист ${pageSize === 'A4 landscape' ? 'A4 поперёк' : pageSize} подставлен в окно печати браузера — там же его можно сменить, как и поля.`}
       </p>
     </ModalShell>
   );
@@ -280,7 +269,9 @@ function ReceiptSheet({
 
       <div className="ps-foot">
         {/* у отменённого заказа «приходите забирать» — прямая дезинформация */}
-        <span>{cancelled ? 'Заказ отменён, работа не выполняется.' : 'При получении назовите номер заказа.'}</span>
+        <span>
+          {cancelled ? 'Заказ отменён, работа не выполняется.' : 'При получении назовите номер заказа.'}
+        </span>
         <span className="ps-sign">Принял: ____________________</span>
       </div>
 
