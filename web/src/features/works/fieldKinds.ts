@@ -8,6 +8,8 @@
 import type { PriceGroup, PricingRole, WorkField } from '@/types/api';
 
 export type FieldKindKey =
+  | 'tier_table'
+  | 'tier_key'
   | 'price_choice'
   | 'option_paid'
   | 'amount_paid'
@@ -34,6 +36,24 @@ export interface FieldKind {
 }
 
 export const FIELD_KINDS: FieldKind[] = [
+  // порядок значим: kindOf берёт первое совпадение, а «выбор из прайса»
+  // подошёл бы и таблице тиража
+  {
+    key: 'tier_table',
+    title: 'Таблица тиража из прайса',
+    hint: 'Цена за штуку зависит от тиража. Позиции раздела — строки таблицы: «Лён:4+4:500» значит лён, 4+4, от 500 шт. Сотрудник выбирает бумагу или формат, тираж заказа выбирает строку.',
+    apply: { type: 'select', source: 'price', pricing_role: 'step_per_unit' },
+    match: (f) => f.type === 'select' && f.source === 'price' && f.pricing_role === 'step_per_unit',
+    money: true,
+  },
+  {
+    key: 'tier_key',
+    title: 'Уточнение таблицы тиража',
+    hint: 'Цветность, стороны, тип печати — следующая часть ключа той же таблицы. Само ничего не стоит, только выбирает колонку.',
+    apply: { type: 'select', source: 'price', pricing_role: 'step_key' },
+    match: (f) => f.pricing_role === 'step_key',
+    money: true,
+  },
   {
     key: 'price_choice',
     title: 'Выбор из прайса — влияет на цену',
@@ -116,8 +136,8 @@ export const MONEY_ROLES: { key: PricingRole; title: string; kinds: FieldKindKey
   { key: 'per_length', title: 'Умножить на длину (пог. м)', kinds: ['price_choice', 'option_paid'] },
   // ступени: у списка из прайса — голые числа 100/500; у списка из своего
   // набора выбранное значение называет таблицу («Лён:500»)
-  { key: 'step_per_unit', title: 'Цена по ступеням тиража', kinds: ['price_choice', 'choice'] },
-  { key: 'step_key', title: 'Уточняет таблицу тиража (цветность, стороны)', kinds: ['choice'] },
+  { key: 'step_per_unit', title: 'Цена по ступеням тиража', kinds: ['tier_table'] },
+  { key: 'step_key', title: 'Уточняет таблицу тиража (цветность, стороны)', kinds: ['tier_key'] },
   { key: 'multiplier', title: 'Коэффициент — умножит всё выше', kinds: ['price_choice', 'option_paid'] },
 ];
 
@@ -155,6 +175,19 @@ const ROLE_UNITS: Partial<Record<PricingRole, { units: string[]; name: string }>
   per_order: { units: ['₽'], name: 'разовую сумму' },
   multiplier: { units: ['×'], name: 'коэффициент' },
 };
+
+/** Варианты таблицы тиража из ключей раздела: «Лён:4+4:500» → глубина 0 «Лён»,
+ *  глубина 1 «4+4». Зеркало catalog.tier_variants на сервере. */
+export function tierVariants(keys: string[], depth: number): string[] {
+  const out: string[] = [];
+  keys.forEach((key) => {
+    const parts = String(key).split(':');
+    if (parts.length < depth + 2 || !/^\d+$/.test(parts[parts.length - 1].trim())) return;
+    const value = parts[depth].trim();
+    if (value && !out.includes(value)) out.push(value);
+  });
+  return out;
+}
 
 export const kindOf = (field: WorkField): FieldKindKey =>
   (FIELD_KINDS.find((k) => k.match(field)) ?? FIELD_KINDS[0]).key;
@@ -221,9 +254,7 @@ export function fieldWarnings(
        * НИ ОДНА не подходит — иначе смешанный раздел давал бы ложную
        * тревогу на каждом поле. */
       const expect = ROLE_UNITS[field.pricing_role];
-      const related = kind.pinsItem
-        ? items.filter((item) => item.item_key === field.price_item)
-        : items;
+      const related = kind.pinsItem ? items.filter((item) => item.item_key === field.price_item) : items;
       const units = [...new Set(related.map((item) => item.unit).filter(Boolean))];
 
       if (expect && units.length > 0 && !units.some((u) => expect.units.includes(u))) {
@@ -257,13 +288,17 @@ export function fieldWarnings(
   ) {
     warns.push('в разделе нет позиций-чисел вида 100, 500 (или «Лён:500») — ступени не сработают');
   }
+  if (
+    field.pricing_role === 'step_key' &&
+    !fields.slice(0, index).some((f) => f.pricing_role === 'step_per_unit')
+  ) {
+    warns.push('уточнение стоит без таблицы тиража выше — поставьте его после поля «Таблица тиража»');
+  }
 
   const needed = SIZE_REQUIREMENTS[field.pricing_role] ?? [];
   const missing = needed.filter((role) => !fields.some((f) => f.pricing_role === role));
   if (missing.length > 0) {
-    warns.push(
-      `добавьте ${missing.map((r) => SIZE_TITLES[r]).join(' и ')} — без них считать не по чему`,
-    );
+    warns.push(`добавьте ${missing.map((r) => SIZE_TITLES[r]).join(' и ')} — без них считать не по чему`);
   }
 
   return warns;
@@ -273,10 +308,39 @@ export function fieldWarnings(
  *  заказа и в API. */
 export function translit(value: string): string {
   const map: Record<string, string> = {
-    а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z',
-    и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r',
-    с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'c', ч: 'ch', ш: 'sh', щ: 'sch',
-    ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+    а: 'a',
+    б: 'b',
+    в: 'v',
+    г: 'g',
+    д: 'd',
+    е: 'e',
+    ё: 'e',
+    ж: 'zh',
+    з: 'z',
+    и: 'i',
+    й: 'y',
+    к: 'k',
+    л: 'l',
+    м: 'm',
+    н: 'n',
+    о: 'o',
+    п: 'p',
+    р: 'r',
+    с: 's',
+    т: 't',
+    у: 'u',
+    ф: 'f',
+    х: 'h',
+    ц: 'c',
+    ч: 'ch',
+    ш: 'sh',
+    щ: 'sch',
+    ъ: '',
+    ы: 'y',
+    ь: '',
+    э: 'e',
+    ю: 'yu',
+    я: 'ya',
   };
   return (
     (value || '')

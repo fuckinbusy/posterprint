@@ -78,7 +78,59 @@ def field_to_dict(db: Session, field: TemplateField) -> dict:
     }
 
 
+def tier_variants(keys: list[str], depth: int) -> list[str]:
+    """Варианты таблицы тиража из ключей раздела: «Лён:4+4:500» → на глубине 0
+    «Лён», на глубине 1 «4+4». Последняя часть ключа — число тиража, она не
+    вариант. Порядок — как в прайсе, без повторов."""
+    out: list[str] = []
+    for key in keys:
+        parts = str(key).split(":")
+        if len(parts) < depth + 2 or not parts[-1].strip().isdigit():
+            continue
+        value = parts[depth].strip()
+        if value and value not in out:
+            out.append(value)
+    return out
+
+
+def apply_tier_options(db: Session, fields: list[dict]) -> None:
+    """Поля-таблицы тиража получают варианты из прайса, не из своего списка.
+
+    Поле с ролью step_per_unit: варианты — первая часть ключей раздела
+    (бумага, формат, изделие). Если ключи — голые числа, остаётся старое
+    поведение: варианты — сами ступени. Поля step_key по порядку берут
+    вторую, третью часть. Так вид работ собирается в редакторе: указал
+    раздел — варианты появились сами, руками их не набирают."""
+    tier = next((f for f in fields if f.get("pricing_role") == "step_per_unit"
+                 and f.get("source") == "price"), None)
+    keys_cache: dict[str, list[str]] = {}
+
+    def keys_of(group: str) -> list[str]:
+        if group not in keys_cache:
+            keys_cache[group] = _price_options(db, group)
+        return keys_cache[group]
+
+    def set_options(field: dict, options: list[str]) -> None:
+        field["options"] = options
+        if field.get("default") not in options:
+            field["default"] = (options[0] if options else "") if field.get("required") else ""
+
+    if tier is not None:
+        variants = tier_variants(keys_of(tier["price_group"]), 0)
+        if variants:
+            set_options(tier, variants)
+    depth = 1
+    for field in fields:
+        if field.get("pricing_role") != "step_key":
+            continue
+        group = field.get("price_group") or (tier["price_group"] if tier else "")
+        set_options(field, tier_variants(keys_of(group), depth) if group else [])
+        depth += 1
+
+
 def template_to_dict(db: Session, template: Template) -> dict:
+    fields = [field_to_dict(db, f) for f in template.fields]
+    apply_tier_options(db, fields)
     return {
         "key": template.key,
         "title": template.title,
@@ -86,7 +138,7 @@ def template_to_dict(db: Session, template: Template) -> dict:
         "hint": template.hint,
         "icon": template.icon,
         "quantity_label": template.quantity_label,
-        "fields": [field_to_dict(db, f) for f in template.fields],
+        "fields": fields,
     }
 
 

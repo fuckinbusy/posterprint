@@ -539,11 +539,10 @@ TEMPLATES: list[dict] = [
         "icon": "card",
         "quantity_label": "Тираж, шт",
         "fields": [
-            # список выбирает таблицу прайса, поле ниже — столбец, тираж — строку
-            ("paper", "Бумага", "select", "list", "viz_poly", "step_per_unit", "Бумага 300 г", True,
-             F(options=list(POLY_CARDS))),
-            ("color", "Цветность", "select", "list", "", "step_key", "4+0", True,
-             F(options=["4+0", "4+4", "1+0", "1+1"])),
+            # таблица тиража из прайса: варианты бумаги читаются из ключей раздела,
+            # поле ниже уточняет колонку, тираж выбирает строку
+            ("paper", "Бумага", "select", "price", "viz_poly", "step_per_unit", "Бумага 300 г", True, F()),
+            ("color", "Цветность", "select", "price", "viz_poly", "step_key", "4+0", True, F()),
             ("lamination", "Ламинирование 75 мк", "bool", "price", "viz_dop", "per_unit", "", False,
              F(price_item="Ламинирование 75 мк")),
             ("corners", "Скругление углов", "bool", "price", "viz_dop", "per_unit", "", False,
@@ -558,12 +557,9 @@ TEMPLATES: list[dict] = [
         "icon": "card",
         "quantity_label": "Тираж, шт",
         "fields": [
-            ("paper", "Бумага", "select", "list", "viz_uv", "step_per_unit", "Крафт", True,
-             F(options=list(UV_CARDS))),
-            ("print", "Печать", "select", "list", "", "step_key", "Полноцвет", True,
-             F(options=["Полноцвет", "CMYK+W(L)", "CMYK+W+L"])),
-            ("sides", "Стороны", "select", "list", "", "step_key", "4+0", True,
-             F(options=["4+0", "4+4"])),
+            ("paper", "Бумага", "select", "price", "viz_uv", "step_per_unit", "Крафт", True, F()),
+            ("print", "Печать", "select", "price", "viz_uv", "step_key", "Полноцвет", True, F()),
+            ("sides", "Стороны", "select", "price", "viz_uv", "step_key", "4+0", True, F()),
         ],
     },
     {
@@ -574,12 +570,9 @@ TEMPLATES: list[dict] = [
         "icon": "card",
         "quantity_label": "Тираж, шт",
         "fields": [
-            ("material", "Материал", "select", "list", "disc_cards", "step_per_unit", "Пластик 8,5×5,4", True,
-             F(options=["Пластик 8,5×5,4"])),
-            ("print", "Печать", "select", "list", "", "step_key", "Полноцвет", True,
-             F(options=list(DISC_CARDS))),
-            ("sides", "Стороны", "select", "list", "", "step_key", "4+0", True,
-             F(options=["4+0", "4+4"])),
+            ("material", "Материал", "select", "price", "disc_cards", "step_per_unit", "Пластик 8,5×5,4", True, F()),
+            ("print", "Печать", "select", "price", "disc_cards", "step_key", "Полноцвет", True, F()),
+            ("sides", "Стороны", "select", "price", "disc_cards", "step_key", "4+0", True, F()),
         ],
     },
     {
@@ -590,8 +583,7 @@ TEMPLATES: list[dict] = [
         "icon": "printer",
         "quantity_label": "Листов, шт",
         "fields": [
-            ("format", "Формат", "select", "list", "cifra", "step_per_unit", "А4", True,
-             F(options=list(DIGITAL))),
+            ("format", "Формат", "select", "price", "cifra", "step_per_unit", "А4", True, F()),
             ("paper", "Бумага плотнее 80 г", "select", "price", "cifra_bumaga", "per_unit", "", False, F()),
         ],
     },
@@ -603,9 +595,8 @@ TEMPLATES: list[dict] = [
         "icon": "doc",
         "quantity_label": "Тираж, шт",
         "fields": [
-            ("format", "Формат", "select", "list", "flaery", "step_per_unit", "А5", True,
-             F(options=list(FLYERS))),
-            ("sides", "Стороны", "select", "list", "", "step_key", "4+0", True, F(options=["4+0", "4+4"])),
+            ("format", "Формат", "select", "price", "flaery", "step_per_unit", "А5", True, F()),
+            ("sides", "Стороны", "select", "price", "flaery", "step_key", "4+0", True, F()),
         ],
     },
     {
@@ -616,8 +607,7 @@ TEMPLATES: list[dict] = [
         "icon": "doc",
         "quantity_label": "Тираж, шт",
         "fields": [
-            ("paper", "Бумага", "select", "list", "buklety", "step_per_unit", "Глянец 115 г", True,
-             F(options=["Глянец 115 г"])),
+            ("paper", "Бумага", "select", "price", "buklety", "step_per_unit", "Глянец 115 г", True, F()),
         ],
     },
     {
@@ -628,8 +618,7 @@ TEMPLATES: list[dict] = [
         "icon": "printer",
         "quantity_label": "Листов, шт",
         "fields": [
-            ("format", "Формат и стороны", "select", "list", "rizo", "step_per_unit", "А4, 1 сторона", True,
-             F(options=list(RISO))),
+            ("format", "Формат и стороны", "select", "price", "rizo", "step_per_unit", "А4, 1 сторона", True, F()),
             ("paper", "Бумага", "select", "price", "rizo_bumaga", "per_unit", "80 г белая А4", True, F()),
             ("binding", "Скрепление журнала", "select", "price", "rizo_dop", "per_order", "", False, F()),
             ("numbering", "Нумерация", "bool", "price", "rizo_dop", "per_unit", "", False,
@@ -645,13 +634,7 @@ TEMPLATES: list[dict] = [
         "icon": "card",
         "quantity_label": "Количество, шт",
         "fields": [
-            ("product", "Изделие", "select", "list", "suvenir", "step_per_unit", "Кружка белая 330 мл", True,
-             F(options=[
-                 "Кружка белая 330 мл", "Кружка хамелеон 330 мл", "Магниты 7×7 или 9×5",
-                 "Брелок односторонний", "Брелок двусторонний", "Значок Ø 4 см",
-                 "Принт на одежду до 10 см", "Принт на одежду 20–30 см",
-                 "Принт грудь до 10 см + спина 20–30 см",
-             ])),
+            ("product", "Изделие", "select", "price", "suvenir", "step_per_unit", "Кружка белая 330 мл", True, F()),
             ("layout", "Макет для кружки", "bool", "price", "suvenir_dop", "per_order", "", False,
              F(price_item="Макет для кружки")),
         ],
@@ -664,8 +647,7 @@ TEMPLATES: list[dict] = [
         "icon": "card",
         "quantity_label": "Количество, шт",
         "fields": [
-            ("print", "Печать", "select", "list", "ruchki", "step_per_unit", "Белый цвет", True,
-             F(options=list(PENS))),
+            ("print", "Печать", "select", "price", "ruchki", "step_per_unit", "Белый цвет", True, F()),
         ],
     },
     {
@@ -676,8 +658,7 @@ TEMPLATES: list[dict] = [
         "icon": "card",
         "quantity_label": "Количество, шт",
         "fields": [
-            ("material", "Материал", "select", "list", "beydzhi", "step_per_unit", "Металл сублимация", True,
-             F(options=["Металл сублимация", "Пластик золото или серебро"])),
+            ("material", "Материал", "select", "price", "beydzhi", "step_per_unit", "Металл сублимация", True, F()),
         ],
     },
     {
@@ -688,8 +669,7 @@ TEMPLATES: list[dict] = [
         "icon": "roll",
         "quantity_label": "Листов, шт",
         "fields": [
-            ("sheet", "Лист", "select", "list", "uv_dtf", "step_per_unit", "Лист А3", True,
-             F(options=["Лист А3"])),
+            ("sheet", "Лист", "select", "price", "uv_dtf", "step_per_unit", "Лист А3", True, F()),
         ],
     },
 ]

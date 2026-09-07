@@ -10,12 +10,13 @@ import type { PriceGroup, PricingRole, SizeUnit, WorkField } from '@/types/api';
 
 import {
   FIELD_KINDS,
-  type FieldKindKey,
   applyKind,
   fieldWarnings,
   kindByKey,
   kindOf,
   rolesFor,
+  tierVariants,
+  type FieldKindKey,
 } from './fieldKinds';
 
 /** Значение, по которому в списке узнаётся пункт «создать новое». */
@@ -73,9 +74,7 @@ export function WorkFieldRow({
 
   /* Раздел и позицию выбирают в окне: в выпадашке не видно ни цен, ни
      единиц, ни вложенности, а разделов со временем становится полсотни. */
-  const groupParent = group?.parent_key
-    ? groups.find((g) => g.key === group.parent_key)
-    : undefined;
+  const groupParent = group?.parent_key ? groups.find((g) => g.key === group.parent_key) : undefined;
   const pickedItem = group?.items.find((i) => i.item_key === field.price_item);
 
   const openPicker = (mode: 'group' | 'item') =>
@@ -133,7 +132,9 @@ export function WorkFieldRow({
               </span>
             ) : (
               <span className="item">
-                {group ? `${group.items.length} ${plural(group.items.length, 'позиция', 'позиции', 'позиций')}` : ''}
+                {group
+                  ? `${group.items.length} ${plural(group.items.length, 'позиция', 'позиции', 'позиций')}`
+                  : ''}
               </span>
             )}
           </>
@@ -255,9 +256,48 @@ export function WorkFieldRow({
           />
         </label>
         <div className="wk-unit-note">
-          Сотрудник вводит количество, цена позиции умножается на него. Ноль — значит не нужно:
-          поле не попадёт в расчёт.
+          Сотрудник вводит количество, цена позиции умножается на него. Ноль — значит не нужно: поле не
+          попадёт в расчёт.
         </div>
+      </>
+    );
+  } else if (kindKey === 'tier_table' || kindKey === 'tier_key') {
+    // варианты не набирают руками — они читаются из ключей раздела прайса:
+    // «Крафт:4+0:100» → таблица «Крафт», уточнение «4+0»
+    const tierField = fields.find((f) => f.pricing_role === 'step_per_unit');
+    const groupKey =
+      kindKey === 'tier_table' ? field.price_group : field.price_group || tierField?.price_group || '';
+    const keys = groups.find((g) => g.key === groupKey)?.items.map((i) => i.item_key) ?? [];
+    const depth =
+      kindKey === 'tier_table'
+        ? 0
+        : 1 + fields.slice(0, index).filter((f) => f.pricing_role === 'step_key').length;
+    const variants = tierVariants(keys, depth);
+    extra = (
+      <>
+        {priceRef}
+        <div className="wk-cell wide">
+          <span>{kindKey === 'tier_table' ? 'Таблицы в разделе' : 'Варианты уточнения'}</span>
+          <div className={variants.length ? 'wk-variants' : 'wk-variants empty'}>
+            {variants.length
+              ? variants.join(' · ')
+              : groupKey
+                ? 'в разделе нет ключей вида «Крафт:4+0:100» — добавьте таблицу в прайс'
+                : 'сначала выберите раздел прайса'}
+          </div>
+        </div>
+        <label className="wk-cell">
+          <span>Выбрано по умолчанию</span>
+          <Select
+            value={field.default_value}
+            options={[
+              { value: '', label: field.required ? '— первый в списке —' : '— нет —' },
+              ...variants.map((v) => ({ value: v, label: v })),
+            ]}
+            onChange={(v) => set({ default_value: v })}
+          />
+        </label>
+        {requiredCell}
       </>
     );
   } else if (kindKey === 'choice') {
@@ -317,8 +357,8 @@ export function WorkFieldRow({
           />
         </label>
         <div className="wk-unit-note">
-          Это только для удобства ввода: сотрудник вводит в {unit}, а цена из прайса всегда
-          считается за метр — пересчёт автоматический.
+          Это только для удобства ввода: сотрудник вводит в {unit}, а цена из прайса всегда считается за метр
+          — пересчёт автоматический.
         </div>
       </>
     );

@@ -230,7 +230,31 @@ def test_визитки_считаются_по_таблицам_прайса():
     cards = next(t for t in TEMPLATES if t["key"] == "cards_poly")
     paper = next(f for f in fields_of(cards) if f[0] == "paper")
     color = next(f for f in fields_of(cards) if f[0] == "color")
-    assert paper[5] == "step_per_unit" and paper[3] == "list"
+    assert paper[5] == "step_per_unit" and paper[3] == "price"  # таблица — из прайса, не из своего списка
     assert color[5] == "step_key"
     keys = {item[0] for item in GROUPS["viz_poly"][6]}
     assert "Лён:4+4:500" in keys and "Бумага 300 г:1+0:100" in keys
+
+
+def test_варианты_таблиц_читаются_из_ключей_прайса():
+    """Так вид работ собирает администратор: указал раздел — варианты бумаги
+    и цветности появились сами, из ключей позиций."""
+    from app.catalog import tier_variants
+
+    keys = ["Лён:4+0:100", "Лён:4+4:500", "300 г:4+0:100", "300 г:1+1:1500", "мусор", "100"]
+    assert tier_variants(keys, 0) == ["Лён", "300 г"]
+    assert tier_variants(keys, 1) == ["4+0", "4+4", "1+1"]
+    assert tier_variants(["100", "500"], 0) == []
+
+
+def test_поля_таблиц_тиража_собраны_из_прайса_а_не_из_своего_списка():
+    """Регрессия: поле «Бумага» у визиток было списком из своего набора с
+    приклеенным разделом прайса — редактор показывал его как «без цены»,
+    а цена шла. Теперь источник — прайс, вариантов руками нет."""
+    for template in TEMPLATES:
+        for field in fields_of(template):
+            if field[5] in ("step_per_unit", "step_key"):
+                assert field[3] == "price", f"{template['key']}.{field[0]} собран не из прайса"
+                assert field[4], f"{template['key']}.{field[0]} без раздела"
+                assert not field[8].get("options"), f"{template['key']}.{field[0]} с ручными вариантами"
+

@@ -7438,3 +7438,16 @@ body.touch-dragging {
   color: var(--text);
 }
 
+/* варианты таблицы тиража в редакторе вида работ — читаются из прайса */
+.wk-variants {
+  padding: 9px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 9px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.wk-variants.empty {
+  color: var(--muted);
+}
+
