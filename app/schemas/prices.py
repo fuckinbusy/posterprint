@@ -26,34 +26,32 @@ class PriceItemOut(BaseModel):
 
 
 class PriceItemCreate(BaseModel):
-    group_key: str
+    group_key: str = Field(min_length=1, max_length=40)
     item_key: str = Field(min_length=1, max_length=80)
-    title: str = ""
+    title: str = Field(default="", max_length=120)
     value: float = Field(default=0.0, ge=0)
     # не передали — возьмём единицу раздела
     unit: str = Field(default="", max_length=20)
-    note: str = ""
-    author: str = ""
+    note: str = Field(default="", max_length=200)
 
 
 class PriceItemUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    title: str | None = None
+    title: str | None = Field(default=None, max_length=120)
     value: float | None = Field(default=None, ge=0)
     unit: str | None = Field(default=None, max_length=20)
     active: bool | None = None
-    note: str | None = None
-    author: str | None = None
+    note: str | None = Field(default=None, max_length=200)
 
 
 # ---------------------------------------------------------------- разделы
 class GroupIn(BaseModel):
     title: str = Field(min_length=1, max_length=120)
-    hint: str = ""
-    unit: str = "₽"
-    kind: str = "money"
-    icon: str = "printer"
+    hint: str = Field(default="", max_length=300)
+    unit: str = Field(default="₽", max_length=20)
+    kind: str = Field(default="money", max_length=20)
+    icon: str = Field(default="printer", max_length=30)
     active: bool = True
     # пусто — раздел верхнего уровня
     parent_key: str = Field(default="", max_length=40)

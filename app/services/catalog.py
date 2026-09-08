@@ -159,11 +159,15 @@ def exists(db: Session, key: str) -> bool:
     return db.scalar(select(Template.id).where(Template.key == key)) is not None
 
 
-def default_params(db: Session, template_key: str) -> dict:
-    template = get_template(db, template_key)
+def defaults_of(template: dict | None) -> dict:
+    """Значения полей по умолчанию из уже загруженного шаблона."""
     if not template:
         return {}
     return {f["key"]: f.get("default") for f in template["fields"]}
+
+
+def default_params(db: Session, template_key: str) -> dict:
+    return defaults_of(get_template(db, template_key))
 
 
 def describe(db: Session, template_key: str, params: dict) -> str:

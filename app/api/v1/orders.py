@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.core.logs import log as applog
-from app.core.security import CurrentUser, require_perm
-from app.models import ALLOWED_TRANSITIONS, FORWARD, STATUS_META, Order, OrderStatus
+from app.core.security import CurrentUser, require_login, require_perm
+from app.models import ALLOWED_TRANSITIONS, FORWARD, STATUS_META, Client, Order, OrderStatus
 from app.schemas import (
     EstimateRequest,
     EstimateResponse,
@@ -50,7 +50,9 @@ SEARCH_LIMIT = 200
 
 
 # ------------------------------------------------------------------ справочники
-@router.get("/catalog")
+# прайс с ценами и реквизиты мастерской — только вошедшим: это единственная
+# ручка, которую интерфейс зовёт сразу после входа, и без токена ей делать нечего
+@router.get("/catalog", dependencies=[Depends(require_login)])
 def get_catalog(db: Session = Depends(get_db)) -> dict:
     return {
         "templates": catalog.all_templates(db),
@@ -121,7 +123,16 @@ def list_orders(
         return [to_out(o, user, db, templates) for o in rows]
 
     if status is not None:
-        rows = list(db.scalars(base().order_by(*by_due)).all())
+        stmt = base()
+        if status in CLOSED_STATUSES:
+            # закрытые копятся годами — как и на доске, отдаём свежие по времени
+            # закрытия, а не всё подряд с начала времён
+            stmt = stmt.order_by(
+                func.coalesce(Order.completed_at, Order.updated_at).desc(), Order.id.desc()
+            ).limit(closed_limit)
+        else:
+            stmt = stmt.order_by(*by_due)
+        rows = list(db.scalars(stmt).all())
         return [to_out(o, user, db, templates) for o in rows]
 
     # Заказы в работе отдаём все — их всегда обозримое число.
@@ -161,7 +172,7 @@ def create_order(
     check_refund(payload.refunded, payload.prepaid)
     pay_method = ledger_method(payload.pay_method)
 
-    params = {**catalog.default_params(db, payload.template_key), **(payload.params or {})}
+    params = {**catalog.defaults_of(template), **(payload.params or {})}
 
     # Номер занимаем с повтором: если двое оформляют заказ в одну секунду,
     # оба читают один и тот же последний номер и пытаются его занять.
@@ -210,7 +221,7 @@ def create_order(
                 order.number, order.title, template["title"], order.quantity,
                 order.price or 0, order.client_name or "—", user.name,
             )
-            return to_out(order, user, db)
+            return to_out(order, user, db, {template["key"]: template})
         except IntegrityError:
             db.rollback()
             if attempt == MAX_NUMBER_ATTEMPTS - 1:
@@ -250,7 +261,9 @@ def fresh_orders(
             ).all()
         )
     picked = fresh_orders_filter(rows, after, user.name)
-    return {"latest_id": latest, "orders": [to_out(o, user, db) for o in picked]}
+    # шаблоны — одним чтением на всю пачку, а не по заказу (см. list_orders)
+    templates = {t["key"]: t for t in catalog.all_templates(db, include_hidden=True)} if picked else {}
+    return {"latest_id": latest, "orders": [to_out(o, user, db, templates) for o in picked]}
 
 
 @router.get("/orders/{order_id}", response_model=OrderOut)
@@ -284,6 +297,9 @@ def update_order(
 
     if "template_key" in changes and not catalog.exists(db, changes["template_key"]):
         raise HTTPException(422, "Неизвестный шаблон заказа")
+    # чужой id карточки иначе доезжал до commit и падал там на внешнем ключе — 500 вместо 422
+    if changes.get("client_id") is not None and db.get(Client, changes["client_id"]) is None:
+        raise HTTPException(422, "Карточка клиента не найдена")
     if "extras" in changes:
         changes["extras"] = pricing.normalize_extras(db, changes["extras"])
 
@@ -413,9 +429,10 @@ def delete_order(
     from app.services import designs
 
     applog.warning("Удалён заказ %s «%s» · %s", order.number, order.title, user.name)
-    designs.delete(order.number)
     db.delete(order)
     db.commit()
+    # файл — после commit: если база не дала удалить заказ, макет должен остаться
+    designs.delete(order.number)
 
 
 # ------------------------------------------------------------------ деньги

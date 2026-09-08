@@ -138,25 +138,38 @@ def get_preview(order_number: str) -> tuple[bytes | None, str]:
     return data, note
 
 
-def save(order_number: str, filename: str, data: bytes) -> DesignInfo:
-    """Сохраняет загруженный макет, заменяя прежний."""
+def check_name(filename: str) -> None:
+    """Проверка имени до чтения файла: не стоит принимать 300 МБ, чтобы отказать."""
     suffix = Path(cdr.safe_filename(filename)).suffix.lower()
     if suffix not in ALLOWED_SUFFIXES:
         raise ValueError("Принимаются только файлы .cdr")
-    if not data:
-        raise ValueError("Файл пустой")
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise ValueError(f"Файл больше {MAX_UPLOAD_BYTES // 1024 // 1024} МБ")
 
+
+def upload_target(order_number: str) -> Path:
+    """Временный файл, в который льётся загрузка. Прежний макет живёт до commit()."""
     ensure_dirs()
     target = design_path(order_number)
-    # пишем через временный файл: обрыв загрузки не испортит прежний макет
-    temp = target.with_name(target.name + ".part")
-    temp.write_bytes(data)
-    temp.replace(target)
+    return target.with_name(target.name + ".part")
 
+
+def commit(order_number: str, temp: Path) -> DesignInfo:
+    """Делает загруженный файл макетом заказа, заменяя прежний."""
+    if not temp.exists() or temp.stat().st_size == 0:
+        temp.unlink(missing_ok=True)
+        raise ValueError("Файл пустой")
+    temp.replace(design_path(order_number))
     _drop_cache(order_number)
     return info(order_number)
+
+
+def save(order_number: str, filename: str, data: bytes) -> DesignInfo:
+    """Сохраняет макет из памяти — для скриптов и тестов; ручка льёт потоком."""
+    check_name(filename)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise ValueError(f"Файл больше {MAX_UPLOAD_BYTES // 1024 // 1024} МБ")
+    temp = upload_target(order_number)
+    temp.write_bytes(data)
+    return commit(order_number, temp)
 
 
 def delete(order_number: str) -> bool:

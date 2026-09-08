@@ -44,6 +44,11 @@ from app.services import settings as settings_logic
 
 log = logging.getLogger("poster")
 
+# кэши ящика живут пока живёт процесс — без потолка они росли бы вместе
+# с прокруткой списка; вытесняем самое старое
+MAX_CACHED_HEADERS = 3000
+MAX_CACHED_IDS = 500
+
 PAGE_SIZE = 30
 MAX_PAGE = 100
 UIDS_TTL = 20          # секунд живёт список UID
@@ -267,8 +272,11 @@ def _clean_url(value: str, tag: str, attr: str, cid_map: dict[str, str]) -> str 
         return cid_map.get(raw[4:].strip().strip("<>"))
     if tag == "img" or attr in ("src", "srcset"):
         # http-картинки браузер и так заблокирует на https-странице, а
-        # data: пропускаем только с картинками
-        if low.startswith("https://") or low.startswith("data:image/"):
+        # data: пропускаем только с картинками. srcset — список кандидатов
+        # через запятую, проверяем каждый: иначе за первым https прятался
+        # бы http-пиксель для слежки
+        candidates = [c.strip().split()[0] for c in low.split(",") if c.strip()] if attr == "srcset" else [low]
+        if candidates and all(c.startswith(("https://", "data:image/")) for c in candidates):
             return raw
         return None
     if low.startswith(("https://", "http://", "mailto:", "tel:")):
@@ -686,6 +694,8 @@ class Mailbox:
                 if status == "OK":
                     for uid, (meta, payload) in _parse_fetch(data).items():
                         head = email.message_from_bytes(payload, policy=policy.default)
+                        if len(self._headers) >= MAX_CACHED_HEADERS:
+                            self._headers.pop(next(iter(self._headers)))
                         self._headers[(folder, uid)] = {
                             "uid": uid,
                             "folder": folder,
@@ -812,6 +822,8 @@ class Mailbox:
             return None
 
         result = self._call(cfg, run)
+        if len(self._by_id) >= MAX_CACHED_IDS:
+            self._by_id.pop(next(iter(self._by_id)))
         self._by_id[message_id] = (time.monotonic(), result)
         return result
 

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.orders import check_params
 
 
 class FieldIn(BaseModel):
@@ -28,10 +30,10 @@ class FieldOut(FieldIn):
 
 class TemplateIn(BaseModel):
     title: str = Field(min_length=1, max_length=120)
-    short: str = ""
-    hint: str = ""
-    icon: str = "printer"
-    quantity_label: str = "Количество, шт"
+    short: str = Field(default="", max_length=40)
+    hint: str = Field(default="", max_length=300)
+    icon: str = Field(default="printer", max_length=30)
+    quantity_label: str = Field(default="Количество, шт", max_length=80)
     active: bool = True
     fields: list[FieldIn] = []
 
@@ -53,6 +55,7 @@ class TemplateOut(BaseModel):
 
 
 class PreviewIn(BaseModel):
-    quantity: int = 1
-    params: dict = {}
+    quantity: int = Field(default=1, ge=0, le=1_000_000)
+    params: dict = Field(default_factory=dict)
+    _check_params = field_validator("params")(check_params)
     fields: list[FieldIn] = []

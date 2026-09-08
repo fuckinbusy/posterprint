@@ -2,16 +2,34 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models import OrderStatus
 
-
 # Длины повторяют колонки моделей (app/models/). SQLite длину не проверяет и
 # молча примет мегабайт в поле телефона, Postgres — упадёт с 500; проверяем сами.
+
+# params — JSON-колонка без ограничений на уровне базы: полей у вида работ
+# десятки, а не тысячи, и значения в них — короткие строки и числа
+MAX_PARAM_KEYS = 100
+MAX_PARAMS_BYTES = 20_000
+MAX_EXTRAS = 50
+
+
+def check_params(value: dict | None) -> dict | None:
+    if value is None:
+        return None
+    if len(value) > MAX_PARAM_KEYS:
+        raise ValueError(f"Слишком много полей в параметрах: больше {MAX_PARAM_KEYS}")
+    if len(json.dumps(value, ensure_ascii=False)) > MAX_PARAMS_BYTES:
+        raise ValueError("Параметры заказа слишком велики")
+    return value
+
+
 class ExtraIn(BaseModel):
     """Доп. услуга к заказу: ключ позиции раздела «Услуги» и сколько раз."""
 
@@ -32,7 +50,8 @@ class OrderBase(BaseModel):
     client_contact: str = Field(default="", max_length=120)
     quantity: int = Field(default=1, ge=1)
     params: dict = Field(default_factory=dict)
-    extras: Sequence[ExtraIn] = Field(default_factory=list)
+    extras: Sequence[ExtraIn] = Field(default_factory=list, max_length=MAX_EXTRAS)
+    _check_params = field_validator("params")(check_params)
     price: float = Field(default=0.0, ge=0)
     prepaid: float = Field(default=0.0, ge=0)
     refunded: bool = False
@@ -64,7 +83,8 @@ class OrderUpdate(BaseModel):
     client_contact: str | None = Field(default=None, max_length=120)
     quantity: int | None = Field(default=None, ge=1)
     params: dict | None = None
-    extras: list[ExtraIn] | None = None
+    extras: list[ExtraIn] | None = Field(default=None, max_length=MAX_EXTRAS)
+    _check_params = field_validator("params")(check_params)
     price: float | None = Field(default=None, ge=0)
     prepaid: float | None = Field(default=None, ge=0)
     refunded: bool | None = None
@@ -119,7 +139,8 @@ class EstimateRequest(BaseModel):
     template_key: str
     quantity: int = Field(default=1, ge=1)
     params: dict = Field(default_factory=dict)
-    extras: list[ExtraIn] = Field(default_factory=list)
+    extras: list[ExtraIn] = Field(default_factory=list, max_length=MAX_EXTRAS)
+    _check_params = field_validator("params")(check_params)
 
 
 class EstimateLine(BaseModel):

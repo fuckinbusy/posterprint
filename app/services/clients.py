@@ -176,6 +176,37 @@ def stats_for(db: Session, client_id: int) -> dict:
     }
 
 
+def stats_map(db: Session, client_ids: list[int]) -> dict[int, dict]:
+    """Та же сводка, но на страницу клиентов сразу — одним запросом.
+
+    Раньше список звал stats_for на каждую карточку: два запроса на клиента,
+    на странице в 200 клиентов — четыреста.
+    """
+    if not client_ids:
+        return {}
+    rows = db.execute(
+        select(
+            Order.client_id,
+            func.count(Order.id),
+            func.coalesce(func.sum(COUNTED_PRICE), 0),
+            func.max(Order.created_at),
+            func.coalesce(func.sum(case((Order.status.in_(ACTIVE_STATUSES), 1), else_=0)), 0),
+        )
+        .where(Order.client_id.in_(client_ids))
+        .group_by(Order.client_id)
+    ).all()
+    empty = {"orders_count": 0, "total_sum": 0.0, "last_order_at": None, "active_count": 0}
+    out = {cid: dict(empty) for cid in client_ids}
+    for cid, count, total, last, active in rows:
+        out[cid] = {
+            "orders_count": int(count),
+            "total_sum": float(total),
+            "last_order_at": last,
+            "active_count": int(active),
+        }
+    return out
+
+
 def browse(
     db: Session, *, sort: str = "recent", limit: int = 25, offset: int = 0
 ) -> tuple[list[Client], int]:

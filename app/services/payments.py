@@ -50,10 +50,6 @@ from __future__ import annotations
 import os
 import re
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 # кодировка платёжной строки: цифра в конце ST0001x и как её зовут в Python
 ENCODINGS = {"utf8": ("2", "utf-8"), "win1251": ("1", "cp1251")}
 

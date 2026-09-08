@@ -37,6 +37,9 @@ def _guard(fn, *args, **kwargs):
     except mail.MailError as exc:
         text = str(exc)
         raise HTTPException(503 if "не настроена" in text else 502, text) from None
+    except ValueError as exc:
+        # библиотека почты не приняла заголовок (например, адрес с переносом строки)
+        raise HTTPException(422, f"Письмо не собралось: {exc}") from None
 
 
 @router.get("/contacts")

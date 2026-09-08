@@ -27,12 +27,20 @@ EDIT = Depends(require_perm("prices.edit"))
 ICONS = ["printer", "doc", "blade", "roll", "card"]
 
 
-def to_out(db: Session, template: Template) -> TemplateOut:
+def to_out(db: Session, template: Template, orders_count: int | None = None) -> TemplateOut:
     data = TemplateOut.model_validate(template)
-    data.orders_count = db.scalar(
-        select(func.count(Order.id)).where(Order.template_key == template.key)
-    ) or 0
+    if orders_count is None:
+        orders_count = db.scalar(
+            select(func.count(Order.id)).where(Order.template_key == template.key)
+        ) or 0
+    data.orders_count = orders_count
     return data
+
+
+def orders_by_template(db: Session) -> dict[str, int]:
+    """Сколько заказов у каждого вида работ — одним запросом на весь список."""
+    rows = db.execute(select(Order.template_key, func.count(Order.id)).group_by(Order.template_key)).all()
+    return {key: int(count) for key, count in rows}
 
 
 def apply_fields(db: Session, template: Template, fields: list[FieldIn]) -> None:
@@ -170,7 +178,8 @@ def list_templates(db: Session = Depends(get_db)) -> list[TemplateOut]:
             Template.sort_order, Template.title
         )
     ).all()
-    return [to_out(db, t) for t in rows]
+    counts = orders_by_template(db)
+    return [to_out(db, t, counts.get(t.key, 0)) for t in rows]
 
 
 @router.post("", response_model=TemplateOut, status_code=201)

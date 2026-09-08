@@ -34,6 +34,7 @@ BACKUP_DIR = BASE_DIR / "backups"
 
 SECTIONS = ("orders", "clients", "prices")
 STAMP = "%Y-%m-%d_%H-%M-%S"
+MIGRATION_SUFFIX = "_before-update"  # снимок базы перед изменением схемы (core/database.py)
 
 # ---------------------------------------------------------------- выгрузка в JSON
 # Формат файлов — тот же, что читает scripts/restore.py: менять списки полей
@@ -42,7 +43,7 @@ ORDER_FIELDS = [
     "id", "number", "template_key", "status", "title",
     "client_id", "client_name", "client_phone", "client_contact",
     "quantity", "params", "price", "prepaid", "refunded",
-    "due_date", "manager", "notes",
+    "due_date", "manager", "notes", "extras", "cancel_reason",
     "created_at", "updated_at", "completed_at",
 ]
 EVENT_FIELDS = ["id", "order_id", "kind", "text", "author", "created_at"]
@@ -72,7 +73,7 @@ def export_orders(db: Session) -> dict:
     return {
         "orders": [dump_row(o, ORDER_FIELDS) for o in orders],
         "events": [dump_row(e, EVENT_FIELDS) for e in events],
-        # движения денег (касса) — новый раздел, restore их пока не читает
+        # движения денег (касса): restore читает их вместе с заказами
         "payments": [dump_row(p, PAYMENT_FIELDS) for p in payments],
     }
 
@@ -147,9 +148,14 @@ def copy_designs(target: Path) -> tuple[int, int]:
 
 # ---------------------------------------------------------------- список и ротация
 def parse_stamp(name: str) -> datetime | None:
-    """Момент создания копии — из имени папки. Чужие папки в backups/ не наши."""
+    """Момент создания копии — из имени папки. Чужие папки в backups/ не наши.
+
+    Снимок перед обновлением схемы называется «…_before-update» — это тоже
+    наша копия: её показываем и ротируем вместе с остальными.
+    """
+    stamp = name.removesuffix(MIGRATION_SUFFIX)
     try:
-        return datetime.strptime(name, STAMP)
+        return datetime.strptime(stamp, STAMP)
     except ValueError:
         return None
 

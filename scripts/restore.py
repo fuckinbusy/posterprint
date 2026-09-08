@@ -50,7 +50,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import select
 
 from app.core.database import SessionLocal, init_db
-from app.models import Client, Order, OrderEvent, PriceItem
+from app.models import Client, Order, OrderEvent, Payment, PriceItem
+from app.services import backup
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 BACKUP_DIR = BASE_DIR / "backups"
@@ -79,7 +80,11 @@ def apply_fields(obj, row: dict, fields: list[str]) -> None:
 def latest_backup() -> Path | None:
     if not BACKUP_DIR.exists():
         return None
-    folders = sorted((p for p in BACKUP_DIR.iterdir() if p.is_dir()), key=lambda p: p.name)
+    # только наши копии: чужая папка в backups/ иначе становилась «последним бэкапом»
+    folders = sorted(
+        (p for p in BACKUP_DIR.iterdir() if p.is_dir() and backup.parse_stamp(p.name)),
+        key=lambda p: p.name,
+    )
     return folders[-1] if folders else None
 
 
@@ -162,11 +167,13 @@ def restore_orders(db, data: dict, mode: str) -> tuple[int, int]:
         "template_key", "status", "title",
         "client_name", "client_phone", "client_contact",
         "quantity", "params", "price", "prepaid", "refunded",
-        "due_date", "manager", "notes",
+        "due_date", "manager", "notes", "extras", "cancel_reason",
         "created_at", "updated_at", "completed_at",
     ]
 
     if mode == "replace":
+        # касса удалится каскадом вместе с заказами — и восстановится ниже из того же файла
+        db.query(Payment).delete()
         db.query(OrderEvent).delete()
         db.query(Order).delete()
         db.flush()
@@ -201,6 +208,22 @@ def restore_orders(db, data: dict, mode: str) -> tuple[int, int]:
         event = OrderEvent(order_id=order_id)
         apply_fields(event, row, ["kind", "text", "author", "created_at"])
         db.add(event)
+
+    # касса: движение денег — это (заказ, сумма, момент); такие уже есть — пропускаем
+    known = {
+        (p.order_id, round(p.amount, 2), p.created_at.isoformat() if p.created_at else "")
+        for p in db.scalars(select(Payment)).all()
+    }
+    for row in data.get("payments", []):
+        order_id = old_to_new.get(row["order_id"])
+        if order_id is None:
+            continue
+        signature = (order_id, round(float(row["amount"]), 2), row.get("created_at") or "")
+        if signature in known:
+            continue
+        payment = Payment(order_id=order_id)
+        apply_fields(payment, row, ["amount", "method", "author", "created_at"])
+        db.add(payment)
 
     # связь заказов с клиентами восстанавливаем по телефону — id могли сместиться
     for order in db.scalars(select(Order).where(Order.client_id.is_(None))).all():

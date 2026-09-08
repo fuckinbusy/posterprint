@@ -84,7 +84,7 @@ class Order(Base):
     refunded: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # прочее
-    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     manager: Mapped[str] = mapped_column(String(80), default="")
     notes: Mapped[str] = mapped_column(Text, default="")
     # почему заказ отменили. Заполняется при переводе в «Отменён» и
@@ -92,10 +92,10 @@ class Order(Base):
     # заказа висела бы причина от прошлого раза
     cancel_reason: Mapped[str] = mapped_column(String(300), default="")
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     # проставляется в момент перехода в «Выдан» — по нему считается выручка за период
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
 
     client: Mapped[Client | None] = relationship(back_populates="orders")
 

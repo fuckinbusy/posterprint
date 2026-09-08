@@ -118,27 +118,29 @@ async def upload_design(
     """Загрузка макета. Прежний файл заменяется — один заказ, один макет."""
     order = _order(db, order_id)
 
-    # Читаем кусками и останавливаемся, как только перешагнули лимит: иначе
-    # файл на два гигабайта сначала целиком ложился в память и только потом
-    # получал отказ «больше 300 МБ».
-    chunks = bytearray()
-    while True:
-        chunk = await file.read(1024 * 1024)
-        if not chunk:
-            break
-        chunks.extend(chunk)
-        if len(chunks) > designs.MAX_UPLOAD_BYTES:
-            applog.warning(
-                "Макет %s отклонён: больше %s МБ (файл «%s») · %s",
-                order.number, designs.MAX_UPLOAD_BYTES // 1024 // 1024,
-                file.filename or "без имени", user.name,
-            )
-            raise HTTPException(
-                422, f"Файл больше {designs.MAX_UPLOAD_BYTES // 1024 // 1024} МБ"
-            )
-    data = bytes(chunks)
+    # Пишем кусками сразу на диск и останавливаемся, как только перешагнули
+    # лимит: макет в 300 МБ иначе лежал в памяти целиком, и дважды — буфер
+    # и его копия, — а на несколько одновременных загрузок это гигабайты.
     try:
-        info = designs.save(order.number, file.filename or "", data)
+        designs.check_name(file.filename or "")
+        temp = designs.upload_target(order.number)
+        size = 0
+        with open(temp, "wb") as out:
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > designs.MAX_UPLOAD_BYTES:
+                    out.close()
+                    temp.unlink(missing_ok=True)
+                    applog.warning(
+                        "Макет %s отклонён: больше %s МБ (файл «%s») · %s",
+                        order.number, designs.MAX_UPLOAD_BYTES // 1024 // 1024,
+                        file.filename or "без имени", user.name,
+                    )
+                    raise HTTPException(
+                        422, f"Файл больше {designs.MAX_UPLOAD_BYTES // 1024 // 1024} МБ"
+                    )
+                out.write(chunk)
+        info = designs.commit(order.number, temp)
     except ValueError as exc:
         applog.warning(
             "Макет %s отклонён: %s (файл «%s») · %s",

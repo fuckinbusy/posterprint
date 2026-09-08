@@ -22,6 +22,24 @@ from app.core.paths import BASE_DIR
 # пояснение, приложение не должно падать с непонятной ошибкой
 DB_URL = (os.getenv("POSTER_DB_URL") or "sqlite:///./poster.db").strip().split()[0]
 
+
+def _absolute_sqlite(url: str) -> str:
+    """Относительный путь к файлу SQLite — от корня проекта, а не от рабочего каталога.
+
+    Иначе сервер или скрипт, запущенный из другой папки, молча заводил новую
+    пустую базу рядом с собой, а копии и выгрузки при этом считали путь от
+    BASE_DIR — и смотрели в настоящую.
+    """
+    if not url.startswith("sqlite:///"):
+        return url
+    raw = url[len("sqlite:///"):]
+    if not raw or raw == ":memory:" or Path(raw).is_absolute():
+        return url
+    return "sqlite:///" + (BASE_DIR / raw).resolve().as_posix()
+
+
+DB_URL = _absolute_sqlite(DB_URL)
+
 # check_same_thread нужен только SQLite: FastAPI работает в нескольких потоках
 connect_args = {"check_same_thread": False} if DB_URL.startswith("sqlite") else {}
 
@@ -75,6 +93,27 @@ def init_db() -> None:
     check_integrity()
     Base.metadata.create_all(bind=engine)
     _ensure_columns()
+    _ensure_declared_indexes()
+
+
+def _ensure_declared_indexes() -> None:
+    """Индексы из моделей на уже созданных таблицах.
+
+    create_all добавляет индексы только вместе с новой таблицей; index=True
+    у колонки существующей таблицы иначе остался бы на бумаге.
+    """
+    from sqlalchemy import inspect
+
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    for table in Base.metadata.sorted_tables:
+        if table.name not in tables:
+            continue
+        existing = {ix["name"] for ix in inspector.get_indexes(table.name)}
+        for index in table.indexes:
+            if index.name and index.name not in existing:
+                index.create(bind=engine)
+                print(f"[i] База обновлена: индекс {index.name} на таблице {table.name}.")
 
 
 def check_integrity() -> bool:
@@ -198,7 +237,7 @@ def _backup_before_migration(pending: list[tuple[str, str]]) -> None:
     import sqlite3
     from datetime import datetime
 
-    target_dir = BASE_DIR / "backups" / f"{datetime.now():%Y-%m-%d_%H-%M-%S}_before-update"
+    target_dir = BASE_DIR / "backups" / f"{datetime.now():%Y-%m-%d_%H-%M-%S}_before-update"  # суффикс знает backup.parse_stamp
     target_dir.mkdir(parents=True, exist_ok=True)
     target = target_dir / source.name
 

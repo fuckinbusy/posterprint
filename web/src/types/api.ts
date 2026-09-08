@@ -464,7 +464,6 @@ export interface PriceItemCreatePayload {
   /** не передали — сервер возьмёт единицу раздела */
   unit?: string;
   note?: string;
-  author?: string;
 }
 
 export interface PriceItemUpdatePayload {
@@ -473,7 +472,6 @@ export interface PriceItemUpdatePayload {
   unit?: string;
   active?: boolean;
   note?: string;
-  author?: string;
 }
 
 /* ---------------------------------------------------- виды работ */

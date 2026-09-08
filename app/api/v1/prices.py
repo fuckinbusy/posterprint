@@ -50,12 +50,10 @@ def _pinned_fields(db: Session, item: PriceItem) -> list[TemplateField]:
 
 def _titles_of(db: Session, fields: list[TemplateField]) -> list[str]:
     """Названия видов работ, которым принадлежат поля."""
-    names: set[str] = set()
-    for field in fields:
-        template = db.get(Template, field.template_id)
-        if template is not None:
-            names.add(template.title)
-    return sorted(names)
+    ids = {field.template_id for field in fields}
+    if not ids:
+        return []
+    return sorted(db.scalars(select(Template.title).where(Template.id.in_(ids))).all())
 
 
 def _pinned_by(db: Session, item: PriceItem) -> list[str]:
@@ -285,16 +283,9 @@ def delete_group(
         )
     ).all()
     if used:
-        # db.get может вернуть None, если шаблон удалили между запросами —
-        # собираем имена через цикл, чтобы не обращаться к атрибуту у пустого
-        names: set[str] = set()
-        for field in used:
-            template = db.get(Template, field.template_id)
-            if template is not None:
-                names.add(template.title)
         raise HTTPException(
             409,
-            "Раздел используется в видах работ: " + ", ".join(sorted(names)),
+            "Раздел используется в видах работ: " + ", ".join(_titles_of(db, list(used))),
         )
 
     items = db.scalars(select(PriceItem).where(PriceItem.group_key == group.key)).all()
@@ -348,7 +339,7 @@ def create_price(
         unit=unit,
         note=payload.note.strip(),
         sort_order=(last or 0) + 1,
-        updated_by=payload.author.strip(),
+        updated_by=user.name,
     )
     db.add(item)
     db.commit()
@@ -372,12 +363,13 @@ def update_price(
         raise HTTPException(404, "Позиция не найдена")
 
     changes = payload.model_dump(exclude_unset=True)
-    author = changes.pop("author", "")
+    # кто поменял — из профиля: история цен заведена ради вопроса «кто поднял»,
+    # и подписывать правку чужим именем через форму нельзя
+    author = user.name
     was_value, was_active, was_unit = item.value, item.active, item.unit
     for field, value in changes.items():
         setattr(item, field, value)
-    if author:
-        item.updated_by = author
+    item.updated_by = author
 
     # История — только то, что меняет деньги: цена и единица. Смена
     # названия или включение/выключение и так видны в самой строке.
@@ -387,7 +379,7 @@ def update_price(
                 item_id=item.id, group_key=item.group_key, item_key=item.item_key,
                 field=field, old_value=str(was if was is not None else ""),
                 new_value=str(now if now is not None else ""),
-                author=author or user.name,
+                author=author,
             ))
     db.commit()
     db.refresh(item)
@@ -398,13 +390,13 @@ def update_price(
     if was_value != item.value:
         applog.info(
             "Прайс: «%s» в «%s» %s → %s · %s",
-            item.item_key, item.group_key, was_value, item.value, author or user.name,
+            item.item_key, item.group_key, was_value, item.value, author,
         )
     if was_active != item.active:
         applog.info(
             "Прайс: «%s» в «%s» %s · %s",
             item.item_key, item.group_key,
-            "включена" if item.active else "отключена", author or user.name,
+            "включена" if item.active else "отключена", author,
         )
     if was_unit != item.unit:
         # смена единицы меняет смысл цены, а не только подпись:
@@ -412,7 +404,7 @@ def update_price(
         applog.info(
             "Прайс: «%s» в «%s» единица %s → %s · %s",
             item.item_key, item.group_key, was_unit or "—", item.unit or "—",
-            author or user.name,
+            author,
         )
 
     group = db.scalar(select(PriceGroup).where(PriceGroup.key == item.group_key))

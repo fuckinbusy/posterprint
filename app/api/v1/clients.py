@@ -35,9 +35,10 @@ router = APIRouter(
 )
 
 
-def to_out(db: Session, client: Client, user: CurrentUser) -> ClientOut:
+def to_out(db: Session, client: Client, user: CurrentUser, stats: dict | None = None) -> ClientOut:
     data = ClientOut.model_validate(client)
-    stats = clients_logic.stats_for(db, client.id)
+    if stats is None:
+        stats = clients_logic.stats_for(db, client.id)
     data.orders_count = stats["orders_count"]
     data.last_order_at = stats["last_order_at"]
     data.active_count = stats["active_count"]
@@ -73,8 +74,9 @@ def list_clients(
             raise HTTPException(403, "Нет прав на просмотр списка клиентов")
         found, total = clients_logic.browse(db, sort=sort, limit=limit, offset=offset)
 
+    stats = clients_logic.stats_map(db, [c.id for c in found])
     return {
-        "items": [to_out(db, c, user) for c in found],
+        "items": [to_out(db, c, user, stats.get(c.id)) for c in found],
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -137,6 +139,8 @@ def client_orders(
         .limit(limit)
         .offset(offset)
     ).all()
+    # шаблоны читаем один раз на страницу, а не на каждый заказ (см. list_orders)
+    templates = {t["key"]: t for t in catalog.all_templates(db, include_hidden=True)}
     items = [
         {
             "id": o.id,
@@ -146,7 +150,7 @@ def client_orders(
             "price": o.price if user.can("orders.price.view") else None,
             "quantity": o.quantity,
             "template_key": o.template_key,
-            "summary": catalog.describe(db, o.template_key, o.params or {}),
+            "summary": catalog.describe_template(templates.get(o.template_key), o.params or {}),
             "created_at": o.created_at,
         }
         for o in orders

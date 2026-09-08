@@ -24,7 +24,7 @@ from app.core.security import (
     make_token,
     note_failure,
     note_success,
-    throttle_key,
+    throttle_keys,
 )
 from app.models import Employee
 from app.schemas.auth import EmployeeLogin, LoginRequest, LoginResponse
@@ -78,15 +78,15 @@ def login_admin(
 ) -> LoginResponse:
     """Администратор входит с любого компьютера — это способ восстановить
     доступ, если привязки настроены неверно."""
-    key = throttle_key(request, x_device_key, "admin")
-    check_not_locked(key)
+    keys = throttle_keys(request, x_device_key, "admin")
+    check_not_locked(keys)
 
     if not check_password(payload.password):
-        note_failure(key)
+        note_failure(keys)
         log.warning("Вход администратора: неверный пароль")
         raise HTTPException(401, "Неверный пароль")
 
-    note_success(key)
+    note_success(keys)
     log.info("Вход: администратор")
     token, expires = make_token("admin")
     return LoginResponse(
@@ -105,8 +105,8 @@ def login_employee(
     x_device_key: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> LoginResponse:
-    key = throttle_key(request, x_device_key, f"emp:{payload.employee_id}")
-    check_not_locked(key)
+    keys = throttle_keys(request, x_device_key, f"emp:{payload.employee_id}")
+    check_not_locked(keys)
 
     employee = db.get(Employee, payload.employee_id)
     if employee is None or not employee.active:
@@ -120,11 +120,11 @@ def login_employee(
 
     # пустой пароль у профиля = вход без пароля
     if employee.password_hash and not check_hashed(payload.password, employee.password_hash):
-        note_failure(key)
+        note_failure(keys)
         log.warning("Вход «%s»: неверный пароль", employee.name)
         raise HTTPException(401, "Неверный пароль")
 
-    note_success(key)
+    note_success(keys)
     log.info("Вход: %s", employee.name)
 
     employee.last_login_at = datetime.now(UTC)

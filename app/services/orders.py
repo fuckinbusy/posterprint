@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.security import CurrentUser
@@ -25,15 +25,25 @@ def next_number(db: Session) -> str:
     """
     year = datetime.now(UTC).year
     prefix = f"ЗК-{year}-"
-    numbers = db.scalars(select(Order.number).where(Order.number.like(f"{prefix}%"))).all()
+    width = 6
 
+    # Обычный случай — один запрос: у номеров одной длины строковый максимум
+    # и есть числовой. Раньше на каждый новый заказ читались все номера года.
+    like = Order.number.like(f"{prefix}%")
+    newest = db.scalar(
+        select(func.max(Order.number)).where(like, func.length(Order.number) == len(prefix) + width)
+    )
+    if newest is not None:
+        return f"{prefix}{int(newest[len(prefix):]) + 1:0{width}d}"
+
+    # шестизначных ещё нет: либо год только начался, либо остались одни
+    # старые короткие номера — их немного, можно перебрать
     last = 0
-    for number in numbers:
+    for number in db.scalars(select(Order.number).where(like)).all():
         tail = number.rsplit("-", 1)[-1]
         if tail.isdigit():
             last = max(last, int(tail))
-
-    return f"{prefix}{last + 1:06d}"
+    return f"{prefix}{last + 1:0{width}d}"
 
 
 def payment_state(order: Order) -> tuple[str, float]:

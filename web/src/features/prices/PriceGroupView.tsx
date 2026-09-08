@@ -9,7 +9,7 @@ import {
   updatePriceItem,
   usePricesInvalidation,
 } from '@/api/prices';
-import { useAuth, useCan } from '@/app/AuthProvider';
+import { useCan } from '@/app/AuthProvider';
 import { useConfirm } from '@/app/ConfirmProvider';
 import { useModal } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
@@ -254,7 +254,6 @@ function EditableRow({
   groups: PriceGroup[];
 }) {
   const modal = useModal();
-  const { session } = useAuth();
   const askConfirm = useConfirm();
   const { toast, toastError } = useToast();
   const invalidate = usePricesInvalidation();
@@ -269,7 +268,7 @@ function EditableRow({
     if (String(next) === String(current)) return;
 
     try {
-      await updatePriceItem(item.id, { [field]: next, author: session?.name ?? '' });
+      await updatePriceItem(item.id, { [field]: next });
       invalidate();
       if (field === 'value') {
         setSaved(true);
@@ -284,7 +283,7 @@ function EditableRow({
    *  незачем — и легко забыть, что выбор не записан. */
   const changeUnit = async (unit: string) => {
     try {
-      await updatePriceItem(item.id, { unit, author: session?.name ?? '' });
+      await updatePriceItem(item.id, { unit });
       invalidate();
     } catch (e) {
       toastError(e);
@@ -419,7 +418,6 @@ function EditableRow({
 
 /* ---------------------------------------------------- новая позиция */
 function AddItemForm({ group, onDone }: { group: PriceGroup; onDone: () => void }) {
-  const { session } = useAuth();
   const { toast, toastError } = useToast();
   const invalidate = usePricesInvalidation();
 
@@ -441,7 +439,6 @@ function AddItemForm({ group, onDone }: { group: PriceGroup; onDone: () => void 
         title: title.trim(),
         value: Number(value || 0),
         unit,
-        author: session?.name ?? '',
       });
       toast(`«${key.trim()}» добавлена в прайс`);
       invalidate();

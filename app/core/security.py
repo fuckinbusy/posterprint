@@ -46,16 +46,31 @@ SECRET_FILE = BASE_DIR / ".secret"
 
 
 # ---------------------------------------------------------------- подпись
+_secret_cache: bytes | None = None
+
+
 def _secret() -> bytes:
-    """Ключ подписи. Из .env, иначе генерируем один раз в файл .secret."""
+    """Ключ подписи. Из .env, иначе генерируем один раз в файл .secret.
+
+    Читается один раз на процесс: подпись проверяется на каждом запросе, и
+    ходить за ключом на диск каждый раз незачем. Файл создаём атомарно —
+    два процесса при первом старте иначе записали бы разные ключи, и часть
+    выданных токенов сразу перестала бы подходить.
+    """
+    global _secret_cache
+    if _secret_cache is not None:
+        return _secret_cache
     env = os.getenv("POSTER_SECRET_KEY")
     if env:
-        return env.encode()
-    if SECRET_FILE.exists():
-        return SECRET_FILE.read_bytes().strip()
-    value = secrets.token_urlsafe(48).encode()
-    SECRET_FILE.write_bytes(value)
-    return value
+        _secret_cache = env.encode()
+        return _secret_cache
+    try:
+        with open(SECRET_FILE, "xb") as fh:
+            fh.write(secrets.token_urlsafe(48).encode())
+    except FileExistsError:
+        pass
+    _secret_cache = SECRET_FILE.read_bytes().strip()
+    return _secret_cache
 
 
 def _sign(payload: str) -> str:
@@ -149,23 +164,35 @@ LOCK_SECONDS = 60        # на столько закрываем вход по�
 _failures: dict[str, list[float]] = {}
 
 
-def throttle_key(request: Request, device_key: str | None, subject: str) -> str:
-    """Кого считаем «одним подбирающим»: компьютер (или адрес) плюс цель входа.
-
-    Устройство надёжнее адреса — из-за NAT весь офис приходит с одного IP, и
-    по нему одна ошибка соседа блокировала бы всех. Но ключ устройства
-    подделывается, поэтому если его нет — падаем на адрес.
-    """
-    who = (device_key or "")[:64] or (request.client.host if request.client else "?")
-    return f"{who}|{subject}"
+# По адресу лимит мягче: из-за NAT весь офис приходит с одного IP, и по
+# нему одна ошибка соседа не должна закрывать вход всем. Но считать только по
+# устройству нельзя: ключ устройства выдумывает клиент, и подбирающий просто
+# слал бы новый на каждую попытку — так лимит не срабатывал никогда.
+IP_FAIL_LIMIT = FAIL_LIMIT * 4
+MAX_TRACKED = 2000       # столько ключей помним, дальше выкидываем самые старые
 
 
-def check_not_locked(key: str) -> None:
-    """Бросает 429, если по этому ключу лимит уже исчерпан."""
+def throttle_keys(request: Request, device_key: str | None, subject: str) -> list[str]:
+    """Кого считаем «одним подбирающим»: адрес всегда, устройство — если назвалось."""
+    host = request.client.host if request.client else "?"
+    keys = [f"ip:{host}|{subject}"]
+    device = (device_key or "")[:64]
+    if device:
+        keys.append(f"dev:{device}|{subject}")
+    return keys
+
+
+def check_not_locked(keys: list[str]) -> None:
+    """Бросает 429, если хоть по одному ключу лимит уже исчерпан."""
+    for key in keys:
+        _check_key(key, IP_FAIL_LIMIT if key.startswith("ip:") else FAIL_LIMIT)
+
+
+def _check_key(key: str, limit: int) -> None:
     now = time.time()
     attempts = [t for t in _failures.get(key, []) if now - t < FAIL_WINDOW]
     _failures[key] = attempts
-    if len(attempts) < FAIL_LIMIT:
+    if len(attempts) < limit:
         return
     wait = int(LOCK_SECONDS - (now - attempts[-1]))
     if wait <= 0:
@@ -179,12 +206,22 @@ def check_not_locked(key: str) -> None:
     )
 
 
-def note_failure(key: str) -> None:
-    _failures.setdefault(key, []).append(time.time())
+def note_failure(keys: list[str]) -> None:
+    now = time.time()
+    for key in keys:
+        _failures.setdefault(key, []).append(now)
+    if len(_failures) > MAX_TRACKED:
+        # чужие выдуманные ключи не должны копиться вечно: сначала отсеиваем
+        # отстоявшиеся, если и этого мало — самые старые
+        for key in [k for k, ts in _failures.items() if not ts or now - ts[-1] > FAIL_WINDOW]:
+            _failures.pop(key, None)
+        while len(_failures) > MAX_TRACKED:
+            _failures.pop(next(iter(_failures)))
 
 
-def note_success(key: str) -> None:
-    _failures.pop(key, None)
+def note_success(keys: list[str]) -> None:
+    for key in keys:
+        _failures.pop(key, None)
 
 
 # ---------------------------------------------------------------- текущий пользователь
@@ -242,12 +279,15 @@ def current_user(
     """Мягкая проверка: не бросает ошибку, возвращает гостя, если токена нет.
 
     Заодно отмечает устройство: так администратор видит все компьютеры,
-    с которых открывали систему, даже если вход ещё не выполнен.
+    с которых работают в системе (экран входа отмечает их сам).
     """
-    device = devices_logic.touch(db, x_device_key, request)
     subject = verify_token(_token_from_headers(authorization, x_admin_token))
     if subject is None:
         return GUEST
+    # устройство отмечаем только по действительному токену: экран входа
+    # регистрирует компьютер сам через /auth/profiles, а без токена любой мог
+    # бы плодить записи в таблице устройств, просто меняя заголовок
+    device = devices_logic.touch(db, x_device_key, request)
 
     if subject == "admin":
         return CurrentUser("admin", "Администратор", list(ALL_KEYS), device=device)

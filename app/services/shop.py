@@ -13,10 +13,6 @@ from __future__ import annotations
 
 import os
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 
 def details(overrides: dict[str, str] | None = None) -> dict:
     """Название, телефон, адрес и строка под ними (часы работы, сайт).
