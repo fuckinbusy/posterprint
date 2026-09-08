@@ -42,7 +42,7 @@ export const qk = {
   permissions: ['permissions'] as const,
   devices: ['devices'] as const,
 
-  metrics: (days: number) => ['metrics', days] as const,
+  metrics: (period: string) => ['metrics', period] as const,
   cash: (date: string) => ['cash', date] as const,
 
   design: (orderId: number) => ['design', orderId] as const,

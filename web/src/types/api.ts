@@ -627,6 +627,7 @@ export interface DesignLink {
 export interface MetricsBucket {
   label: string;
   sum: number;
+  count: number;
 }
 
 export interface MetricsTemplateRow {
@@ -634,20 +635,88 @@ export interface MetricsTemplateRow {
   title: string;
   count: number;
   sum: number;
+  /** доля в полученном за период, % */
+  share: number;
+  /** средний срок от создания до выдачи; null — не по чему считать */
+  avg_lead_days: number | null;
 }
 
 export interface MetricsClientRow {
+  client_id: number | null;
   name: string;
   count: number;
   sum: number;
 }
 
+export interface MetricsManagerRow {
+  name: string;
+  /** сколько заказов принял за период */
+  created: number;
+  /** сколько выдал за период */
+  done: number;
+  /** получено по выданным им заказам */
+  sum: number;
+}
+
+export interface MetricsDebtor {
+  order_id: number;
+  number: string;
+  title: string;
+  client: string;
+  /** done — выдан с недоплатой; overdue — в работе, срок прошёл, не оплачен */
+  kind: 'done' | 'overdue';
+  price: number;
+  prepaid: number;
+  debt: number;
+  /** дней с выдачи или с просроченного срока */
+  days: number;
+}
+
+export interface MetricsStaleOrder {
+  order_id: number;
+  number: string;
+  title: string;
+  client: string;
+  status: OrderStatus;
+  /** дней без единого изменения */
+  days: number;
+  price: number;
+}
+
+export interface MetricsCash {
+  by_method: Record<PayMethod, { in: number; out: number; net: number }>;
+  by_author: { author: string; cash: number; transfer: number; total: number }[];
+  total_in: number;
+  total_out: number;
+  total: number;
+  entries: number;
+}
+
+/** Изменение к прошлому периоду той же длины, в процентах; null — не с чем сравнивать */
+export interface MetricsCompare {
+  revenue: number | null;
+  orders_done: number | null;
+  avg_check: number | null;
+  created_count: number | null;
+  cancelled_count: number | null;
+  clients_new: number | null;
+}
+
 export interface Metrics {
-  period: { days: number; label: string; since: string | null };
+  period: {
+    days: number;
+    label: string;
+    since: string | null;
+    until: string;
+    /** days — последние N дней, range — выбранный отрезок (месяц) */
+    kind: 'days' | 'range';
+  };
   /** фактически полученные деньги по выданным заказам, а не сумма по прайсу */
   revenue: number;
-  /** сколько не доплатили по уже выданным заказам */
+  /** сколько не доплатили по выданным за период */
   done_debt: number;
+  /** то же по всем выданным за всё время — деньги висят независимо от даты выдачи */
+  done_debt_all: number;
   orders_done: number;
   avg_check: number;
   created_count: number;
@@ -655,6 +724,8 @@ export interface Metrics {
   cancel_rate: number;
   /** null — нет ни одного выданного заказа за период */
   avg_lead_days: number | null;
+  /** сколько выданных уложились в срок (только заказы со сроком) */
+  on_time: { count: number; total: number; rate: number | null };
   active_count: number;
   active_sum: number;
   debt: number;
@@ -665,7 +736,36 @@ export interface Metrics {
   by_template: MetricsTemplateRow[];
   top_clients: MetricsClientRow[];
   clients_total: number;
+  /** новые (первый заказ в этом периоде) и повторные клиенты по выданным заказам */
+  clients: {
+    new: number;
+    returning: number;
+    new_sum: number;
+    returning_sum: number;
+    returning_share: number | null;
+  };
+  by_manager: MetricsManagerRow[];
+  /** движения денег за период по датам платежей — как в кассе за день */
+  cash: MetricsCash;
+  debtors: MetricsDebtor[];
+  stale: MetricsStaleOrder[];
+  stale_days: number;
+  cancel_reasons: { reason: string; count: number }[];
+  /** заказы, принятые по дням недели, пн…вс */
+  weekday_load: { label: string; count: number; sum: number }[];
+  extras_sum: number;
+  extras_orders: number;
+  extras_share: number;
   series: MetricsBucket[];
   /** график по месяцам, а не по дням — для периодов больше квартала */
   by_month: boolean;
+  previous: {
+    revenue: number;
+    orders_done: number;
+    avg_check: number;
+    created_count: number;
+    cancelled_count: number;
+    clients_new: number;
+  } | null;
+  compare: MetricsCompare;
 }

@@ -7451,3 +7451,372 @@ body.touch-dragging {
   color: var(--muted);
 }
 
+
+/* ---------- метрики: сравнение, месяц, разрезы ---------- */
+/* изменение к прошлому периоду — под числом в плитке */
+.mx-delta {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mx-delta.good {
+  color: var(--green);
+}
+.mx-delta.bad {
+  color: var(--red);
+}
+.mx-delta.flat,
+.mx-delta.none {
+  color: var(--muted-2);
+}
+.mx-list .sm .mx-delta {
+  margin: 0 0 0 6px;
+}
+.mx-list .sm small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.mx-list li.sub {
+  padding: 5px 0 5px 14px;
+  border-bottom: none;
+  font-size: 13px;
+  color: var(--muted);
+}
+.mx-list li.sub + li:not(.sub) {
+  border-top: 1px dashed var(--line);
+}
+
+/* выбор календарного месяца — в ряду с периодами */
+.mx-month {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 2px 4px;
+}
+/* правило .mx-tabs button задаёт всем кнопкам ряда широкие поля —
+   стрелкам они не нужны, иначе иконка ужимается в ноль */
+.mx-tabs .mx-month .icon-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.mx-tabs .mx-month .icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.mx-tabs .mx-month .icon-btn:disabled {
+  opacity: 0.3;
+}
+.mx-tabs .mx-month-name {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  min-width: 96px;
+}
+.mx-month.active {
+  border-color: var(--green);
+}
+.mx-month.active .mx-month-name {
+  color: var(--green);
+  font-weight: 700;
+}
+
+/* плитка-кнопка: та же плитка, но по ней можно перейти в список */
+.mx-cell.as-btn {
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.15s;
+}
+.mx-cell.as-btn:hover {
+  border-color: var(--line-strong);
+}
+.mx-cols.four {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.mx-open.warn .v {
+  color: var(--red);
+}
+@media (max-width: 1100px) {
+  .mx-cols.four {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .mx-cols,
+  .mx-cols.four {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* дни недели: семь столбиков с числом заказов */
+.mx-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  padding-top: 6px;
+}
+.mx-week-day {
+  text-align: center;
+  font-family: var(--font-ui);
+}
+.mx-week-day .track {
+  height: 90px;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+.mx-week-day .track span {
+  display: block;
+  width: 100%;
+  background: var(--green);
+  border-radius: 3px 3px 0 0;
+  opacity: 0.85;
+}
+.mx-week-day b {
+  display: block;
+  font-size: 15px;
+}
+.mx-week-day em {
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--muted-2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mx-note {
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+  max-width: 720px;
+  margin: 0 0 16px;
+}
+.mx-table {
+  margin-top: 4px;
+}
+
+/* строки-должники и зависшие заказы: нажатие открывает заказ */
+.mx-rows {
+  display: flex;
+  flex-direction: column;
+}
+.mx-row {
+  display: grid;
+  grid-template-columns: 150px 1fr auto 140px;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-bottom: 1px dashed var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mx-row:hover {
+  background: rgba(var(--fg-rgb), 0.04);
+}
+.mx-row .num {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.mx-row .who {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mx-row .who b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mx-row .who span {
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mx-row .tag {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.mx-row .sum {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mx-row .sum b {
+  color: var(--red);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+.mx-row .sum span {
+  font-size: 12px;
+  color: var(--muted-2);
+}
+@media (max-width: 720px) {
+  .mx-row {
+    grid-template-columns: 1fr auto;
+  }
+  .mx-row .num,
+  .mx-row .tag {
+    display: none;
+  }
+}
+
+/* ---------- отчёт по аналитике: лист ---------- */
+.rp-sheet {
+  font-size: 13px;
+}
+.rp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+  border-bottom: 2px solid #111;
+}
+.rp-shop {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 4px;
+}
+.rp-head h1 {
+  font-size: 22px;
+  margin: 0 0 6px;
+  color: #000;
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
+.rp-period {
+  font-size: 13px;
+  color: #333;
+}
+.rp-period span {
+  color: #777;
+}
+.rp-printed {
+  font-size: 11px;
+  color: #777;
+  white-space: nowrap;
+  padding-top: 4px;
+}
+.rp-sec {
+  margin-bottom: 20px;
+}
+.rp-sec h2 {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #222;
+  margin: 0 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #999;
+}
+.rp-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.rp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.rp-table th,
+.rp-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+  vertical-align: top;
+  color: #111;
+}
+.rp-table th {
+  font-weight: 500;
+  font-size: 11.5px;
+  color: #666;
+  letter-spacing: 0.04em;
+}
+.rp-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.rp-table .nowrap {
+  white-space: nowrap;
+}
+.rp-table tr.strong td {
+  font-weight: 700;
+  color: #000;
+}
+.rp-table.compact th,
+.rp-table.compact td {
+  padding: 3px 6px;
+  font-size: 12px;
+}
+.rp-table + .rp-table {
+  margin-top: 10px;
+}
+.rp-empty,
+.rp-note {
+  color: #666;
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+.rp-foot {
+  margin-top: 16px;
+  padding-top: 8px;
+  border-top: 1px solid #999;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.45;
+}
+@media print {
+  .rp-sheet {
+    font-size: 11pt;
+  }
+  .rp-sec {
+    break-inside: avoid;
+  }
+  .rp-table tr {
+    break-inside: avoid;
+  }
+  .rp-two {
+    break-inside: avoid;
+  }
+}
