@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
 from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -50,7 +49,6 @@ class OrderBase(BaseModel):
     client_contact: str = Field(default="", max_length=120)
     quantity: int = Field(default=1, ge=1)
     params: dict = Field(default_factory=dict)
-    extras: Sequence[ExtraIn] = Field(default_factory=list, max_length=MAX_EXTRAS)
     _check_params = field_validator("params")(check_params)
     price: float = Field(default=0.0, ge=0)
     prepaid: float = Field(default=0.0, ge=0)
@@ -65,6 +63,9 @@ class OrderCreate(OrderBase):
     # Раньше поле было, и профиль без права на смену статуса мог завести
     # заказ сразу «Выданным» — мимо таблицы переходов и без completed_at.
     template_key: str
+    # доп. услуги живут не в OrderBase: в ответе они уже со снимком названия
+    # и ставки (ExtraOut), а изменяемое поле другим типом не переопределяют
+    extras: list[ExtraIn] = Field(default_factory=list, max_length=MAX_EXTRAS)
     # Как приняли внесённое: cash | transfer. Не хранится в заказе — уходит
     # строкой в журнал кассы (app/ledger.py). Пусто — наличные.
     pay_method: str | None = Field(default=None, max_length=20)
@@ -124,7 +125,7 @@ class OrderOut(OrderBase):
     number: str
     template_key: str
     status: OrderStatus
-    extras: list[ExtraOut] = Field(default_factory=list)
+    extras: list[ExtraOut] = Field(default_factory=list, max_length=MAX_EXTRAS)
     created_at: datetime
     updated_at: datetime
     summary: str = ""

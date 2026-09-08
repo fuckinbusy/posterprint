@@ -295,7 +295,8 @@ def update_order(
     require_money_rights(user, set(changes))
     money_before = (float(order.prepaid or 0), bool(order.refunded))
 
-    if "template_key" in changes and not catalog.exists(db, changes["template_key"]):
+    template_key = changes.get("template_key")
+    if template_key is not None and not catalog.exists(db, str(template_key)):
         raise HTTPException(422, "Неизвестный шаблон заказа")
     # чужой id карточки иначе доезжал до commit и падал там на внешнем ключе — 500 вместо 422
     if changes.get("client_id") is not None and db.get(Client, changes["client_id"]) is None:

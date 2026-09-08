@@ -15,7 +15,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterable
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from app.models import Payment
 
 # Как приняли деньги. Два способа, потому что ровно так и сверяют кассу:
 # наличные пересчитывают в ящике, переводы сверяют с выпиской.
@@ -47,14 +50,25 @@ def movement(before: tuple[float, bool], after: tuple[float, bool]) -> float:
 
 
 class Entry(Protocol):
-    """То, что нужно знать о строке журнала, чтобы сложить итоги."""
+    """То, что нужно знать о строке журнала, чтобы сложить итоги.
 
-    amount: float
-    method: str
-    author: str
+    Свойства, а не поля: итогам строку менять не нужно. Модель Payment
+    с её колонками Mapped[...] проверка типов под протокол всё равно не
+    подводит, поэтому summarize принимает её явно, рядом с протоколом —
+    для тестов и любых простых объектов с теми же полями.
+    """
+
+    @property
+    def amount(self) -> float: ...
+
+    @property
+    def method(self) -> str: ...
+
+    @property
+    def author(self) -> str: ...
 
 
-def summarize(entries: Iterable[Entry]) -> dict:
+def summarize(entries: Iterable[Entry | Payment]) -> dict:
     """Итоги по строкам за период: по способу оплаты и по сотруднику.
 
     Приход и расход считаются отдельно: «приняли 12 000, вернули 2 000»

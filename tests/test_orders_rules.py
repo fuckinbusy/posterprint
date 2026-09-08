@@ -112,7 +112,7 @@ def test_новый_номер_у_известного_клиента_завод
     db.flush()
 
     found = clients.upsert(db, name="A", phone="+7 900 999-88-77", client_id=a.id)
-    assert found is not a
+    assert found is not None and found is not a
     assert found.phone_norm == "79009998877"
 
 

@@ -1,6 +1,7 @@
 # Настройки проверок. Сам проект ставится через requirements*.txt, здесь
 # только инструменты разработки: python -m ruff check app scripts tests
-# и python -m mypy app.
+# и python -m mypy app. В редакторе работает Pylance (pyright) — он строже
+# mypy; из консоли то же: npx pyright --pythonpath .venv/Scripts/python.exe app scripts tests
 
 [tool.ruff]
 line-length = 110
@@ -21,3 +22,8 @@ ignore = [
 python_version = "3.12"
 ignore_missing_imports = true
 check_untyped_defs = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"

@@ -36,6 +36,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import random
 import sys
 from datetime import UTC, date, datetime, time, timedelta
@@ -49,7 +50,7 @@ from app.services import catalog, pricing
 from app.services import clients as clients_logic
 
 # консоль Windows по умолчанию в cp1251 — на «₽» в выводе скрипт падал
-if hasattr(sys.stdout, "reconfigure"):
+if isinstance(sys.stdout, io.TextIOWrapper):
     sys.stdout.reconfigure(encoding="utf-8")
 from app.core.database import SessionLocal, init_db
 from app.core.permissions import default_permissions, normalize

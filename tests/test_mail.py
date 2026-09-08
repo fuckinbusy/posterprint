@@ -128,7 +128,9 @@ def test_вшитая_картинка_становится_data_строкой(
     msg["From"] = "a@b.c"
     msg.set_content("текст")
     msg.add_alternative('<p>лого: <img src="cid:pic1"></p>', subtype="html")
-    msg.get_payload()[1].add_related(b"\x89PNG", maintype="image", subtype="png", cid="<pic1>")
+    html_part = list(msg.iter_parts())[1]  # текст, разметка
+    assert isinstance(html_part, EmailMessage)
+    html_part.add_related(b"\x89PNG", maintype="image", subtype="png", cid="<pic1>")
     images = mail.inline_images(msg)
     assert "pic1" in images and images["pic1"].startswith("data:image/png;base64,")
     html = mail.html_body(msg)
