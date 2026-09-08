@@ -1,4 +1,4 @@
-"""Стартовый каталог — app/seed_catalog.py.
+"""Стартовый каталог — app/services/seed_catalog.py.
 
 Проверяем не цены (их правят руками), а связность: ссылается ли поле вида
 работ на существующий раздел прайса и на существующую позицию, есть ли
@@ -16,7 +16,7 @@ from __future__ import annotations
 import conftest  # noqa: F401 — добавляет корень проекта в sys.path
 import pytest
 
-from app.seed_catalog import PRICE_GROUPS, TEMPLATES
+from app.services.seed_catalog import PRICE_GROUPS, TEMPLATES
 
 GROUPS = {group[0]: group for group in PRICE_GROUPS}
 ITEMS = {
@@ -239,7 +239,7 @@ def test_визитки_считаются_по_таблицам_прайса():
 def test_варианты_таблиц_читаются_из_ключей_прайса():
     """Так вид работ собирает администратор: указал раздел — варианты бумаги
     и цветности появились сами, из ключей позиций."""
-    from app.catalog import tier_variants
+    from app.services.catalog import tier_variants
 
     keys = ["Лён:4+0:100", "Лён:4+4:500", "300 г:4+0:100", "300 г:1+1:1500", "мусор", "100"]
     assert tier_variants(keys, 0) == ["Лён", "300 г"]

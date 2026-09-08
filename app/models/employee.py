@@ -1,0 +1,37 @@
+"""Профили сотрудников и их права."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import JSON, Boolean, DateTime, String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.database import Base
+from app.models.base import utcnow
+
+
+class Employee(Base):
+    """Профиль сотрудника: имя, пароль и набор прав.
+
+    Пароль хранится хешем (PBKDF2), в открытом виде нигде не сохраняется —
+    администратор может только задать новый, но не подсмотреть текущий.
+    Права лежат списком ключей из app/permissions.py.
+    """
+
+    __tablename__ = "employees"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(200), default="")
+    permissions: Mapped[list] = mapped_column(JSON, default=list)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # "any" — вход с любого компьютера; "devices" — только с привязанных
+    access_mode: Mapped[str] = mapped_column(String(20), default="any")
+    allowed_devices: Mapped[list] = mapped_column(JSON, default=list)  # id устройств
+    note: Mapped[str] = mapped_column(String(200), default="")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

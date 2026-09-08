@@ -29,7 +29,7 @@ from __future__ import annotations
 import conftest  # noqa: F401 — добавляет корень проекта в sys.path
 import pytest
 
-from app import payments
+from app.services import payments
 
 """Реквизиты, у которых контрольный ключ реально сходится с БИК.
 
@@ -135,7 +135,7 @@ def test_кривой_реквизит_ловится_до_показа_клие
 
 
 def empty_config(**over) -> dict:
-    base = {k: "" for k in GOOD}
+    base = dict.fromkeys(GOOD, "")
     base.update(encoding="utf8", mode="gost")
     base.update(over)
     return base

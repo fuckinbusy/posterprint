@@ -1,6 +1,6 @@
 """Сверка двух копий одного правила.
 
-`contributes()` и `needed_dimensions()` живут в двух местах: в app/pricing.py
+`contributes()` и `needed_dimensions()` живут в двух местах: в app/services/pricing.py
 и в web/src/features/orders/dimensions.ts. Копия на фронте нужна потому, что
 форма пересчитывает правило на каждое нажатие галочки и ходить за ответом на
 сервер по десять раз в секунду нельзя.
@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 from conftest import ROOT, field
 
-from app.pricing import contributes, needed_dimensions
+from app.services.pricing import contributes, needed_dimensions
 
 HARNESS = Path(__file__).parent / "js" / "needed_dimensions.mjs"
 
@@ -60,7 +60,7 @@ def build_cases() -> list[dict]:
     keys = list(VALUES)
     cases = []
     for combo in product(*(VALUES[k] for k in keys)):
-        params = dict(zip(keys, combo))
+        params = dict(zip(keys, combo, strict=True))
         # размеры всегда заполнены: правило смотрит не на них, а на то,
         # что выбрано из платного
         params.update({"w": 2, "h": 3, "cut_len": 5, "edge_len": 7, "note": "текст"})
@@ -107,7 +107,7 @@ def test_правило_совпадает_на_всех_сочетаниях():
     theirs = node_answer(cases)
 
     assert len(mine) == len(theirs) == len(cases)
-    for params, left, right in zip(cases, mine, theirs):
+    for params, left, right in zip(cases, mine, theirs, strict=True):
         chosen = {k: params[k] for k in VALUES}
         assert left["needed"] == right["needed"], (
             f"расходится список нужных размеров при выборе {chosen}: "

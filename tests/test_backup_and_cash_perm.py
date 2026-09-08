@@ -2,15 +2,15 @@
 
 Касса получила своё право finance.cash: суммы в работе видят несколько
 человек, а ящик вечером сверяет один. Копии переехали из скрипта в
-app/backup.py, чтобы их делала и кнопка в «Журнале».
+app/services/backup.py, чтобы их делала и кнопка в «Журнале».
 """
 
 from __future__ import annotations
 
 import conftest  # noqa: F401 — добавляет корень проекта в sys.path
 
-from app import backup
-from app.permissions import ALL_KEYS, PERMISSIONS_BY_KEY, default_permissions, normalize
+from app.core.permissions import ALL_KEYS, PERMISSIONS_BY_KEY, default_permissions, normalize
+from app.services import backup
 
 
 def test_право_на_кассу_есть_и_не_выдаётся_по_умолчанию():

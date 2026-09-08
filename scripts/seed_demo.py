@@ -38,24 +38,31 @@ from __future__ import annotations
 import argparse
 import random
 import sys
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sqlalchemy import delete, select  # noqa: E402
+from sqlalchemy import delete, select
 
-from app import catalog, clients as clients_logic, pricing  # noqa: E402
+from app.services import catalog, pricing
+from app.services import clients as clients_logic
 
 # консоль Windows по умолчанию в cp1251 — на «₽» в выводе скрипт падал
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
-from app.database import SessionLocal, init_db  # noqa: E402
-from app.models import (  # noqa: E402
-    STATUS_META, Client, Employee, Order, OrderEvent, OrderStatus, Payment, Template,
+from app.core.database import SessionLocal, init_db
+from app.core.permissions import default_permissions, normalize
+from app.models import (
+    STATUS_META,
+    Client,
+    Employee,
+    Order,
+    OrderEvent,
+    OrderStatus,
+    Payment,
 )
-from app.permissions import default_permissions, normalize  # noqa: E402
-from app.routers.orders import next_number  # noqa: E402
+from app.services.orders import next_number
 
 ADMIN = "Администратор"
 # приёмка: имя → какие права сверх обычных. Пароля нет — вход по имени.
@@ -215,7 +222,7 @@ def business_moment(rnd: random.Random, day: date) -> datetime:
     """Момент в рабочее время дня, в UTC (мастерская живёт по UTC+8)."""
     hour = rnd.choice([9, 10, 10, 11, 11, 12, 13, 14, 14, 15, 16, 16, 17, 18])
     local = datetime.combine(day, time(hour, rnd.randint(0, 59)))
-    return (local - timedelta(hours=8)).replace(tzinfo=timezone.utc)
+    return (local - timedelta(hours=8)).replace(tzinfo=UTC)
 
 
 def pick_params(rnd: random.Random, template: dict) -> dict:
@@ -323,7 +330,7 @@ def generate_order(db, rnd: random.Random, client: dict, templates: dict[str, di
     params = pick_params(rnd, template)
     quantity = rnd.choice(QUANTITY.get(key, [1]))
     extras = pick_extras(rnd, key, extras_catalog)
-    manager = rnd.choice(list(STAFF) + [ADMIN])
+    manager = rnd.choice([*STAFF, ADMIN])
 
     age = rnd.choice(list(range(0, 3)) * 4 + list(range(3, 8)) * 3 + list(range(8, 22)) * 2 + list(range(22, 90)))
     created_day = today - timedelta(days=age)
@@ -503,7 +510,7 @@ def main() -> None:
         due_today_left = 6
         # каждому клиенту с заказами — хотя бы один, остальное по весам:
         # иначе у части справочника заказов не оказывалось вовсе
-        with_orders = [c for c, w in zip(clients, weights) if w > 0]
+        with_orders = [c for c, w in zip(clients, weights, strict=True) if w > 0]
         plan = list(with_orders) + rnd.choices(clients, weights=weights, k=max(args.orders - len(with_orders), 0))
         rnd.shuffle(plan)
         orders: list[Order] = []

@@ -21,7 +21,7 @@ import sys
 
 from sqlalchemy import delete
 
-from app.database import SessionLocal, init_db
+from app.core.database import SessionLocal, init_db
 from app.models import (
     Client,
     Order,
@@ -31,7 +31,7 @@ from app.models import (
     Template,
     TemplateField,
 )
-from app.seed_catalog import seed_price_groups, seed_price_items, seed_templates
+from app.services.seed_catalog import seed_price_groups, seed_price_items, seed_templates
 
 
 def wipe(db) -> None:

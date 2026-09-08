@@ -47,10 +47,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import select
 
-from app.database import SessionLocal, init_db  # noqa: E402
-from app.models import Client, Order, OrderEvent, PriceItem  # noqa: E402
+from app.core.database import SessionLocal, init_db
+from app.models import Client, Order, OrderEvent, PriceItem
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 BACKUP_DIR = BASE_DIR / "backups"
@@ -206,7 +206,7 @@ def restore_orders(db, data: dict, mode: str) -> tuple[int, int]:
     for order in db.scalars(select(Order).where(Order.client_id.is_(None))).all():
         if not order.client_phone:
             continue
-        from app import clients as clients_logic
+        from app.services import clients as clients_logic
 
         client = clients_logic.find_by_phone(db, order.client_phone)
         if client:

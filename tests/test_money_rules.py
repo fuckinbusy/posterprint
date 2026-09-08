@@ -12,11 +12,11 @@ import pytest
 from fastapi import HTTPException
 
 from app.models import Order
-from app.routers.orders import check_refund, payment_state, surplus_of
+from app.services.orders import check_refund, payment_state, surplus_of
 
 
 def order(**kw) -> Order:
-    base = dict(number="x", template_key="t", status="new", price=0.0, prepaid=0.0, refunded=False)
+    base = {"number": "x", "template_key": "t", "status": "new", "price": 0.0, "prepaid": 0.0, "refunded": False}
     base.update(kw)
     return Order(**base)
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from conftest import field
 
-from app.pricing import contributes, estimate_from_fields, needed_dimensions
+from app.services.pricing import contributes, estimate_from_fields, needed_dimensions
 
 # прайс для всех тестов: раздел -> позиция -> ставка
 RATES = {
@@ -324,7 +324,7 @@ def test_голые_ступени_не_путаются_с_таблицами()
 
 def test_доп_услуги_прибавляются_к_любому_заказу():
     """Макет и замеры — не отдельный заказ, а строки в смете любого."""
-    from app.pricing import extras_lines
+    from app.services.pricing import extras_lines
 
     items = [
         {"key": "Простой макет", "title": "Простой макет", "price": 800, "unit": "₽"},

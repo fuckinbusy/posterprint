@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 import conftest  # noqa: F401 — добавляет корень проекта в sys.path
 
-from app.ledger import movement, summarize
+from app.services.ledger import movement, summarize
 
 
 def test_первый_взнос_целиком_в_плюс():

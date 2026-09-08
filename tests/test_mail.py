@@ -10,8 +10,8 @@ from email.message import EmailMessage
 
 import conftest  # noqa: F401 — добавляет корень проекта в sys.path
 
-from app import mail
-from app.permissions import PERMISSIONS_BY_KEY, default_permissions, normalize
+from app.core.permissions import PERMISSIONS_BY_KEY, default_permissions, normalize
+from app.services import mail
 
 
 def test_право_на_почту_включено_по_умолчанию():

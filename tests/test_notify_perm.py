@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import conftest  # noqa: F401 — добавляет корень проекта в sys.path
 
+from app.core.permissions import PERMISSIONS_BY_KEY, default_permissions, normalize
 from app.models import Order
-from app.permissions import PERMISSIONS_BY_KEY, default_permissions, normalize
-from app.routers.orders import fresh_orders_filter
+from app.services.orders import fresh_orders_filter
 
 
 def order(id: int, manager: str) -> Order:

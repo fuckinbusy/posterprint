@@ -16,12 +16,12 @@ from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app import clients, phones
-from app.database import Base
+from app.core.database import Base
+from app.core.security import CurrentUser
 from app.models import Client, Order
-from app.routers.orders import MONEY_FIELDS, require_money_rights
 from app.schemas import OrderCreate
-from app.security import CurrentUser
+from app.services import clients, phones
+from app.services.orders import MONEY_FIELDS, require_money_rights
 
 
 @pytest.fixture

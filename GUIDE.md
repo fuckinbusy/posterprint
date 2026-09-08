@@ -50,33 +50,34 @@ static/
   index.html, js/app.js    прежний интерфейс: запасной вариант на /legacy
 
 app/                       СЕРВЕР
-  main.py                  точка входа, подключение роутеров, наполнение при первом старте
-  database.py              подключение к БД, WAL, проверка целостности, мини-миграции
-  models.py                все таблицы
-  schemas.py               что принимает и отдаёт API
-  catalog.py               чтение видов работ из базы + подстановка вариантов из прайса
-  pricing.py               ОБЩИЙ РАСЧЁТ ЦЕНЫ по ролям полей
-  payments.py              платёжная строка по ГОСТ Р 56042 и QR для оплаты
-  shop.py                  реквизиты мастерской для шапки квитанции
-  seed_catalog.py          каталог: разделы прайса, цены и виды работ
-  permissions.py           СПРАВОЧНИК ПРАВ доступа
-  security.py              пароли, токены, проверка прав и устройств
-  devices.py               учёт компьютеров
-  clients.py               логика справочника клиентов
-  designs.py               хранение макетов: пути, кэш превью
-  cdr.py                   РАЗБОР CDR — извлечение эскиза
-  routers/
-    orders.py              ручки заказов + нумерация + статус оплаты
-    clients.py             ручки клиентов
-    prices.py              разделы и позиции прайса
-    templates.py           виды работ и конструктор полей
-    employees.py           профили сотрудников
-    devices.py             устройства
-    designs.py             макеты заказов
-    metrics.py             метрики
-    export.py              выгрузка CSV
-    logs.py                журнал сервера
-    auth.py                вход
+  main.py                точка входа: статика, журнал запросов, наполнение при первом старте
+  core/                  ядро, ничего не знает о заказах
+    paths.py             корень проекта и чтение .env — один раз для всех
+    database.py          подключение к БД, WAL, проверка целостности, мини-миграции
+    security.py          пароли, токены, проверка прав и устройств
+    permissions.py       справочник прав доступа
+    logs.py              журнал сервера
+    text.py              ключ из русского названия
+  models/                таблицы, по файлу на тему: order, client, catalog, employee, device, setting
+  schemas/               что принимает и отдаёт API, по файлу на раздел
+  services/              правила без HTTP: их зовут и ручки, и скрипты, и тесты
+    pricing.py           общий расчёт цены по ролям полей
+    catalog.py           чтение видов работ из базы, подстановка вариантов из прайса
+    orders.py            номер заказа, состояние оплаты, права на деньги, сборка ответа
+    seed_catalog.py      стартовый каталог: разделы прайса, цены и виды работ
+    payments.py          платёжная строка по ГОСТ и QR
+    ledger.py            касса: движения денег по заказам
+    export.py            CSV под Excel
+    mail.py              почта: IMAP, SMTP, чистка HTML
+    backup.py            резервные копии базы
+    clients.py           справочник клиентов
+    designs.py, cdr.py   макеты и эскиз из CorelDRAW
+    devices.py           учёт компьютеров
+    settings.py, shop.py настройки владельца и реквизиты мастерской
+    phones.py            нормализация телефона
+  api/v1/                ручки; адреса по-прежнему /api/…
+    orders.py, clients.py, prices.py, templates.py, employees.py, devices.py,
+    designs.py, metrics.py, reports.py, export.py, logs.py, settings.py, mail.py, auth.py
 
 scripts/
   seed_demo.py             демо-заказы
@@ -233,9 +234,9 @@ modal.replace(<ЧтоТо />);                                // заменит�
      <input type="text" value={form.поле} onChange={(e) => set('поле', e.target.value)} />
    </Field>
    ```
-3. `app/schemas.py` — классы `OrderBase` и `OrderUpdate`;
-4. `app/models.py` — колонка;
-5. `app/database.py` — та же колонка в `ADDED_COLUMNS`, иначе на существующей
+3. `app/schemas/orders.py` — классы `OrderBase` и `OrderUpdate`;
+4. `app/models/order.py` — колонка;
+5. `app/core/database.py` — та же колонка в `ADDED_COLUMNS`, иначе на существующей
    базе будет «no such column».
 
 Компилятор подскажет, если забыли шаг 1 или 2: `npm run check` в папке `web`.
@@ -247,19 +248,19 @@ modal.replace(<ЧтоТо />);                                // заменит�
 
 ### Добавить новый способ расчёта (роль поля)
 Это единственное, что требует кода. Четыре места:
-1. `app/pricing.py` — обработка роли в `estimate_from_fields()` и описание в шапке файла;
-2. `app/catalog.py` — ключ в `PRICING_ROLES`;
+1. `app/services/pricing.py` — обработка роли в `estimate_from_fields()` и описание в шапке файла;
+2. `app/services/catalog.py` — ключ в `PRICING_ROLES`;
 3. `web/src/types/api.ts` — ключ в типе `PricingRole`;
 4. `web/src/features/works/fieldKinds.ts` — `MONEY_ROLES` (как считать),
    `ROLE_UNITS` (какие единицы прайса ей подходят), при необходимости
    `SIZE_REQUIREMENTS` (нужны ли размеры) и `FIELD_KINDS` (новый вид поля).
 
 ### Поменять формулу расчёта
-`app/pricing.py`, функция `estimate_from_fields()`. Цифр там нет — они в базе.
+`app/services/pricing.py`, функция `estimate_from_fields()`. Цифр там нет — они в базе.
 В коде только логика: что на что умножить.
 
 ### Поправить поиск превью в CDR
-`app/cdr.py`. Порядок попыток: zip-архив (X4+), контейнер RIFF (X3 и старше),
+`app/services/cdr.py`. Порядок попыток: zip-архив (X4+), контейнер RIFF (X3 и старше),
 сканирование байтов. Если ваша версия CorelDRAW кладёт эскиз по другому пути,
 посмотрите `GET /api/orders/{id}/design/inspect` — там список вложений — и
 допишите подсказку в `THUMB_HINTS`.
@@ -272,19 +273,19 @@ modal.replace(<ЧтоТо />);                                // заменит�
 Три места: сама иконка в `web/src/components/Icons.tsx` (компонент плюс
 запись в словаре `BY_NAME`), список `ICONS` в
 `web/src/features/works/WorkEditorModal.tsx` и список `ICONS` в
-`app/routers/templates.py` — сервер принимает только известные ему имена.
+`app/api/v1/templates.py` — сервер принимает только известные ему имена.
 
 ### Добавить или переименовать статус заказа
-`app/models.py`: `OrderStatus` (сам статус), `STATUS_META` (название, подсказка,
+`app/models/order.py`: `OrderStatus` (сам статус), `STATUS_META` (название, подсказка,
 цвет колонки), `ALLOWED_TRANSITIONS` (откуда куда можно двигать), `FORWARD`
 (куда ведёт стрелка на карточке). Доска подхватит автоматически.
 
 ### Поменять формат номера заказа
-`app/routers/orders.py`, функция `next_number()` — там префикс `ЗК` и
+`app/services/orders.py`, функция `next_number()` — там префикс `ЗК` и
 разрядность `:06d`.
 
 ### Добавить новое право доступа
-1. `app/permissions.py` — дописать словарь в `PERMISSIONS` (ключ, название,
+1. `app/core/permissions.py` — дописать словарь в `PERMISSIONS` (ключ, название,
    подсказка, раздел). Страница «Сотрудники» подхватит автоматически.
 2. На сервере: `Depends(require_perm("ваш.ключ"))` в нужной ручке.
 3. `web/src/types/api.ts` — ключ в тип `Permission`.
@@ -311,10 +312,10 @@ modal.replace(<ЧтоТо />);                                // заменит�
 ---
 
 ### Добавить колонку в таблицу
-1. `app/models.py` — поле в модели;
-2. `app/database.py` — та же колонка в словарь `ADDED_COLUMNS`, иначе на
+1. `app/models/` — поле в модели (файл по теме: заказ, клиент, каталог…);
+2. `app/core/database.py` — та же колонка в словарь `ADDED_COLUMNS`, иначе на
    существующей базе будет «no such column»;
-3. если колонка приходит с клиента — `app/schemas.py` или схема в роутере.
+3. если колонка приходит с клиента — `app/schemas/` — файл того же раздела.
 
 Перед изменением схемы система сама снимет копию базы в `backups/..._before-update`.
 
@@ -356,8 +357,8 @@ cd web && npm run build
 
 ## Чего лучше не трогать без нужды
 
-- `app/security.py` — подпись токенов. Ошибка здесь тихо откроет доступ.
-- `_ensure_columns()` и `check_integrity()` в `app/database.py` — обновление
+- `app/core/security.py` — подпись токенов. Ошибка здесь тихо откроет доступ.
+- `_ensure_columns()` и `check_integrity()` в `app/core/database.py` — обновление
   схемы на живой базе и проверка на повреждение. Если сломать, при следующем
   обновлении получите «no such column» или незамеченную порчу данных.
 - Ключи полей видов работ (`TemplateField.key`) — под ними лежат значения в

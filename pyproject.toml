@@ -1,0 +1,23 @@
+# Настройки проверок. Сам проект ставится через requirements*.txt, здесь
+# только инструменты разработки: python -m ruff check app scripts tests
+# и python -m mypy app.
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "B", "UP", "SIM", "C4", "RUF"]
+ignore = [
+    "E501",    # длину строк не караем: русские докстринги длиннее латиницы
+    "B008",    # Depends(...) в аргументах — так устроен FastAPI
+    "RUF001", "RUF002", "RUF003",  # «похожие на латиницу» буквы — это кириллица, это нормально
+    "SIM108",  # тернарник не всегда читается лучше if/else
+    "SIM105",  # try/except: pass бывает понятнее suppress
+    "UP042",   # OrderStatus(str, Enum): StrEnum меняет str() у статуса, а его пишут в базу и в JSON
+]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = true

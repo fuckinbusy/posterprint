@@ -7,36 +7,18 @@
 
 import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import logs
-from app.database import SessionLocal, check_integrity
-from app.security import PASSWORD_IS_DEFAULT
-from app.database import init_db
-from app.routers import (
-    auth,
-    clients,
-    designs,
-    export,
-    logs as logs_router,
-    settings as settings_router,
-    devices,
-    employees,
-    metrics,
-    reports,
-    orders,
-    prices,
-    templates,
-    mail as mail_router,
-)
+from app.api.v1 import router as api_router
+from app.core import logs
+from app.core.database import SessionLocal, check_integrity, init_db
+from app.core.paths import BASE_DIR
+from app.core.security import PASSWORD_IS_DEFAULT
 
-BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 
 
@@ -54,7 +36,7 @@ async def lifespan(_app: FastAPI):
     init_db()  # создаём таблицы, если их ещё нет
     seed_if_empty()  # только на чистой базе: прайс, разделы и виды работ
 
-    from app import designs as designs_storage
+    from app.services import designs as designs_storage
     designs_storage.ensure_dirs()  # папка для макетов
     if PASSWORD_IS_DEFAULT:
         print("[!] POSTER_ADMIN_PASSWORD не задан — админский профиль открывается паролем «admin».")
@@ -131,20 +113,7 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-app.include_router(auth.router)
-app.include_router(orders.router)
-app.include_router(clients.router)
-app.include_router(prices.router)
-app.include_router(templates.router)
-app.include_router(designs.router)
-app.include_router(logs_router.router)
-app.include_router(employees.router)
-app.include_router(devices.router)
-app.include_router(metrics.router)
-app.include_router(reports.router)
-app.include_router(export.router)
-app.include_router(settings_router.router)
-app.include_router(mail_router.router)
+app.include_router(api_router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -193,7 +162,7 @@ def seed_if_empty() -> None:
     from sqlalchemy import select
 
     from app.models import PriceGroup, PriceItem, Template
-    from app.seed_catalog import seed_price_groups, seed_price_items, seed_templates
+    from app.services.seed_catalog import seed_price_groups, seed_price_items, seed_templates
 
     db = SessionLocal()
     try:

@@ -12,8 +12,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app import payments, settings, shop
-from app.database import Base
+from app.core.database import Base
+from app.services import payments, settings, shop
 
 
 @pytest.fixture
