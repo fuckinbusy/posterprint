@@ -17,6 +17,13 @@ services:
       # снаружи — всегда строгий режим; отключить можно только сознательно,
       # убрав эту строку
       POSTER_PUBLIC: "1"
+      # пути к данным задаются здесь, а не в .env: строки вроде
+      # POSTER_LOG_DIR=./logs из .env.example иначе увели бы логи и макеты
+      # из тома внутрь контейнера, где они пропадают при пересборке
+      POSTER_DB_URL: sqlite:////app/data/poster.db
+      POSTER_BACKUP_DIR: /app/data/backups
+      POSTER_DESIGNS_DIR: /app/data/designs
+      POSTER_LOG_DIR: /app/data/logs
     volumes:
       # база, копии, макеты, логи — всё здесь; образ можно пересобирать
       - ./data:/app/data

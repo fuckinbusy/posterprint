@@ -1,0 +1,7 @@
+# Файлы, которые читают Linux-сервисы, всегда с LF: скопированные с Windows
+# (scp, архив) с CRLF они либо не разбираются (systemd), либо ведут себя странно.
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+docker-compose.yml text eol=lf
+deploy/* text eol=lf
+*.sh text eol=lf
