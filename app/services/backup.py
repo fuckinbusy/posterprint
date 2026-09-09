@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sqlite3
 from datetime import date, datetime
@@ -30,7 +31,9 @@ from app.core.database import DB_URL, SessionLocal
 from app.core.paths import BASE_DIR
 from app.models import Client, Order, OrderEvent, Payment, PriceItem
 
-BACKUP_DIR = BASE_DIR / "backups"
+# папка копий: рядом с проектом, либо своя — на сервере данные держат
+# отдельно от кода (том, другой диск), см. POSTER_BACKUP_DIR
+BACKUP_DIR = Path((os.getenv("POSTER_BACKUP_DIR") or str(BASE_DIR / "backups")).strip()).resolve()
 
 SECTIONS = ("orders", "clients", "prices")
 STAMP = "%Y-%m-%d_%H-%M-%S"

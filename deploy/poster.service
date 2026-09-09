@@ -1,0 +1,43 @@
+# ПОСТЕР как служба systemd — вариант без Docker (Ubuntu/Debian).
+#
+# Установка:
+#   sudo useradd --system --home /opt/poster --shell /usr/sbin/nologin poster
+#   sudo git clone https://github.com/fuckinbusy/posterprint-ocr /opt/poster
+#   cd /opt/poster && sudo -u poster python3 -m venv .venv
+#   sudo -u poster .venv/bin/pip install -r requirements.txt
+#   sudo -u poster cp .env.example .env   # и заполнить: пароль, ключ, домен
+#   sudo cp deploy/poster.service /etc/systemd/system/
+#   sudo systemctl enable --now poster
+#
+# Перед приложением должен стоять https-прокси (deploy/Caddyfile: домен и
+# 127.0.0.1:8000). Наружу открыты только 80 и 443; порт 8000 слушает
+# только localhost — см. ExecStart.
+
+[Unit]
+Description=ПОСТЕР — заказы мастерской
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=poster
+Group=poster
+WorkingDirectory=/opt/poster
+EnvironmentFile=/opt/poster/.env
+Environment=POSTER_PUBLIC=1
+# один процесс — намеренно (SQLite, счётчики в памяти); настоящий адрес
+# клиента приходит от прокси на этой же машине
+ExecStart=/opt/poster/.venv/bin/python -m uvicorn app.main:app \
+    --host 127.0.0.1 --port 8000 --workers 1 \
+    --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=5
+
+# служба видит только свою папку; остальная система для неё только на чтение
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/poster
+
+[Install]
+WantedBy=multi-user.target

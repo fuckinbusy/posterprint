@@ -10,6 +10,8 @@ poster.db-shm
 backups/
 designs/
 logs/
+# данные контейнера (docker-compose.yml монтирует сюда базу, копии, макеты, логи)
+data/
 
 # Окружение и кэши
 .venv/

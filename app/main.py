@@ -2,7 +2,9 @@
 
 Запуск:  uvicorn app.main:app --reload
 Интерфейс: http://127.0.0.1:8000/
-Документация API: http://127.0.0.1:8000/docs
+Документация API: http://127.0.0.1:8000/docs (в режиме POSTER_PUBLIC выключена)
+
+Сервер в интернете — см. README, «Удалённый доступ» и app/core/deploy.py.
 """
 
 import os
@@ -10,14 +12,17 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import router as api_router
-from app.core import logs
+from app.core import deploy, logs
 from app.core.database import SessionLocal, check_integrity, init_db
 from app.core.paths import BASE_DIR
 from app.core.security import PASSWORD_IS_DEFAULT
+from app.services import autobackup
 
 STATIC_DIR = BASE_DIR / "static"
 
@@ -33,6 +38,15 @@ async def lifespan(_app: FastAPI):
             "(python -m scripts.restore --list) и запустите снова."
         )
 
+    # Сервер смотрит в интернет — с паролем «admin» и без ключа подписи не
+    # стартуем вовсе: снаружи это найдут раньше, чем владелец заметит.
+    if deploy.PUBLIC:
+        problems = deploy.check(os.environ)
+        if problems:
+            raise RuntimeError(
+                "POSTER_PUBLIC=1, но сервер не готов к открытому доступу:\n  - " + "\n  - ".join(problems)
+            )
+
     init_db()  # создаём таблицы, если их ещё нет
     seed_if_empty()  # только на чистой базе: прайс, разделы и виды работ
 
@@ -41,10 +55,37 @@ async def lifespan(_app: FastAPI):
     if PASSWORD_IS_DEFAULT:
         print("[!] POSTER_ADMIN_PASSWORD не задан — админский профиль открывается паролем «admin».")
         print("    Задайте свой пароль в файле .env перед тем, как открывать доступ коллегам.")
+    if deploy.PUBLIC:
+        warn_open_profiles()
+
+    scheduler = autobackup.from_env()
+    if scheduler is not None:
+        scheduler.start()
     yield
+    if scheduler is not None:
+        scheduler.stop()
 
 
-app = FastAPI(title="ПОСТЕР · заказы", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="ПОСТЕР · заказы",
+    version="0.1.0",
+    lifespan=lifespan,
+    # описание API наружу не отдаём: сотрудникам оно не нужно, а чужому —
+    # готовая карта всех ручек
+    docs_url=None if deploy.PUBLIC else "/docs",
+    redoc_url=None if deploy.PUBLIC else "/redoc",
+    openapi_url=None if deploy.PUBLIC else "/openapi.json",
+)
+
+# На какие имена сервер отзывается. Задано — чужой Host отбивается сразу
+# (без этого заголовок Host можно подставить в ссылку на сброс, в письмо и
+# т. п.). Не задано — как раньше, для домашней сети и разработки.
+if deploy.ALLOWED_HOSTS:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=deploy.ALLOWED_HOSTS)
+
+# сотруднику на удалёнке доска и прайс уезжают в несколько раз быстрее сжатыми;
+# файлы сборки и так сжаты прокси, но сервер может стоять и без него
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Кто может обращаться к API из браузера. По умолчанию — только сам сервер и
 # режим разработки с горячей перезагрузкой (vite на :5173). Свой адрес добавьте
@@ -80,8 +121,14 @@ async def log_requests(request: Request, call_next):
     это незаметно. Статика и превью пропускаются: их много, а пользы нет.
     """
     path = request.url.path
+    # тело больше разумного отсекаем до чтения: иначе оно целиком ляжет в память
+    if deploy.body_too_large(path, request.headers.get("content-length")):
+        return JSONResponse(status_code=413, content={"detail": "Слишком большой запрос"})
+
     if not logs.should_log(path):
-        return await call_next(request)
+        response = await call_next(request)
+        response.headers.update(deploy.security_headers(path, request.url.scheme))
+        return response
 
     timer = logs.Timer()
     who = request.headers.get("x-device-key", "")[:8] or "—"
@@ -110,6 +157,7 @@ async def log_requests(request: Request, call_next):
     elif logs.LOG_REQUESTS:
         logs.log.info("%s %s → %s · %s мс", request.method, path, response.status_code, ms)
 
+    response.headers.update(deploy.security_headers(path, request.url.scheme))
     return response
 
 
@@ -183,6 +231,31 @@ def seed_if_empty() -> None:
         print("    Дальше всё правится в интерфейсе, повторно сиды не сработают.")
     finally:
         db.close()
+
+
+def warn_open_profiles() -> None:
+    """В открытом режиме профиль без пароля, в который можно войти с любого
+    компьютера, — это вход без пароля для всего интернета. Не запрещаем: так
+    мог быть настроен планшет в цехе, — но пишем в журнал крупно."""
+    from sqlalchemy import select
+
+    from app.models import Employee
+
+    db = SessionLocal()
+    try:
+        rows = db.scalars(
+            select(Employee).where(
+                Employee.active.is_(True), Employee.password_hash == "", Employee.access_mode == "any"
+            )
+        ).all()
+    finally:
+        db.close()
+    for employee in rows:
+        logs.log.warning(
+            "Профиль «%s» без пароля и без привязки к компьютеру — в него войдёт любой из интернета. "
+            "Задайте пароль или привяжите к устройствам.",
+            employee.name,
+        )
 
 
 @app.get("/health", include_in_schema=False)

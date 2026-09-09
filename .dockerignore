@@ -1,0 +1,27 @@
+# В образ идут только код, скрипты и собранный интерфейс.
+# Данные и секреты — никогда: они монтируются томом и задаются через .env.
+.env
+.secret
+poster.db
+poster.db-wal
+poster.db-shm
+backups/
+designs/
+logs/
+data/
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.git/
+.claude/
+.vscode/
+.idea/
+
+# исходники интерфейса не нужны: сборка уже лежит в static/dist
+web/
+static/dist/**/*.map
+tests/
+docs/
+*.md
