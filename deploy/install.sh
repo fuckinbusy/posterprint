@@ -8,6 +8,8 @@
 #   bash deploy/install.sh --python python3.11   какой интерпретатор брать (по умолчанию 3.10,
 #                                          если он есть; иначе первый подходящий ≥ 3.10)
 #   bash deploy/install.sh --recreate      пересобрать .venv заново (например, другой версией Python)
+#   bash deploy/install.sh --pip-index URL зеркало PyPI, если pypi.org не отвечает
+#                                          (например https://pypi.tuna.tsinghua.edu.cn/simple)
 #
 # Повторный запуск безопасен: что уже сделано, пропускается.
 
@@ -17,6 +19,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 SERVICE=0; LAN=0; ASK_PASSWORD=1; RECREATE=0; WANT_PYTHON="${POSTER_PYTHON:-}"
+PIP_INDEX="${POSTER_PIP_INDEX:-}"
 while [ $# -gt 0 ]; do
     case "$1" in
         --service) SERVICE=1 ;;
@@ -24,6 +27,7 @@ while [ $# -gt 0 ]; do
         --no-password) ASK_PASSWORD=0 ;;
         --recreate) RECREATE=1 ;;
         --python) WANT_PYTHON="$2"; shift ;;
+        --pip-index) PIP_INDEX="$2"; shift ;;
         *) echo "неизвестный параметр: $1" >&2; exit 1 ;;
     esac
     shift
@@ -93,8 +97,15 @@ fi
 .venv/bin/python -m pip --version >/dev/null 2>&1 \
     || .venv/bin/python -m ensurepip --upgrade >/dev/null 2>&1 \
     || { rm -rf .venv; die "в окружении нет pip: sudo apt install python${pyver}-venv и повторите"; }
-.venv/bin/python -m pip install -q --upgrade pip
-.venv/bin/python -m pip install -q -r requirements.txt
+# pypi.org из России отвечает медленно и с обрывами: ждём дольше, пробуем
+# чаще, а при --pip-index берём зеркало
+pip_args=(--timeout 90 --retries 10)
+[ -n "$PIP_INDEX" ] && pip_args+=(--index-url "$PIP_INDEX" --trusted-host "$(printf '%s' "$PIP_INDEX" | sed -E 's#^[a-z]+://([^/]+).*#\1#')")
+.venv/bin/python -m pip install -q "${pip_args[@]}" --upgrade pip \
+    || echo "pip не обновился — не страшно, ставим зависимости тем, что есть"
+if ! .venv/bin/python -m pip install -q "${pip_args[@]}" -r requirements.txt; then
+    die "зависимости не скачались. Проверьте сеть или возьмите зеркало: bash deploy/install.sh --pip-index https://pypi.tuna.tsinghua.edu.cn/simple $*"
+fi
 echo "зависимости установлены"
 
 # ---------------------------------------------------------------- .env
