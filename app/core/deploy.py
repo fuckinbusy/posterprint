@@ -16,6 +16,7 @@ import hashlib
 import os
 import re
 from collections.abc import Mapping
+from pathlib import Path
 
 from app.core.paths import BASE_DIR
 
@@ -49,11 +50,17 @@ def check(env: Mapping[str, str | None]) -> list[str]:
     Чистая функция от переменных окружения, чтобы её проверяли тесты.
     """
     problems: list[str] = []
+    digest = (env.get("POSTER_ADMIN_PASSWORD_HASH") or "").strip()
     password = (env.get("POSTER_ADMIN_PASSWORD") or "").strip()
-    if not password or password.lower() == "admin":
-        problems.append("POSTER_ADMIN_PASSWORD не задан или равен «admin» — администратор с любым правом на всё")
-    elif len(password) < MIN_ADMIN_PASSWORD:
-        problems.append(f"POSTER_ADMIN_PASSWORD короче {MIN_ADMIN_PASSWORD} знаков — подбирается по словарю")
+    if digest:
+        if digest.count("$") != 2 or not digest.startswith("pbkdf2$"):
+            problems.append("POSTER_ADMIN_PASSWORD_HASH не похож на хэш — задайте его командой python -m scripts.set_password")
+    elif not password or password.lower() == "admin":
+        problems.append("Пароль администратора не задан или равен «admin» — задайте: python -m scripts.set_password")
+    else:
+        problems.append(
+            "POSTER_ADMIN_PASSWORD лежит открытым текстом — переведите в хэш: python -m scripts.set_password"
+        )
 
     secret = (env.get("POSTER_SECRET_KEY") or "").strip()
     if len(secret) < MIN_SECRET:
@@ -138,14 +145,35 @@ def security_headers(path: str, scheme: str) -> dict[str, str]:
     }
     if path.startswith("/static/dist/assets/"):
         headers["Cache-Control"] = IMMUTABLE
-    # прежний интерфейс на /legacy собран без оглядки на CSP; он запасной и
-    # только для своих — политику на него не распространяем
-    if path != "/legacy":
-        headers["Content-Security-Policy"] = CSP
-        headers["X-Frame-Options"] = "DENY"
+    headers["Content-Security-Policy"] = CSP
+    headers["X-Frame-Options"] = "DENY"
     if PUBLIC and scheme == "https":
         headers["Strict-Transport-Security"] = HSTS
     return headers
+
+
+# ---------------------------------------------------------------- права на файлы
+# Что не должны читать другие пользователи машины: секреты, база, копии, макеты
+PROTECTED = (".env", ".secret")
+
+
+def file_permission_problems(base: Path, extra: list[Path] = ()) -> list[str]:  # type: ignore[assignment]
+    """Файлы с секретами и данными, которые может прочитать не только владелец.
+
+    Только для POSIX: там права — три цифры, и «группа и остальные могут
+    читать» видно по одной маске. На Windows права другие, проверять их
+    отсюда не выйдет — подсказка в README, «Безопасность».
+    """
+    if os.name != "posix":
+        return []
+    problems = []
+    for path in [*(base / name for name in PROTECTED), *extra]:
+        if not path.exists():
+            continue
+        mode = path.stat().st_mode & 0o777
+        if mode & 0o077:
+            problems.append(f"{path.name}: права {mode:03o}, читают все — chmod {'700' if path.is_dir() else '600'} {path}")
+    return problems
 
 
 def body_too_large(path: str, content_length: str | None) -> bool:

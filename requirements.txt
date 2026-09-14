@@ -11,6 +11,8 @@ python-multipart>=0.0.9,<1.0
 # рисует QR для оплаты (app/payments.py). Чистый Python, без сборки и
 # без обращений наружу: код считается на месте, реквизиты никуда не уезжают
 segno>=1.5,<2.0
+# шифрует пароль почтового ящика в базе (app/core/crypto.py): AES через Fernet
+cryptography>=42,<47
 
 # для перехода на Postgres на сервере:
 # psycopg[binary]>=3.1

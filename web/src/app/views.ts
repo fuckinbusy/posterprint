@@ -7,6 +7,7 @@ import type { JSX } from 'react';
 import {
   NavBoardIcon,
   NavClientsIcon,
+  NavFeedbackIcon,
   NavLogsIcon,
   NavMailIcon,
   NavMetricsIcon,
@@ -92,6 +93,14 @@ export const VIEWS: ViewConfig[] = [
     title: 'ПОСТЕР · Журнал',
     icon: NavLogsIcon,
     permission: 'staff.manage',
+  },
+  {
+    key: 'feedback',
+    path: '/feedback',
+    label: 'Обратная связь',
+    title: 'ПОСТЕР · Обратная связь',
+    icon: NavFeedbackIcon,
+    permission: 'feedback.send',
   },
   {
     key: 'settings',

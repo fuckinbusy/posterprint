@@ -38,8 +38,14 @@ from app.core.permissions import ALL_KEYS
 from app.models import Device, Employee
 from app.services import devices as devices_logic
 
+# Пароль администратора: хэшем (POSTER_ADMIN_PASSWORD_HASH, задаётся командой
+# python -m scripts.set_password) или, по-старому, открытым текстом. Открытый
+# текст читается любым, кто откроет .env, поэтому при старте об этом
+# предупреждаем, а в режиме POSTER_PUBLIC не стартуем.
+ADMIN_PASSWORD_HASH = (os.getenv("POSTER_ADMIN_PASSWORD_HASH") or "").strip()
 ADMIN_PASSWORD = os.getenv("POSTER_ADMIN_PASSWORD", "admin")
-PASSWORD_IS_DEFAULT = not os.getenv("POSTER_ADMIN_PASSWORD")
+PASSWORD_IS_DEFAULT = not ADMIN_PASSWORD_HASH and not os.getenv("POSTER_ADMIN_PASSWORD")
+PASSWORD_IS_PLAIN = not ADMIN_PASSWORD_HASH and bool(os.getenv("POSTER_ADMIN_PASSWORD"))
 
 TOKEN_TTL = 14 * 24 * 3600  # 14 дней
 SECRET_FILE = BASE_DIR / ".secret"
@@ -67,6 +73,8 @@ def _secret() -> bytes:
     try:
         with open(SECRET_FILE, "xb") as fh:
             fh.write(secrets.token_urlsafe(48).encode())
+        if os.name == "posix":
+            SECRET_FILE.chmod(0o600)  # ключ подписи — только владельцу
     except FileExistsError:
         pass
     _secret_cache = SECRET_FILE.read_bytes().strip()
@@ -145,7 +153,10 @@ def check_hashed(password: str, stored: str) -> bool:
 
 
 def check_password(password: str) -> bool:
-    """Пароль администратора. Сравниваем байты — иначе кириллица ломает compare_digest."""
+    """Пароль администратора: по хэшу, если он задан, иначе по открытому тексту.
+    Сравниваем байты — иначе кириллица ломает compare_digest."""
+    if ADMIN_PASSWORD_HASH:
+        return check_hashed(password, ADMIN_PASSWORD_HASH)
     return hmac.compare_digest((password or "").encode("utf-8"), ADMIN_PASSWORD.encode("utf-8"))
 
 

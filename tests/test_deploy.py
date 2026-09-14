@@ -10,7 +10,7 @@ from app.core import deploy
 from app.services import autobackup
 
 GOOD = {
-    "POSTER_ADMIN_PASSWORD": "длинный-и-непростой-пароль",
+    "POSTER_ADMIN_PASSWORD_HASH": "pbkdf2$abcdef0123456789$" + "0" * 64,
     "POSTER_SECRET_KEY": "x" * 48,
     "POSTER_ALLOWED_HOSTS": "poster.example.ru",
 }
@@ -23,10 +23,10 @@ def test_готовый_к_выходу_наружу_набор_проходит
 @pytest.mark.parametrize(
     "broken, word",
     [
-        ({"POSTER_ADMIN_PASSWORD": ""}, "ADMIN_PASSWORD"),
-        ({"POSTER_ADMIN_PASSWORD": "admin"}, "ADMIN_PASSWORD"),
-        ({"POSTER_ADMIN_PASSWORD": "Admin"}, "ADMIN_PASSWORD"),
-        ({"POSTER_ADMIN_PASSWORD": "короткий"}, "короче"),
+        ({"POSTER_ADMIN_PASSWORD_HASH": ""}, "set_password"),
+        ({"POSTER_ADMIN_PASSWORD_HASH": "", "POSTER_ADMIN_PASSWORD": "admin"}, "«admin»"),
+        ({"POSTER_ADMIN_PASSWORD_HASH": "", "POSTER_ADMIN_PASSWORD": "длинный-и-непростой"}, "открытым текстом"),
+        ({"POSTER_ADMIN_PASSWORD_HASH": "не-хэш"}, "не похож на хэш"),
         ({"POSTER_SECRET_KEY": ""}, "SECRET_KEY"),
         ({"POSTER_SECRET_KEY": "мало"}, "SECRET_KEY"),
         ({"POSTER_ALLOWED_HOSTS": ""}, "ALLOWED_HOSTS"),
@@ -56,14 +56,6 @@ def test_заголовки_безопасности_на_обычной_стр�
 def test_файлы_сборки_кэшируются_навсегда_а_страница_нет():
     assert deploy.security_headers("/static/dist/assets/index-abc.js", "https")["Cache-Control"] == deploy.IMMUTABLE
     assert "Cache-Control" not in deploy.security_headers("/static/dist/index.html", "https")
-
-
-def test_прежний_интерфейс_без_политики():
-    """/legacy собран без оглядки на CSP — на него политика не ставится,
-    остальные заголовки остаются."""
-    headers = deploy.security_headers("/legacy", "https")
-    assert "Content-Security-Policy" not in headers
-    assert headers["X-Content-Type-Options"] == "nosniff"
 
 
 def test_hsts_только_в_открытом_режиме_по_https(monkeypatch):

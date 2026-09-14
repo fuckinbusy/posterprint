@@ -15,6 +15,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import crypto
 from app.models import Setting
 
 # ключ в базе → переменная в .env. Порядок — как на странице настроек.
@@ -47,7 +48,8 @@ KEYS: dict[str, str] = {
     "mail_contacts": "",
 }
 
-# что не показываем обратно в интерфейс: только «задано / не задано»
+# что не показываем обратно в интерфейс: только «задано / не задано».
+# В базе эти значения лежат зашифрованными (app/core/crypto.py)
 SECRET_KEYS = {"mail_password"}
 
 # логотип — картинка, вшитая строкой; больше не нужно, это шапка квитанции
@@ -57,7 +59,11 @@ MAX_LOGO_BYTES = 400 * 1024
 def overrides(db: Session) -> dict[str, str]:
     """Что записано в базе. Только эти ключи перекрывают .env."""
     rows = db.scalars(select(Setting)).all()
-    return {row.key: row.value for row in rows if row.key in KEYS}
+    return {
+        row.key: (crypto.decrypt(row.value) if row.key in SECRET_KEYS else row.value)
+        for row in rows
+        if row.key in KEYS
+    }
 
 
 def save(db: Session, values: dict[str, str]) -> None:
@@ -70,11 +76,26 @@ def save(db: Session, values: dict[str, str]) -> None:
         value = str(values[key] or "").strip()
         if key == "shop_logo" and len(value.encode("utf-8")) > MAX_LOGO_BYTES:
             raise ValueError(f"Логотип больше {MAX_LOGO_BYTES // 1024} КБ — уменьшите картинку")
+        if key in SECRET_KEYS:
+            value = crypto.encrypt(value)
         if key in existing:
             existing[key].value = value
         else:
             db.add(Setting(key=key, value=value))
     db.commit()
+
+
+def encrypt_at_rest(db: Session) -> int:
+    """Секреты, записанные до появления шифрования, лежат открытым текстом —
+    зашифровать при старте. Возвращает, сколько записей переведено."""
+    changed = 0
+    for row in db.scalars(select(Setting).where(Setting.key.in_(SECRET_KEYS))).all():
+        if row.value and not crypto.is_encrypted(row.value):
+            row.value = crypto.encrypt(row.value)
+            changed += 1
+    if changed:
+        db.commit()
+    return changed
 
 
 def pick(overrides_map: dict[str, str] | None, key: str, env_value: str) -> str:

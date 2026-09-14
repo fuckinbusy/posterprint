@@ -21,8 +21,9 @@ from app.api.v1 import router as api_router
 from app.core import deploy, logs
 from app.core.database import SessionLocal, check_integrity, init_db
 from app.core.paths import BASE_DIR
-from app.core.security import PASSWORD_IS_DEFAULT
+from app.core.security import PASSWORD_IS_DEFAULT, PASSWORD_IS_PLAIN
 from app.services import autobackup
+from app.services import settings as settings_logic
 
 STATIC_DIR = BASE_DIR / "static"
 
@@ -53,8 +54,14 @@ async def lifespan(_app: FastAPI):
     from app.services import designs as designs_storage
     designs_storage.ensure_dirs()  # папка для макетов
     if PASSWORD_IS_DEFAULT:
-        print("[!] POSTER_ADMIN_PASSWORD не задан — админский профиль открывается паролем «admin».")
-        print("    Задайте свой пароль в файле .env перед тем, как открывать доступ коллегам.")
+        print("[!] Пароль администратора не задан — профиль открывается паролем «admin».")
+        print("    Задайте свой: python -m scripts.set_password")
+    elif PASSWORD_IS_PLAIN:
+        print("[!] POSTER_ADMIN_PASSWORD лежит в .env открытым текстом — его прочитает любой, кто откроет файл.")
+        print("    Переведите в хэш: python -m scripts.set_password")
+    for problem in deploy.file_permission_problems(BASE_DIR, data_paths()):
+        logs.log.warning("Права на файлы: %s", problem)
+    encrypt_secrets()
     if deploy.PUBLIC:
         warn_open_profiles()
 
@@ -176,23 +183,32 @@ NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
 
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
-    """Отдаёт интерфейс.
-
-    Основной фронтенд — собранный React из static/dist (исходники в web/,
-    сборка командой `npm run build`). Прежний интерфейс на ванильном JS
-    остаётся рядом как запасной: если сборки нет, отдаём его. Убрать его
-    можно, когда новый отработает на живых заказах.
-    """
-    built = STATIC_DIR / "dist" / "index.html"
-    if built.exists():
-        return FileResponse(built, headers=NO_CACHE)
-    return FileResponse(STATIC_DIR / "index.html", headers=NO_CACHE)
+    """Отдаёт интерфейс: собранный React из static/dist (исходники в web/,
+    сборка командой `npm run build`)."""
+    return FileResponse(STATIC_DIR / "dist" / "index.html", headers=NO_CACHE)
 
 
-@app.get("/legacy", include_in_schema=False)
-def legacy_index() -> FileResponse:
-    """Прежний интерфейс — на случай, если в новом что-то не работает."""
-    return FileResponse(STATIC_DIR / "index.html", headers=NO_CACHE)
+def data_paths() -> list:
+    """Где лежат данные, которые не должны читать другие пользователи машины."""
+    from app.core.database import sqlite_file
+    from app.services import backup, designs
+
+    paths = [backup.BACKUP_DIR, designs.DESIGNS_DIR, logs.LOG_DIR]
+    db_file = sqlite_file()
+    if db_file is not None:
+        paths.append(db_file)
+    return paths
+
+
+def encrypt_secrets() -> None:
+    """Пароли в настройках, записанные до появления шифрования, — зашифровать."""
+    db = SessionLocal()
+    try:
+        changed = settings_logic.encrypt_at_rest(db)
+    finally:
+        db.close()
+    if changed:
+        logs.log.info("Настройки: зашифровано секретов, хранившихся открытым текстом: %s", changed)
 
 
 def seed_if_empty() -> None:

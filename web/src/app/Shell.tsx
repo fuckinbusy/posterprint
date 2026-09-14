@@ -17,6 +17,7 @@ import { OrderNotices } from '@/features/notify/OrderNotices';
 import { ProfilePage } from '@/features/profile/ProfilePage';
 import { BOARD_SORTS, type BoardSort } from '@/features/board/sorting';
 import { ClientsPage } from '@/features/clients/ClientsPage';
+import { FeedbackPage } from '@/features/feedback/FeedbackPage';
 import { GateScreen } from '@/features/gate/GateScreen';
 import { LogsPage } from '@/features/logs/LogsPage';
 import { MetricsPage } from '@/features/metrics/MetricsPage';
@@ -42,6 +43,16 @@ function readSort(): BoardSort {
 export function Shell() {
   const { session, checking } = useAuth();
   const location = useLocation();
+  // откуда человек пришёл в «Обратную связь»: последний рабочий раздел
+  useEffect(() => {
+    if (location.pathname !== '/feedback') {
+      try {
+        sessionStorage.setItem('poster.lastPage', location.pathname);
+      } catch {
+        /* приватный режим — не страшно, поле останется пустым */
+      }
+    }
+  }, [location.pathname]);
 
   /* состояние доски */
   const [query, setQuery] = useState('');
@@ -148,6 +159,14 @@ export function Shell() {
           element={
             <Guarded permission="staff.manage">
               <SettingsPage />
+            </Guarded>
+          }
+        />
+        <Route
+          path="/feedback"
+          element={
+            <Guarded permission="feedback.send">
+              <FeedbackPage />
             </Guarded>
           }
         />

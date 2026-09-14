@@ -3,10 +3,6 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
 /* Сборка кладётся в static/dist — FastAPI отдаёт её оттуда.
- * Старый фронт (static/index.html, static/js/app.js) остаётся на месте
- * нетронутым: если в новом обнаружится дыра, сервер переключается обратно
- * одной строкой в app/main.py.
- *
  * base обязателен: файлы лежат под /static/dist/, а не в корне сайта. */
 export default defineConfig({
   plugins: [react()],
@@ -23,9 +19,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // Стили лежат в static/css/app.css — вне папки web. Файл намеренно один
-    // на оба фронта: пока старый работает как запасной, две копии CSS
-    // разъехались бы при первой же правке.
+    // Стили лежат в static/css/app.css — вне папки web, рядом со шрифтами
+    // и сборкой: их отдаёт сервер как есть.
     fs: {
       allow: [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(new URL('..', import.meta.url))],
     },
