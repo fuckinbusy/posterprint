@@ -1,14 +1,12 @@
 """Подготовка к реальному запуску: хэш пароля администратора, шифрование
-секретов, скрипт set_password, права на файлы, обратная связь."""
+секретов, скрипт set_password, права на файлы."""
 
 import os
 import stat
 
 import pytest
 
-from app.core import crypto, deploy, permissions, security
-from app.schemas.feedback import FeedbackIn, FeedbackUpdate
-from app.services import feedback as feedback_logic
+from app.core import crypto, deploy, security
 from scripts.set_password import rewrite_env
 
 
@@ -82,40 +80,3 @@ def test_на_windows_проверка_прав_молчит(monkeypatch, tmp_pa
     monkeypatch.setattr(os, "name", "nt")
     (tmp_path / ".env").write_text("x")
     assert deploy.file_permission_problems(tmp_path) == []
-
-
-# ---------------------------------------------------------------- обратная связь
-def test_право_писать_разработчику_есть_у_нового_профиля():
-    assert "feedback.send" in permissions.default_permissions()
-    assert "feedback.send" in permissions.normalize(["staff.manage"])
-
-
-def test_схема_не_пропускает_пустое_и_чужой_вид():
-    with pytest.raises(ValueError):
-        FeedbackIn(kind="bug", title="ок", text="коротко")
-    with pytest.raises(ValueError):
-        FeedbackIn(kind="жалоба", title="заголовок", text="достаточно длинный текст")  # type: ignore[arg-type]
-    ok = FeedbackIn(kind="idea", title="заголовок", text="достаточно длинный текст")
-    assert ok.page == ""
-    with pytest.raises(ValueError):
-        FeedbackUpdate(status="new", author="x")  # type: ignore[call-arg]
-
-
-def test_текст_уведомления_содержит_суть():
-    from datetime import datetime, timezone
-
-    from app.models import Feedback
-
-    item = Feedback(id=7, kind="bug", title="Не сохраняется срок", text="Нажал сохранить — срок пустой",
-                    page="/board", author="Аня", user_agent="Chrome", created_at=datetime(2026, 9, 14, 8, 0, tzinfo=timezone.utc))
-    text = feedback_logic.render(item)
-    assert "Ошибка: Не сохраняется срок" in text
-    assert "Аня" in text and "/board" in text and "№7" in text
-
-
-def test_каналы_доставки_из_окружения(monkeypatch):
-    monkeypatch.delenv("POSTER_FEEDBACK_EMAIL", raising=False)
-    monkeypatch.delenv("POSTER_FEEDBACK_WEBHOOK", raising=False)
-    assert feedback_logic.targets() == {"email": "", "webhook": ""}
-    monkeypatch.setenv("POSTER_FEEDBACK_EMAIL", " dev@example.ru ")
-    assert feedback_logic.targets()["email"] == "dev@example.ru"

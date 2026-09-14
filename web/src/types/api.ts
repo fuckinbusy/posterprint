@@ -34,7 +34,6 @@ export type Permission =
   | 'metrics.view'
   | 'prices.view'
   | 'prices.edit'
-  | 'feedback.send'
   | 'staff.manage';
 
 export interface PermissionItem {
@@ -622,28 +621,6 @@ export interface DesignInfo {
 export interface DesignLink {
   url: string;
   filename: string;
-}
-
-/* ---------------------------------------------------- обратная связь */
-export type FeedbackKind = 'bug' | 'idea' | 'question';
-export type FeedbackStatus = 'new' | 'seen' | 'done' | 'declined';
-
-export interface Feedback {
-  id: number;
-  kind: FeedbackKind | string;
-  title: string;
-  text: string;
-  /** раздел интерфейса, откуда написали */
-  page: string;
-  user_agent: string;
-  author: string;
-  status: FeedbackStatus | string;
-  /** ответ разработчика; пусто — ещё не отвечали */
-  reply: string;
-  /** куда ушло уведомление: mail, webhook; пусто — только база */
-  delivered: string;
-  created_at: string;
-  updated_at: string;
 }
 
 /* ---------------------------------------------------- метрики */

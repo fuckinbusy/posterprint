@@ -6,7 +6,6 @@ from app.schemas.auth import EmployeeLogin, LoginRequest, LoginResponse
 from app.schemas.clients import ClientOut, ClientUpdate, MergeIn
 from app.schemas.devices import DeviceOut, DeviceUpdate
 from app.schemas.employees import EmployeeCreate, EmployeeOut, EmployeeUpdate
-from app.schemas.feedback import FeedbackIn, FeedbackOut, FeedbackUpdate
 from app.schemas.mail import ReplyIn, SeenIn, SendIn
 from app.schemas.orders import (
     EstimateLine,
@@ -41,9 +40,6 @@ __all__ = [
     "EventOut",
     "ExtraIn",
     "ExtraOut",
-    "FeedbackIn",
-    "FeedbackOut",
-    "FeedbackUpdate",
     "FieldIn",
     "FieldOut",
     "GroupIn",

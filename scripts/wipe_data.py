@@ -4,7 +4,7 @@
     python -m scripts.wipe_data --yes    # без вопросов (для скриптов)
 
 Стирает: заказы с историей и кассой, клиентов, профили сотрудников,
-устройства, обратную связь. Оставляет: разделы и позиции прайса, виды работ,
+устройства. Оставляет: разделы и позиции прайса, виды работ,
 настройки владельца (реквизиты, почта). Перед этим сам делает полную копию
 в backups/ — симуляцию, если она была нужна, можно вернуть оттуда.
 
@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import delete, func, select, text
 
 from app.core.database import DB_URL, SessionLocal, init_db
-from app.models import Client, Device, Employee, Feedback, Order, OrderEvent, Payment, PriceItem, Template
+from app.models import Client, Device, Employee, Order, OrderEvent, Payment, PriceItem, Template
 from app.services import backup
 
 # порядок важен там, где внешние ключи выключены: сначала зависимые
@@ -34,7 +34,6 @@ WIPE = (
     ("клиенты", Client),
     ("профили сотрудников", Employee),
     ("устройства", Device),
-    ("обратная связь", Feedback),
 )
 
 

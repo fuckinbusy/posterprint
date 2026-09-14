@@ -69,7 +69,6 @@ app/                       СЕРВЕР
     ledger.py            касса: движения денег по заказам
     export.py            CSV под Excel
     mail.py              почта: IMAP, SMTP, чистка HTML
-    feedback.py          обратная связь: сохранить, отправить письмом и на вебхук
     backup.py            резервные копии базы
     clients.py           справочник клиентов
     designs.py, cdr.py   макеты и эскиз из CorelDRAW

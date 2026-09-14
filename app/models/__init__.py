@@ -12,7 +12,6 @@ from app.models.catalog import PriceChange, PriceGroup, PriceItem, Template, Tem
 from app.models.client import Client
 from app.models.device import Device
 from app.models.employee import Employee
-from app.models.feedback import Feedback
 from app.models.order import (
     ALLOWED_TRANSITIONS,
     FORWARD,
@@ -31,7 +30,6 @@ __all__ = [
     "Client",
     "Device",
     "Employee",
-    "Feedback",
     "Order",
     "OrderEvent",
     "OrderStatus",
