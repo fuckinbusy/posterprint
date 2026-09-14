@@ -78,6 +78,31 @@ python3 -m venv .venv                 # отдельное окружение т
 окружение (`source .venv/bin/activate`) не обязательно, ниже он вызывается
 по полному пути, так команды одинаково работают и из терминала, и из службы.
 
+### Без интернета: зависимости с флешки
+
+Если сервер не достаёт до PyPI (ни напрямую, ни через зеркало), пакеты
+скачивают на любом компьютере с интернетом и приносят папкой. Нужны
+wheel-файлы под Linux x86_64 и ту версию Python, что на сервере
+(`python3 --version` там). На Windows-компьютере с этим же проектом:
+
+```bash
+python -m pip download -r requirements.txt uvloop -d wheels \
+    --platform manylinux2014_x86_64 --platform manylinux_2_17_x86_64 --platform manylinux_2_28_x86_64 \
+    --python-version 3.12 --implementation cp --abi cp312 --abi abi3 --abi none --only-binary=:all:
+```
+
+(`3.12` и `cp312` замените на версию сервера; `uvloop` добавлен отдельно —
+с Windows его иначе пропускают как «не для этой системы»). Папку `wheels`
+копируют на сервер — `scp -r wheels user@сервер:/opt/poster/` или флешкой —
+и ставят из неё:
+
+```bash
+sudo bash deploy/install.sh --service --lan --wheels /opt/poster/wheels
+```
+
+Либо руками, без скрипта: `.venv/bin/pip install --no-index --find-links wheels -r requirements.txt`.
+Обновление зависимостей потом — тем же путём, с новой папкой.
+
 ## 3. Настройки
 
 ```bash

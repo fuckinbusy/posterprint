@@ -10,6 +10,8 @@
 #   bash deploy/install.sh --recreate      пересобрать .venv заново (например, другой версией Python)
 #   bash deploy/install.sh --pip-index URL зеркало PyPI, если pypi.org не отвечает
 #                                          (например https://pypi.tuna.tsinghua.edu.cn/simple)
+#   bash deploy/install.sh --wheels ПАПКА  вообще без интернета: зависимости из папки с
+#                                          wheel-файлами (см. deploy/LINUX.md, «Без интернета»)
 #
 # Повторный запуск безопасен: что уже сделано, пропускается.
 
@@ -20,6 +22,7 @@ cd "$ROOT"
 
 SERVICE=0; LAN=0; ASK_PASSWORD=1; RECREATE=0; WANT_PYTHON="${POSTER_PYTHON:-}"
 PIP_INDEX="${POSTER_PIP_INDEX:-}"
+WHEELS="${POSTER_WHEELS:-}"
 while [ $# -gt 0 ]; do
     case "$1" in
         --service) SERVICE=1 ;;
@@ -28,6 +31,7 @@ while [ $# -gt 0 ]; do
         --recreate) RECREATE=1 ;;
         --python) WANT_PYTHON="$2"; shift ;;
         --pip-index) PIP_INDEX="$2"; shift ;;
+        --wheels) WHEELS="$2"; shift ;;
         *) echo "неизвестный параметр: $1" >&2; exit 1 ;;
     esac
     shift
@@ -98,13 +102,20 @@ fi
     || .venv/bin/python -m ensurepip --upgrade >/dev/null 2>&1 \
     || { rm -rf .venv; die "в окружении нет pip: sudo apt install python${pyver}-venv и повторите"; }
 # pypi.org из России отвечает медленно и с обрывами: ждём дольше, пробуем
-# чаще, а при --pip-index берём зеркало
+# чаще, при --pip-index берём зеркало, при --wheels — вообще не ходим в сеть
 pip_args=(--timeout 90 --retries 10)
+if [ -n "$WHEELS" ]; then
+    [ -d "$WHEELS" ] || die "нет папки с wheel-файлами: $WHEELS"
+    pip_args=(--no-index --find-links "$WHEELS")
+    echo "зависимости — из $WHEELS, без интернета"
+fi
 [ -n "$PIP_INDEX" ] && pip_args+=(--index-url "$PIP_INDEX" --trusted-host "$(printf '%s' "$PIP_INDEX" | sed -E 's#^[a-z]+://([^/]+).*#\1#')")
-.venv/bin/python -m pip install -q "${pip_args[@]}" --upgrade pip \
-    || echo "pip не обновился — не страшно, ставим зависимости тем, что есть"
+if [ -z "$WHEELS" ]; then
+    .venv/bin/python -m pip install -q "${pip_args[@]}" --upgrade pip \
+        || echo "pip не обновился — не страшно, ставим зависимости тем, что есть"
+fi
 if ! .venv/bin/python -m pip install -q "${pip_args[@]}" -r requirements.txt; then
-    die "зависимости не скачались. Проверьте сеть или возьмите зеркало: bash deploy/install.sh --pip-index https://pypi.tuna.tsinghua.edu.cn/simple $*"
+    die "зависимости не установились. Сеть: --pip-index https://pypi.tuna.tsinghua.edu.cn/simple; без сети: --wheels ПАПКА (deploy/LINUX.md, «Без интернета»)"
 fi
 echo "зависимости установлены"
 
