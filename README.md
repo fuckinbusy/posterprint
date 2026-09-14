@@ -7,7 +7,31 @@
 ## Запуск
 
 Нужен Python 3.10 или новее (проверено на 3.10 и 3.14). Пошаговый гайд для
-Linux — от установки до службы systemd — в [deploy/LINUX.md](deploy/LINUX.md).
+Linux — от установки до службы systemd — в [deploy/LINUX.md](deploy/LINUX.md);
+там же два скрипта, которые делают всё сами: `deploy/install.sh` (окружение,
+`.env`, пароль, служба с автозапуском) и `deploy/poster.sh` (запуск, статус,
+журнал, обновление, сторож).
+
+### Запуск на Windows
+
+Тот же набор для Windows — `deploy\poster.ps1` (PowerShell 5.1 или 7):
+
+```powershell
+python -m venv .venv; .venv\Scripts\pip install -r requirements.txt
+copy .env.example .env; .venv\Scripts\python -m scripts.set_password
+
+deploy\poster.ps1 run                  # в окне, Ctrl+C — стоп
+deploy\poster.ps1 start                # в фоне, скрытым окном; stop, status, logs, update, backup
+deploy\poster.ps1 install-autostart    # от имени администратора: задача планировщика
+```
+
+`install-autostart` создаёт задачу планировщика от учётной записи SYSTEM:
+сервер стартует при включении компьютера ещё до входа в Windows, после сбоя
+перезапускается раз в минуту без ограничения попыток, второй задачей раз в
+минуту работает сторож по `/health`, спящий режим и отключение диска
+выключаются через `powercfg`. Убрать — `remove-autostart`. Чтобы компьютер
+включался сам после отключения света, в BIOS ставится *Restore on AC Power
+Loss → Power On*.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate

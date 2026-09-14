@@ -8,6 +8,46 @@ Python 3.10 или новее и git; Node.js не нужен — интерфе
 
 Команды даны для запуска из корня проекта. `$` в начале строки не набирать.
 
+## Коротко: два скрипта делают всё
+
+Если читать некогда — шаги 1–6 ниже упакованы в два скрипта из `deploy/`:
+
+```bash
+sudo apt install -y python3 python3-venv git
+git clone https://github.com/fuckinbusy/posterprint-ocr /opt/poster && cd /opt/poster
+
+sudo bash deploy/install.sh --service --lan     # в своей сети без прокси
+# или
+sudo bash deploy/install.sh --service           # за https-прокси (Caddy, туннель)
+```
+
+`install.sh` находит Python 3.10+, собирает `.venv`, ставит зависимости,
+создаёт `.env` из образца, генерирует ключ подписи, спрашивает пароль
+администратора и записывает его хэшем, закрывает `.env` правами 600. С
+`--service` — заводит пользователя `poster`, ставит службу systemd с
+автозапуском при загрузке и перезапуском после сбоя, запрещает спящий
+режим и вешает сторож в cron. Повторный запуск ничего не ломает.
+
+Дальше — `deploy/poster.sh`:
+
+```
+deploy/poster.sh status              жив ли, отвечает ли
+deploy/poster.sh logs                 журнал вживую
+deploy/poster.sh update               git pull, зависимости, перезапуск
+deploy/poster.sh backup               копия базы сейчас
+deploy/poster.sh run                  в терминале (для проверки)
+deploy/poster.sh start | stop         в фоне без systemd (pid в logs/poster.pid)
+deploy/poster.sh install-service      только служба, если install.sh шёл без --service
+deploy/poster.sh enable-autostart     автозапуск через cron там, где нет systemd
+deploy/poster.sh watchdog             поднять, если не отвечает — его и зовёт cron
+```
+
+Скрипт сам понимает, как запущен сервер (служба или фоновый процесс), и
+не даст запустить второй экземпляр. На Windows то же самое делает
+`deploy\poster.ps1` (см. README, «Запуск на Windows»).
+
+Ниже — те же шаги руками, чтобы понимать, что скрипты делают.
+
 ---
 
 ## 1. Что поставить
@@ -171,7 +211,9 @@ sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.ta
 раскомментируйте и поставьте `HandleLidSwitch=ignore`, затем
 `sudo systemctl restart systemd-logind`.
 
-**Служба стартует с системой и встаёт после сбоя.** Это делает `systemd`
+**Служба стартует с системой и встаёт после сбоя.** Всё в этом шаге
+делает одна команда `sudo deploy/poster.sh install-service` (или
+`install.sh --service`); руками — так. Это делает `systemd`
 из шага 5в: команда `systemctl enable` включает запуск при загрузке,
 а в `deploy/poster.service` стоит `Restart=always` — упавший процесс
 поднимается через 5 секунд, сколько бы раз он ни падал. Проверить, что
