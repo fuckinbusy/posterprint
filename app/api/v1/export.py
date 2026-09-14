@@ -11,7 +11,7 @@ BOM в начале, иначе Excel открывает кириллицу кр
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import func, select
@@ -61,7 +61,7 @@ def orderscsv_response(
     """Заказы, созданные за период. Одна строка — один заказ."""
     stmt = select(Order).order_by(Order.created_at)
     if days:
-        stmt = stmt.where(Order.created_at >= datetime.now(UTC) - timedelta(days=days))
+        stmt = stmt.where(Order.created_at >= datetime.now(timezone.utc) - timedelta(days=days))
     orders = db.scalars(stmt).all()
 
     templates = {t["key"]: t for t in catalog.all_templates(db, include_hidden=True)}

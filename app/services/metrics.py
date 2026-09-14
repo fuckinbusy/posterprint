@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import and_, func, or_, select
@@ -43,7 +43,7 @@ TOP_ROWS = 15
 
 def _aware(dt: datetime) -> datetime:
     """SQLite отдаёт время без часового пояса — приводим к UTC."""
-    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def _aware_or_none(dt: datetime | None) -> datetime | None:
@@ -384,7 +384,7 @@ def build(
 ) -> dict:
     """Полная сводка за период. compare — считать ли прошлый период той же
     длины; tz — смещение местного времени от UTC в минутах."""
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     today = date.today()
     current = summary(db, since, until)
     orders, done, created, cancelled = current["orders"], current["done"], current["created"], current["cancelled"]

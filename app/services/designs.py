@@ -22,7 +22,7 @@ import contextlib
 import os
 import shutil
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.core.paths import BASE_DIR
@@ -98,7 +98,7 @@ def info(order_number: str) -> DesignInfo:
         exists=True,
         filename=path.name,
         size=stat.st_size,
-        uploaded_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+        uploaded_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
         has_preview=preview is not None,
         preview_note=note,
     )

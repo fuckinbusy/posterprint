@@ -6,6 +6,9 @@
 
 ## Запуск
 
+Нужен Python 3.10 или новее (проверено на 3.10 и 3.14). Пошаговый гайд для
+Linux — от установки до службы systemd — в [deploy/LINUX.md](deploy/LINUX.md).
+
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt

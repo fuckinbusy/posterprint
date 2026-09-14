@@ -39,7 +39,7 @@ import argparse
 import io
 import random
 import sys
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -223,7 +223,7 @@ def business_moment(rnd: random.Random, day: date) -> datetime:
     """Момент в рабочее время дня, в UTC (мастерская живёт по UTC+8)."""
     hour = rnd.choice([9, 10, 10, 11, 11, 12, 13, 14, 14, 15, 16, 16, 17, 18])
     local = datetime.combine(day, time(hour, rnd.randint(0, 59)))
-    return (local - timedelta(hours=8)).replace(tzinfo=UTC)
+    return (local - timedelta(hours=8)).replace(tzinfo=timezone.utc)
 
 
 def pick_params(rnd: random.Random, template: dict) -> dict:

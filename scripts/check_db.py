@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -117,8 +117,8 @@ def main() -> None:
         print("  [!] бэкапов нет. Сделайте первый:  python -m scripts.backup")
     else:
         last = folders[-1]
-        age = datetime.now(UTC) - datetime.fromtimestamp(
-            last.stat().st_mtime, tz=UTC
+        age = datetime.now(timezone.utc) - datetime.fromtimestamp(
+            last.stat().st_mtime, tz=timezone.utc
         )
         days = age.days
         print(f"  всего         {len(folders)}")

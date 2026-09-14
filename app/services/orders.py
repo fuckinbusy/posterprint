@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -23,7 +23,7 @@ def next_number(db: Session) -> str:
     старые четырёхзначные номера (ЗК-2026-0007), сравнение строк дало бы
     неверный максимум при переходе на шестизначные.
     """
-    year = datetime.now(UTC).year
+    year = datetime.now(timezone.utc).year
     prefix = f"ЗК-{year}-"
     width = 6
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
@@ -381,7 +381,7 @@ def change_status(
     order.status = target.value
     # фиксируем момент выдачи — по нему считается выручка за период
     if target == OrderStatus.done:
-        order.completed_at = datetime.now(UTC)
+        order.completed_at = datetime.now(timezone.utc)
     elif current == OrderStatus.done:
         order.completed_at = None  # заказ вернули из «Выдан» обратно в работу
 

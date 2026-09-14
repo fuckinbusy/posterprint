@@ -29,7 +29,7 @@ MAC-адрес, серийник диска и прочие идентифика
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import Request
 from sqlalchemy import select
@@ -89,10 +89,10 @@ def touch(db: Session, key: str | None, request: Request | None = None) -> Devic
         return device
 
     # обновляем, но не на каждый чих: запись раз в минуту, чтобы не долбить базу
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     last = device.last_seen_at
     if last is not None and last.tzinfo is None:
-        last = last.replace(tzinfo=UTC)
+        last = last.replace(tzinfo=timezone.utc)
     if last is None or (now - last).total_seconds() > 60 or device.last_ip != ip:
         device.last_seen_at = now
         if ip:

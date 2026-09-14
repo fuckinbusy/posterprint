@@ -4,7 +4,7 @@
 считается новым клиентом, попадание в срок, порядок должников.
 """
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from app.models import Order
 from app.services import metrics
@@ -16,7 +16,7 @@ def order(**kw) -> Order:
     return Order(**base)
 
 
-NOW = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+NOW = datetime(2026, 9, 8, 12, 0, tzinfo=timezone.utc)
 
 
 def test_delta_к_прошлому_периоду():
@@ -40,9 +40,9 @@ def test_доп_услуги_по_снимку_в_заказе():
 
 def test_в_срок_считаются_только_заказы_со_сроком():
     done = [
-        order(due_date=date(2026, 9, 5), completed_at=datetime(2026, 9, 5, 18, tzinfo=UTC)),  # день в день — успели
-        order(due_date=date(2026, 9, 5), completed_at=datetime(2026, 9, 6, 9, tzinfo=UTC)),   # на день позже
-        order(due_date=None, completed_at=datetime(2026, 9, 6, tzinfo=UTC)),                  # без срока — не в счёт
+        order(due_date=date(2026, 9, 5), completed_at=datetime(2026, 9, 5, 18, tzinfo=timezone.utc)),  # день в день — успели
+        order(due_date=date(2026, 9, 5), completed_at=datetime(2026, 9, 6, 9, tzinfo=timezone.utc)),   # на день позже
+        order(due_date=None, completed_at=datetime(2026, 9, 6, tzinfo=timezone.utc)),                  # без срока — не в счёт
     ]
     stats = metrics.on_time_stats(done)
     assert stats == {"count": 1, "total": 2, "rate": 50.0}
@@ -72,11 +72,11 @@ def test_должники_выданные_сверху_потом_просро�
     today = date(2026, 9, 8)
     rows = metrics.debtors(
         [
-            order(id=1, number="A", status="done", price=1000, prepaid=0, completed_at=datetime(2026, 9, 1, tzinfo=UTC)),
+            order(id=1, number="A", status="done", price=1000, prepaid=0, completed_at=datetime(2026, 9, 1, tzinfo=timezone.utc)),
             order(id=2, number="B", status="in_work", price=5000, prepaid=1000, due_date=date(2026, 9, 1)),
             order(id=3, number="C", status="in_work", price=5000, prepaid=1000, due_date=date(2026, 9, 20)),  # срок не вышел
             order(id=4, number="D", status="done", price=800, prepaid=800),  # оплачен
-            order(id=5, number="E", status="done", price=3000, prepaid=500, completed_at=datetime(2026, 9, 6, tzinfo=UTC)),
+            order(id=5, number="E", status="done", price=3000, prepaid=500, completed_at=datetime(2026, 9, 6, tzinfo=timezone.utc)),
         ],
         today,
     )
@@ -121,6 +121,6 @@ def test_график_по_дням_добивает_пустые_дни_вкл�
 
 
 def test_нагрузка_по_дням_недели():
-    rows = metrics.weekday_load([order(created_at=datetime(2026, 9, 7, tzinfo=UTC), price=10), order(created_at=datetime(2026, 9, 7, tzinfo=UTC), price=5)])
+    rows = metrics.weekday_load([order(created_at=datetime(2026, 9, 7, tzinfo=timezone.utc), price=10), order(created_at=datetime(2026, 9, 7, tzinfo=timezone.utc), price=5)])
     assert rows[0] == {"label": "пн", "count": 2, "sum": 15.0}
     assert sum(r["count"] for r in rows) == 2

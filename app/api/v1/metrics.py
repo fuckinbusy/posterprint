@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -27,8 +27,8 @@ def _parse(value: str, name: str) -> datetime:
     except ValueError:
         raise HTTPException(422, f"Неверная дата в параметре {name}") from None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 @router.get("/metrics")
@@ -42,7 +42,7 @@ def metrics(
 ) -> dict:
     """Сводка за период. Либо последние `days` дней (0 — всё время), либо
     произвольный отрезок `from`…`to` — так выбирают календарный месяц."""
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     if start or end:
         if not (start and end):
             raise HTTPException(422, "Нужны оба параметра: from и to")

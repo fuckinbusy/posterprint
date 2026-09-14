@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import select
@@ -127,7 +127,7 @@ def login_employee(
     note_success(keys)
     log.info("Вход: %s", employee.name)
 
-    employee.last_login_at = datetime.now(UTC)
+    employee.last_login_at = datetime.now(timezone.utc)
     db.commit()
 
     token, expires = make_token(f"emp:{employee.id}")

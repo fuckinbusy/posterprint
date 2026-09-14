@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select
@@ -37,8 +37,8 @@ def _parse(value: str, name: str) -> datetime:
     except ValueError:
         raise HTTPException(422, f"Неверная дата в параметре {name}") from None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC).replace(tzinfo=None)
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def _rows(db: Session, start: str, end: str) -> list[Payment]:
@@ -56,7 +56,7 @@ def _rows(db: Session, start: str, end: str) -> list[Payment]:
 
 
 def _at(row: Payment) -> datetime:
-    return row.created_at if row.created_at.tzinfo else row.created_at.replace(tzinfo=UTC)
+    return row.created_at if row.created_at.tzinfo else row.created_at.replace(tzinfo=timezone.utc)
 
 
 @router.get("/cash")
