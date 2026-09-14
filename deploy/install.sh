@@ -57,7 +57,12 @@ fi
 [ -n "$PYTHON" ] || die "нужен Python 3.10 или новее: sudo apt install python3.10 python3.10-venv"
 "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' || die "$PYTHON старее 3.10"
 echo "используем $PYTHON ($("$PYTHON" --version))"
-"$PYTHON" -c 'import venv' 2>/dev/null || die "нет модуля venv: sudo apt install python3-venv"
+# На Debian/Ubuntu venv и ensurepip лежат в отдельном пакете; без него
+# python -m venv создаёт полупустое окружение без pip и падает — а
+# следующий запуск видел бы «.venv уже есть» и спотыкался на pip.
+pyver="$("$PYTHON" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
+"$PYTHON" -c 'import venv, ensurepip' 2>/dev/null \
+    || die "у $PYTHON нет venv/ensurepip: sudo apt install python${pyver}-venv  (затем повторите команду)"
 
 # ---------------------------------------------------------------- окружение
 say "Окружение .venv"
@@ -65,8 +70,16 @@ if [ -x .venv/bin/python ] && [ "$RECREATE" -eq 1 ]; then
     rm -rf .venv
     echo "прежнее окружение удалено"
 fi
+# окружение без pip — след неудачной попытки: сносим и создаём заново
+if [ -x .venv/bin/python ] && ! .venv/bin/python -m pip --version >/dev/null 2>&1; then
+    echo "в .venv нет pip (прошлая установка оборвалась) — пересоздаём"
+    rm -rf .venv
+fi
 if [ ! -x .venv/bin/python ]; then
-    "$PYTHON" -m venv .venv
+    if ! "$PYTHON" -m venv .venv; then
+        rm -rf .venv
+        die "не удалось создать окружение: sudo apt install python${pyver}-venv и повторите"
+    fi
     echo "создано на $("$PYTHON" --version)"
 else
     have_version="$(.venv/bin/python --version 2>&1)"
@@ -77,6 +90,9 @@ else
         echo "уже есть ($have_version)"
     fi
 fi
+.venv/bin/python -m pip --version >/dev/null 2>&1 \
+    || .venv/bin/python -m ensurepip --upgrade >/dev/null 2>&1 \
+    || { rm -rf .venv; die "в окружении нет pip: sudo apt install python${pyver}-venv и повторите"; }
 .venv/bin/python -m pip install -q --upgrade pip
 .venv/bin/python -m pip install -q -r requirements.txt
 echo "зависимости установлены"
