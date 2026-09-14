@@ -13,6 +13,9 @@
 #                                        служба systemd: автозапуск при загрузке,
 #                                        перезапуск после сбоя, сторож, без сна
 #   deploy/poster.sh enable-autostart    автозапуск без systemd: @reboot и сторож в cron
+#   deploy/poster.sh disable-autostart   убрать из автозапуска: служба остаётся, но при
+#                                        загрузке не стартует; сторож и @reboot из cron убраны
+#   deploy/poster.sh uninstall-service   снести службу целиком (файлы и данные не трогает)
 #   deploy/poster.sh update              git pull, зависимости, перезапуск
 #   deploy/poster.sh backup              копия базы прямо сейчас
 #
@@ -223,6 +226,43 @@ install_cron_line() {
     printf '%s\n%s\n' "$current" "$line" | sed '/^$/d' | crontab -
 }
 
+remove_cron_lines() {
+    # все строки cron, которые ссылаются на этот скрипт (сторож, @reboot)
+    have crontab || return 0
+    local current; current="$(crontab -l 2>/dev/null || true)"
+    [ -n "$current" ] || return 0
+    local rest; rest="$(printf '%s\n' "$current" | grep -Fv "$ROOT/deploy/poster.sh" || true)"
+    if [ -z "$rest" ]; then crontab -r 2>/dev/null || true; else printf '%s\n' "$rest" | crontab -; fi
+}
+
+cmd_disable_autostart() {
+    local removed=0
+    if service_exists; then
+        [ "$(id -u)" -eq 0 ] || [ -n "$SUDO" ] || die "нужен root: sudo deploy/poster.sh disable-autostart"
+        $SUDO systemctl disable --now "$SERVICE" 2>/dev/null && removed=1
+        say "Служба $SERVICE выключена и убрана из автозапуска (файл службы остался — вернуть: deploy/poster.sh start и sudo systemctl enable $SERVICE)"
+    fi
+    # cron: и от текущего пользователя, и от root (install-service писал от root)
+    remove_cron_lines
+    if [ "$(id -u)" -ne 0 ] && [ -n "$SUDO" ]; then
+        $SUDO bash -c "$(declare -f have remove_cron_lines); ROOT='$ROOT'; remove_cron_lines" 2>/dev/null || true
+    fi
+    pid_alive && cmd_stop
+    rm -f "$STOP_MARK"
+    [ "$removed" -eq 1 ] || say "Строки автозапуска и сторожа убраны из cron"
+}
+
+cmd_uninstall_service() {
+    have systemctl || die "нет systemd"
+    [ "$(id -u)" -eq 0 ] || die "нужен root: sudo deploy/poster.sh uninstall-service"
+    cmd_disable_autostart
+    rm -f "/etc/systemd/system/$SERVICE.service"
+    systemctl daemon-reload
+    # спящий режим снова разрешён — как было до установки
+    systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target >/dev/null 2>&1 || true
+    say "Служба $SERVICE удалена. Код, база и копии в $ROOT не тронуты; пользователь $SERVICE оставлен."
+}
+
 cmd_update() {
     need_venv
     git pull --ff-only
@@ -252,6 +292,8 @@ case "${1:-help}" in
     watchdog) cmd_watchdog ;;
     install-service) shift; cmd_install_service "$@" ;;
     enable-autostart) cmd_enable_autostart ;;
+    disable-autostart) cmd_disable_autostart ;;
+    uninstall-service) cmd_uninstall_service ;;
     update) cmd_update ;;
     backup) shift; cmd_backup "$@" ;;
     help|-h|--help) cmd_help ;;

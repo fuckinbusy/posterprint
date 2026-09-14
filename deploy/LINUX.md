@@ -40,6 +40,8 @@ deploy/poster.sh start | stop         в фоне без systemd (pid в logs/po
 deploy/poster.sh install-service      только служба, если install.sh шёл без --service
 deploy/poster.sh enable-autostart     автозапуск через cron там, где нет systemd
 deploy/poster.sh watchdog             поднять, если не отвечает — его и зовёт cron
+deploy/poster.sh disable-autostart    убрать из автозапуска (служба остаётся, сторож выключен)
+deploy/poster.sh uninstall-service    снести службу целиком; данные не трогает
 ```
 
 Скрипт сам понимает, как запущен сервер (служба или фоновый процесс), и
@@ -259,6 +261,13 @@ curl -s http://127.0.0.1:8000/health
 ```
 @reboot sleep 20 && cd /opt/poster && .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 >> logs/uvicorn.out 2>&1
 ```
+
+**Убрать из автозапуска.** `sudo deploy/poster.sh disable-autostart` —
+служба выключается, при загрузке больше не стартует, сторож и `@reboot`
+уходят из cron; запустить руками по-прежнему можно (`deploy/poster.sh
+start`). Совсем снести службу — `sudo deploy/poster.sh uninstall-service`
+(код, база и копии остаются). Руками это `sudo systemctl disable --now
+poster` плюс удаление строк со `poster.sh` из `sudo crontab -e`.
 
 **Сторож на всякий случай.** `systemd` перезапускает процесс, который
 завершился; процесс, который жив, но перестал отвечать (завис на диске,
