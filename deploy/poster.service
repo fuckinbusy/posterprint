@@ -17,6 +17,9 @@
 Description=ПОСТЕР — заказы мастерской
 After=network-online.target
 Wants=network-online.target
+# systemd перестаёт перезапускать службу после 5 сбоев за 10 секунд — нам
+# наоборот нужно, чтобы он пробовал, пока не поднимется
+StartLimitIntervalSec=0
 
 [Service]
 User=poster
@@ -29,7 +32,9 @@ Environment=POSTER_PUBLIC=1
 ExecStart=/opt/poster/.venv/bin/python -m uvicorn app.main:app \
     --host 127.0.0.1 --port 8000 --workers 1 \
     --proxy-headers --forwarded-allow-ips=127.0.0.1
-Restart=on-failure
+# перезапуск при любом выходе (сбой, kill, oom) через 5 секунд, без
+# ограничения на число попыток: сервер в мастерской должен вставать сам
+Restart=always
 RestartSec=5
 
 # служба видит только свою папку; остальная система для неё только на чтение
