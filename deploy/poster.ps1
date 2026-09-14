@@ -45,6 +45,8 @@ $HostAddr = if ($env:POSTER_HOST) { $env:POSTER_HOST } elseif (Env-Value 'POSTER
 $Port = if ($env:POSTER_PORT) { $env:POSTER_PORT } elseif (Env-Value 'POSTER_PORT') { Env-Value 'POSTER_PORT' } else { '8000' }
 $Health = "http://127.0.0.1:$Port/health"
 $PidFile = Join-Path $Root 'logs\poster.pid'
+# метка «остановлен намеренно»: пока она есть, сторож не поднимает сервер
+$StopMark = Join-Path $Root 'logs\poster.stopped'
 $OutFile = Join-Path $Root 'logs\uvicorn.out'
 $TaskName = 'POSTER server'
 $WatchdogTask = 'POSTER watchdog'
@@ -82,6 +84,8 @@ function Cmd-Run {
 
 function Cmd-Start {
     Need-Venv
+    New-Item -ItemType Directory -Force -Path (Join-Path $Root 'logs') | Out-Null
+    Remove-Item $StopMark -ErrorAction SilentlyContinue
     if ((Task-Exists $TaskName) -and (Get-ScheduledTask -TaskName $TaskName).State -eq 'Running') {
         Write-Host 'Работает как задача планировщика'; return
     }
@@ -96,6 +100,9 @@ function Cmd-Start {
 }
 
 function Cmd-Stop {
+    # метка ставится первой: иначе сторож поднимет сервер через минуту
+    New-Item -ItemType Directory -Force -Path (Join-Path $Root 'logs') | Out-Null
+    Set-Content -Path $StopMark -Value (Get-Date)
     if (Task-Exists $TaskName) { Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue }
     $p = Pid-Alive
     if ($p) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Write-Host 'Остановлен' }
@@ -105,6 +112,7 @@ function Cmd-Stop {
 }
 
 function Cmd-Status {
+    if (Test-Path $StopMark) { Write-Host 'Остановлен намеренно (poster.ps1 stop) — сторож не вмешивается' }
     if (Task-Exists $TaskName) {
         $t = Get-ScheduledTask -TaskName $TaskName
         Write-Host "Задача планировщика: $($t.State); сторож: $(if (Task-Exists $WatchdogTask) { 'есть' } else { 'нет' })"
@@ -121,6 +129,7 @@ function Cmd-Logs {
 }
 
 function Cmd-Watchdog {
+    if (Test-Path $StopMark) { return }   # остановили намеренно
     if (Health-Ok) { return }
     $stamp = Get-Date -Format 'dd.MM HH:mm'
     if (Task-Exists $TaskName) {

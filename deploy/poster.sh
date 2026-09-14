@@ -2,7 +2,9 @@
 # Управление сервером ПОСТЕР на Linux одной командой.
 #
 #   deploy/poster.sh run                 в текущем терминале (Ctrl+C — стоп)
-#   deploy/poster.sh start|stop|restart  в фоне, без systemd (pid в logs/poster.pid)
+#   deploy/poster.sh start|stop|restart  служба systemd, если установлена; иначе фоновый
+#                                        процесс (pid в logs/poster.pid). После stop сторож
+#                                        сервер не поднимает — до следующего start
 #   deploy/poster.sh status              жив ли процесс и отвечает ли /health
 #   deploy/poster.sh logs [N]            последние N строк журнала и дальше вживую
 #   deploy/poster.sh health              0 — отвечает, 1 — нет (для сторожа)
@@ -38,7 +40,13 @@ HEALTH="http://127.0.0.1:${PORT}/health"
 
 PID_FILE="logs/poster.pid"
 OUT_FILE="logs/uvicorn.out"
+# метка «остановлен намеренно»: пока она есть, сторож не поднимает сервер
+STOP_MARK="logs/poster.stopped"
 SERVICE="poster"
+
+# служба управляется от root; из-под обычного пользователя — через sudo
+SUDO=""
+if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
 
 say()  { printf '%s\n' "$*"; }
 die()  { printf 'Ошибка: %s\n' "$*" >&2; exit 1; }
@@ -76,9 +84,15 @@ cmd_run() {
 
 cmd_start() {
     need_venv
-    if service_active; then say "Работает как служба systemd — управляйте через systemctl"; return 0; fi
-    if pid_alive; then say "Уже запущен (pid $(cat "$PID_FILE"))"; return 0; fi
     mkdir -p logs
+    rm -f "$STOP_MARK"
+    if service_exists; then
+        if service_active; then say "Служба уже работает"; return 0; fi
+        $SUDO systemctl start "$SERVICE"
+        if wait_health; then say "Служба запущена: http://${HOST}:${PORT}/"; else die "служба не ответила — $SUDO journalctl -u $SERVICE -n 50"; fi
+        return 0
+    fi
+    if pid_alive; then say "Уже запущен (pid $(cat "$PID_FILE"))"; return 0; fi
     # nohup и setsid: процесс переживёт закрытие терминала и выход из ssh
     # (setsid есть на Linux; под Git Bash на Windows обходимся nohup)
     if have setsid; then
@@ -95,7 +109,14 @@ cmd_start() {
 }
 
 cmd_stop() {
-    if service_active; then say "Работает как служба — sudo systemctl stop $SERVICE"; return 0; fi
+    # метка ставится первой: иначе сторож из cron поднимет сервер через минуту
+    mkdir -p logs
+    touch "$STOP_MARK"
+    if service_exists; then
+        $SUDO systemctl stop "$SERVICE"
+        say "Служба остановлена. Сторож её не поднимет, пока не сделать: deploy/poster.sh start"
+        return 0
+    fi
     if ! pid_alive; then say "Не запущен"; rm -f "$PID_FILE"; return 0; fi
     local pid; pid="$(cat "$PID_FILE")"
     kill "$pid" 2>/dev/null || true
@@ -110,6 +131,7 @@ cmd_stop() {
 }
 
 cmd_status() {
+    [ -f "$STOP_MARK" ] && say "Остановлен намеренно (deploy/poster.sh stop) — сторож не вмешивается"
     if service_exists; then
         say "Служба systemd: $(systemctl is-active "$SERVICE" 2>/dev/null || true), автозапуск: $(systemctl is-enabled "$SERVICE" 2>/dev/null || true)"
     elif pid_alive; then
@@ -130,10 +152,11 @@ cmd_logs() {
 cmd_health() { health_ok && { say "ok"; return 0; } || { say "нет ответа"; return 1; }; }
 
 cmd_watchdog() {
-    # для cron раз в минуту: тихо, если всё хорошо
+    # для cron раз в минуту: тихо, если всё хорошо или остановили намеренно
+    [ -f "$STOP_MARK" ] && return 0
     health_ok && return 0
     if service_exists; then
-        systemctl restart "$SERVICE" && say "$(date '+%d.%m %H:%M') сторож: служба перезапущена"
+        $SUDO systemctl restart "$SERVICE" && say "$(date '+%d.%m %H:%M') сторож: служба перезапущена"
     else
         pid_alive && cmd_stop >/dev/null
         cmd_start >/dev/null && say "$(date '+%d.%m %H:%M') сторож: процесс поднят заново"
@@ -205,7 +228,7 @@ cmd_update() {
     git pull --ff-only
     "$PY" -m pip install -q -r requirements.txt
     if service_exists; then
-        systemctl restart "$SERVICE" 2>/dev/null || sudo systemctl restart "$SERVICE"
+        $SUDO systemctl restart "$SERVICE"
         say "Обновлено, служба перезапущена"
     elif pid_alive; then
         cmd_stop >/dev/null; cmd_start
@@ -222,7 +245,7 @@ case "${1:-help}" in
     run) cmd_run ;;
     start) cmd_start ;;
     stop) cmd_stop ;;
-    restart) cmd_stop; cmd_start ;;
+    restart) if service_exists; then $SUDO systemctl restart "$SERVICE" && rm -f "$STOP_MARK" && say "Служба перезапущена"; else cmd_stop; cmd_start; fi ;;
     status) cmd_status ;;
     logs) shift; cmd_logs "$@" ;;
     health) cmd_health ;;
