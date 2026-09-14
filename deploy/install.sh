@@ -5,6 +5,9 @@
 #   sudo bash deploy/install.sh --service  то же плюс служба systemd с автозапуском
 #   bash deploy/install.sh --service --lan для своей сети без прокси (0.0.0.0, без POSTER_PUBLIC)
 #   bash deploy/install.sh --no-password   не спрашивать пароль администратора (задать позже)
+#   bash deploy/install.sh --python python3.11   какой интерпретатор брать (по умолчанию 3.10,
+#                                          если он есть; иначе первый подходящий ≥ 3.10)
+#   bash deploy/install.sh --recreate      пересобрать .venv заново (например, другой версией Python)
 #
 # Повторный запуск безопасен: что уже сделано, пропускается.
 
@@ -13,14 +16,17 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-SERVICE=0; LAN=0; ASK_PASSWORD=1
-for arg in "$@"; do
-    case "$arg" in
+SERVICE=0; LAN=0; ASK_PASSWORD=1; RECREATE=0; WANT_PYTHON="${POSTER_PYTHON:-}"
+while [ $# -gt 0 ]; do
+    case "$1" in
         --service) SERVICE=1 ;;
         --lan) LAN=1 ;;
         --no-password) ASK_PASSWORD=0 ;;
-        *) echo "неизвестный параметр: $arg" >&2; exit 1 ;;
+        --recreate) RECREATE=1 ;;
+        --python) WANT_PYTHON="$2"; shift ;;
+        *) echo "неизвестный параметр: $1" >&2; exit 1 ;;
     esac
+    shift
 done
 
 say() { printf '\n== %s\n' "$*"; }
@@ -34,25 +40,42 @@ fi
 
 # ---------------------------------------------------------------- python
 say "Python"
+# Система проверена на 3.10 — его и берём, если он есть; --python или
+# POSTER_PYTHON задают интерпретатор явно
 PYTHON=""
-for candidate in python3.12 python3.11 python3.10 python3; do
-    if command -v "$candidate" >/dev/null 2>&1; then
-        if "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
+if [ -n "$WANT_PYTHON" ]; then
+    command -v "$WANT_PYTHON" >/dev/null 2>&1 || die "нет интерпретатора $WANT_PYTHON"
+    PYTHON="$WANT_PYTHON"
+else
+    for candidate in python3.10 python3.11 python3.12 python3.13 python3; do
+        if command -v "$candidate" >/dev/null 2>&1 \
+           && "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
             PYTHON="$candidate"; break
         fi
-    fi
-done
-[ -n "$PYTHON" ] || die "нужен Python 3.10 или новее: sudo apt install python3 python3-venv"
+    done
+fi
+[ -n "$PYTHON" ] || die "нужен Python 3.10 или новее: sudo apt install python3.10 python3.10-venv"
+"$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' || die "$PYTHON старее 3.10"
 echo "используем $PYTHON ($("$PYTHON" --version))"
 "$PYTHON" -c 'import venv' 2>/dev/null || die "нет модуля venv: sudo apt install python3-venv"
 
 # ---------------------------------------------------------------- окружение
 say "Окружение .venv"
+if [ -x .venv/bin/python ] && [ "$RECREATE" -eq 1 ]; then
+    rm -rf .venv
+    echo "прежнее окружение удалено"
+fi
 if [ ! -x .venv/bin/python ]; then
     "$PYTHON" -m venv .venv
-    echo "создано"
+    echo "создано на $("$PYTHON" --version)"
 else
-    echo "уже есть"
+    have_version="$(.venv/bin/python --version 2>&1)"
+    want_version="$("$PYTHON" --version 2>&1)"
+    if [ "$have_version" != "$want_version" ]; then
+        echo "уже есть, но на $have_version, а выбран $want_version — пересобрать: bash deploy/install.sh --recreate"
+    else
+        echo "уже есть ($have_version)"
+    fi
 fi
 .venv/bin/python -m pip install -q --upgrade pip
 .venv/bin/python -m pip install -q -r requirements.txt
