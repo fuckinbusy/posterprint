@@ -56,6 +56,16 @@ SERVICE="poster"
 SUDO=""
 if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
 
+# Служба уже установлена — порт берём из её файла: это тот порт, на котором
+# она на самом деле слушает. Иначе сторож из cron (он не видит переменных
+# оболочки, с которыми ставили службу) стучался бы не туда и перезапускал
+# здоровый сервер каждую минуту.
+UNIT_FILE="/etc/systemd/system/$SERVICE.service"
+if [ "${1:-}" != "install-service" ] && [ -f "$UNIT_FILE" ]; then
+    unit_port="$(grep -oE -- '--port [0-9]+' "$UNIT_FILE" | head -1 | tr -dc '0-9' || true)"
+    if [ -n "$unit_port" ]; then PORT="$unit_port"; HEALTH="http://127.0.0.1:${PORT}/health"; fi
+fi
+
 say()  { printf '%s\n' "$*"; }
 die()  { printf 'Ошибка: %s\n' "$*" >&2; exit 1; }
 need_venv() { [ -n "$PY" ] || die "нет окружения .venv — сначала deploy/install.sh"; }
@@ -164,7 +174,13 @@ cmd_health() { health_ok && { say "ok"; return 0; } || { say "нет ответ�
 cmd_watchdog() {
     # для cron раз в минуту: тихо, если всё хорошо или остановили намеренно
     [ -f "$STOP_MARK" ] && return 0
-    health_ok && return 0
+    # три попытки с паузой: одна неудача — ещё не повод ронять всем работу
+    # (сервер мог быть занят копией или только что перезапущен)
+    local try
+    for try in 1 2 3; do
+        health_ok && return 0
+        sleep 5
+    done
     if service_exists; then
         $SUDO systemctl restart "$SERVICE" && say "$(date '+%d.%m %H:%M') сторож: служба перезапущена"
     else

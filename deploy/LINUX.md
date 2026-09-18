@@ -298,6 +298,15 @@ ss -ltnp | grep 8000                                       # кто слушае
 
 ## 8. Обновление
 
+Одной командой: `sudo bash deploy/poster.sh update` — забирает код,
+доставляет зависимости, возвращает файлы пользователю службы и
+перезапускает её. Если `git pull` ругается на изменённые `deploy/*.sh`
+(вы делали им `chmod +x`), один раз выполните в каталоге проекта
+`sudo git -c safe.directory=/opt/poster config core.fileMode false` —
+установщик новых версий делает это сам.
+
+То же руками:
+
 ```bash
 cd /opt/poster
 sudo -u poster git pull                  # или git pull, если запускали от себя
