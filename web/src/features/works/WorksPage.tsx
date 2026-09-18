@@ -11,6 +11,7 @@ import { plural } from '@/lib/format';
 import type { WorkFieldOut, WorkTemplate } from '@/types/api';
 
 import { WorkEditorModal, toPayload } from './WorkEditorModal';
+import { GuideButton } from '@/features/prices/PriceGuideModal';
 import { useSaveTemplate } from '@/api/templates';
 
 export function WorksPage() {
@@ -25,8 +26,7 @@ export function WorksPage() {
   const deleteTemplate = useDeleteTemplate();
 
   const editable = can('prices.edit');
-  const roleTitle = (key: string) =>
-    meta.data?.roles.find((r) => r.key === key)?.title ?? key;
+  const roleTitle = (key: string) => meta.data?.roles.find((r) => r.key === key)?.title ?? key;
 
   /* Подпись поля в плитке. У измерений дописываем единицу самого поля:
      раньше название роли жёстко говорило «Ширина, мм», а поле могло быть
@@ -83,15 +83,18 @@ export function WorksPage() {
           title="Виды работ"
           sub="То, что сотрудник выбирает первым шагом при создании заказа. У каждого вида свой набор полей: списки материалов подтягиваются из разделов прайса, а роль поля определяет, как оно влияет на цену. Формулы писать не нужно."
           actions={
-            editable && (
-              <button
-                className="btn btn-green"
-                type="button"
-                onClick={() => modal.open(<WorkEditorModal template={null} />)}
-              >
-                + Новый вид работ
-              </button>
-            )
+            <>
+              <GuideButton start="kinds" title="Как устроены поля и расчёт" />
+              {editable && (
+                <button
+                  className="btn btn-green"
+                  type="button"
+                  onClick={() => modal.open(<WorkEditorModal template={null} />)}
+                >
+                  + Новый вид работ
+                </button>
+              )}
+            </>
           }
         />
 

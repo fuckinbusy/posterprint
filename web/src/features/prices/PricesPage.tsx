@@ -16,6 +16,7 @@ import { Empty, Loading, PageHead } from '@/components/ui';
 import { formatRate } from '@/lib/format';
 
 import { GroupTile } from './GroupTile';
+import { GuideButton } from './PriceGuideModal';
 import { PriceGroupEditor } from './PriceGroupEditor';
 import { PriceGroupView } from './PriceGroupView';
 import { buildTree, groupPath } from './tree';
@@ -82,9 +83,7 @@ export function PricesPage() {
         const groupHit = g.title.toLowerCase().includes(needle);
         const items = g.items.filter(
           (i) =>
-            groupHit ||
-            i.title.toLowerCase().includes(needle) ||
-            i.item_key.toLowerCase().includes(needle),
+            groupHit || i.title.toLowerCase().includes(needle) || i.item_key.toLowerCase().includes(needle),
         );
         return items.map((i) => ({ group: g, path, item: i }));
       })
@@ -115,20 +114,23 @@ export function PricesPage() {
             </>
           }
           actions={
-            can('prices.edit') && (
-              <>
-                <button
-                  className="btn btn-green"
-                  type="button"
-                  onClick={() => modal.open(<PriceGroupEditor group={null} groups={groups} />)}
-                >
-                  + Новый раздел
-                </button>
-                <button className="btn btn-ghost" type="button" onClick={restore}>
-                  Восстановить недостающие
-                </button>
-              </>
-            )
+            <>
+              <GuideButton start="groups" />
+              {can('prices.edit') && (
+                <>
+                  <button
+                    className="btn btn-green"
+                    type="button"
+                    onClick={() => modal.open(<PriceGroupEditor group={null} groups={groups} />)}
+                  >
+                    + Новый раздел
+                  </button>
+                  <button className="btn btn-ghost" type="button" onClick={restore}>
+                    Восстановить недостающие
+                  </button>
+                </>
+              )}
+            </>
           }
         />
 
@@ -172,12 +174,7 @@ export function PricesPage() {
             каждую превращал сетку из трёх колонок в столбик. */}
         <div className="pr-tiles" hidden={Boolean(needle)}>
           {tree.map(({ group, children }) => (
-            <GroupTile
-              group={group}
-              childCount={children.length}
-              onOpen={open}
-              key={group.key}
-            />
+            <GroupTile group={group} childCount={children.length} onOpen={open} key={group.key} />
           ))}
         </div>
       </div>
