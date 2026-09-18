@@ -63,7 +63,9 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 uvicorn_cmd() { echo "$PY" -m uvicorn app.main:app --host "$HOST" --port "$PORT" --workers 1; }
 
-service_exists() { have systemctl && systemctl list-unit-files "$SERVICE.service" 2>/dev/null | grep -q "^$SERVICE.service"; }
+# без конвейера: при pipefail «systemctl | grep -q» изредка падал по SIGPIPE,
+# и скрипт принимал установленную службу за отсутствующую
+service_exists() { have systemctl && { [ -f "/etc/systemd/system/$SERVICE.service" ] || systemctl cat "$SERVICE" >/dev/null 2>&1; }; }
 service_active() { have systemctl && systemctl is-active --quiet "$SERVICE" 2>/dev/null; }
 
 pid_alive() {
@@ -236,7 +238,7 @@ cmd_enable_autostart() {
 install_cron_line() {
     local line="$1"
     local current; current="$(crontab -l 2>/dev/null || true)"
-    printf '%s\n' "$current" | grep -Fqx "$line" && return 0
+    grep -Fqx -- "$line" <<<"$current" && return 0
     printf '%s\n%s\n' "$current" "$line" | sed '/^$/d' | crontab -
 }
 

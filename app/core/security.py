@@ -28,6 +28,7 @@ import hmac
 import os
 import secrets
 import time
+from datetime import datetime, timezone
 
 from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -134,6 +135,23 @@ def verify_token(token: str | None) -> str | None:
     except ValueError:
         return None
     return subject
+
+
+def token_issued_at(token: str | None) -> int:
+    """Когда выдан токен: срок истечения минус время жизни. 0 — не разобрать."""
+    try:
+        return int((token or "").split(".")[1]) - TOKEN_TTL
+    except (IndexError, ValueError):
+        return 0
+
+
+def token_fits_profile(token: str | None, created_at: datetime | None) -> bool:
+    """Токен выдан не раньше, чем появился профиль (5 с запаса на часы)."""
+    if created_at is None:
+        return True
+    if created_at.tzinfo is None:  # SQLite возвращает время без пояса — оно в UTC
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    return token_issued_at(token) >= int(created_at.timestamp()) - 5
 
 
 # ---------------------------------------------------------------- пароли
@@ -292,7 +310,8 @@ def current_user(
     Заодно отмечает устройство: так администратор видит все компьютеры,
     с которых работают в системе (экран входа отмечает их сам).
     """
-    subject = verify_token(_token_from_headers(authorization, x_admin_token))
+    token = _token_from_headers(authorization, x_admin_token)
+    subject = verify_token(token)
     if subject is None:
         return GUEST
     # устройство отмечаем только по действительному токену: экран входа
@@ -311,6 +330,11 @@ def current_user(
         employee = db.get(Employee, employee_id)
         # права читаются из базы каждый раз: правка админа действует сразу
         if employee is None or not employee.active:
+            return GUEST
+        # SQLite отдаёт номер удалённого профиля следующему новому: токен
+        # уволенного сотрудника иначе подошёл бы тому, кого завели после него.
+        # Токен, выданный раньше, чем появился профиль, — чужой.
+        if not token_fits_profile(token, employee.created_at):
             return GUEST
         # привязку проверяем на каждом запросе, а не только при входе —
         # иначе скопированный на другой компьютер токен продолжал бы работать
