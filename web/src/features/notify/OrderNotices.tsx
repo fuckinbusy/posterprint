@@ -53,7 +53,7 @@ export function OrderNotices() {
 
   // опрос сервера: новые чужие заказы и новые письма
   useFreshOrders((fresh) => fresh.orders.forEach((order) => pushNotice(order)));
-  useFreshMail((messages) => messages.forEach((mail) => pushMailNotice(mail)));
+  useFreshMail((messages, box) => messages.forEach((mail) => pushMailNotice(mail, { box })));
 
   if (items.length === 0) return null;
   return (
@@ -100,7 +100,8 @@ function NoticeCard({
   const open = () => {
     onClose();
     if (notice.kind === 'order') openOrder(notice.order.id);
-    else navigate(`/mail?uid=${notice.mail.uid}`);
+    // письмо лежит в конкретном ящике — открываем именно его
+    else navigate(`/mail?${notice.box ? `account=${notice.box.id}&` : ''}uid=${notice.mail.uid}`);
   };
 
   return (
@@ -140,7 +141,11 @@ function describe(
   if (notice.kind === 'mail') {
     const m = notice.mail;
     return {
-      eyebrow: notice.test ? 'Проверка уведомлений' : 'Новое письмо',
+      eyebrow: notice.test
+        ? 'Проверка уведомлений'
+        : notice.box
+          ? `Новое письмо · ${notice.box.title || notice.box.user}`
+          : 'Новое письмо',
       title: m.from.name || m.from.email,
       sub: m.subject,
       who: m.from.name ? m.from.email : '',
@@ -183,7 +188,7 @@ function systemNotice(notice: Notice) {
       tag:
         notice.kind === 'order'
           ? `order-${notice.order.id}`
-          : `mail-${(notice as { mail: MailSummary }).mail.uid}`,
+          : `mail-${(notice as { box?: { id: number } }).box?.id ?? 0}-${(notice as { mail: MailSummary }).mail.uid}`,
     });
     n.onclick = () => {
       window.focus();

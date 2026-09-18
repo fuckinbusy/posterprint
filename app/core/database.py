@@ -172,6 +172,7 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "employees": {
         "access_mode": "VARCHAR(20) DEFAULT 'any'",
         "allowed_devices": "JSON",
+        "mail_accounts": "JSON",
     },
     "template_fields": {
         "unit": "VARCHAR(10) DEFAULT 'мм'",

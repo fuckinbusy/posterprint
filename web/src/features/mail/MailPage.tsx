@@ -24,14 +24,20 @@ import {
   fetchMailPage,
   fetchMailRef,
   fetchMailStatus,
+  getMailAccount,
   noteSeen,
   replyMail,
   sendMail,
+  setMailAccount,
+  useMailBox,
   useMailStore,
   type MailAttachment,
+  type MailBox,
   type MailDetail,
+  type MailStatus,
   type MailSummary,
 } from '@/api/mail';
+import { ApiError } from '@/api/client';
 import { useCan } from '@/app/AuthProvider';
 import { useTheme } from '@/app/theme';
 import { ModalShell, useModal, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
@@ -69,8 +75,23 @@ export function mailDate(iso: string, now = new Date()): string {
 const who = (a: { name: string; email: string }): string => a.name || a.email || 'без адреса';
 
 /* ==================================================== страница */
+/** Статус выбранного ящика. Запомненный ящик могли отнять или удалить —
+ *  сервер ответит 403/404; тогда забываем выбор и берём первый доступный. */
+async function loadStatus(): Promise<MailStatus> {
+  try {
+    return await fetchMailStatus();
+  } catch (e) {
+    if (e instanceof ApiError && (e.status === 403 || e.status === 404) && getMailAccount()) {
+      setMailAccount(null);
+      return fetchMailStatus();
+    }
+    throw e;
+  }
+}
+
 export function MailPage() {
   const [params, setParams] = useSearchParams();
+  const qc = useQueryClient();
   const selected = Number(params.get('uid')) || null;
   // папка в адресе появляется только у писем из отправленных — к ним ведёт
   // ссылка «в ответ на»; список слева всегда про входящие
@@ -80,8 +101,38 @@ export function MailPage() {
     [setParams],
   );
   const can = useCan();
-  const status = useQuery({ queryKey: ['mail', 'status'], queryFn: fetchMailStatus, staleTime: 30 * 1000 });
+
+  // ящик из адреса (по нему ведёт уведомление о письме) главнее запомненного
+  const fromUrl = Number(params.get('account')) || null;
+  if (fromUrl && fromUrl !== getMailAccount()) setMailAccount(fromUrl);
+  const [account, setAccount] = useState<number | null>(() => getMailAccount());
+  if (fromUrl && fromUrl !== account) setAccount(fromUrl);
+
+  const status = useQuery({
+    queryKey: ['mail', 'status', account],
+    queryFn: loadStatus,
+    staleTime: 30 * 1000,
+  });
   const [seenUid, setSeenUid] = useState<number | null>(null);
+
+  // сервер выбрал ящик сам (первый вход или запомненный отняли) — запоминаем
+  const resolved = status.data?.account ?? null;
+  useEffect(() => {
+    if (resolved && resolved !== getMailAccount()) {
+      setMailAccount(resolved);
+      setAccount(resolved);
+    }
+  }, [resolved]);
+
+  const switchTo = (id: number) => {
+    if (id === account) return;
+    setMailAccount(id);
+    setAccount(id);
+    // письма и ссылки «в ответ на» у каждого ящика свои — чужой кэш не показываем
+    qc.removeQueries({ queryKey: ['mail', 'message'] });
+    qc.removeQueries({ queryKey: ['mail', 'ref'] });
+    setParams({}, { replace: true });
+  };
 
   if (status.isLoading && !status.data) return <Loading>Соединяюсь с почтой…</Loading>;
   if (status.isError) return <Empty>{(status.error as Error).message}</Empty>;
@@ -90,13 +141,20 @@ export function MailPage() {
       <main className="page scroll-page">
         <div className="page-inner">
           <Empty>
-            Почта не настроена.{' '}
-            {can('staff.manage') ? (
-              <>
-                Укажите ящик и пароль приложения в <NavLink to="/settings">Настройках</NavLink>.
-              </>
+            {status.data.reason === 'unassigned' ? (
+              'Вам не назначен почтовый ящик. Попросите администратора выбрать его в вашем профиле.'
             ) : (
-              'Попросите того, кто управляет настройками, подключить ящик.'
+              <>
+                Почта не подключена.{' '}
+                {can('staff.manage') ? (
+                  <>
+                    Добавьте ящик в <NavLink to="/settings">Настройках</NavLink> — Яндекс, Mail.ru или любой
+                    другой с IMAP.
+                  </>
+                ) : (
+                  'Попросите администратора подключить ящик.'
+                )}
+              </>
             )}
           </Empty>
         </div>
@@ -104,11 +162,63 @@ export function MailPage() {
     );
   }
 
+  const boxes = status.data?.accounts ?? [];
+  const current = status.data?.account ?? account;
   return (
     <main className="page mail-page" aria-label="Почта">
-      <MailList selected={selected} onSelect={select} seenUid={seenUid} user={status.data?.user ?? ''} />
-      <MailReader uid={selected} folder={folder} onSeen={setSeenUid} onBack={() => select(null)} />
+      <MailList
+        key={`list-${current}`}
+        selected={selected}
+        onSelect={select}
+        seenUid={seenUid}
+        user={status.data?.user ?? ''}
+        account={current}
+        boxes={boxes}
+        onSwitch={switchTo}
+      />
+      <MailReader
+        key={`reader-${current}`}
+        uid={selected}
+        folder={folder}
+        onSeen={setSeenUid}
+        onBack={() => select(null)}
+      />
     </main>
+  );
+}
+
+/** Переключатель ящиков: показывается, когда их больше одного. */
+function BoxSwitch({
+  boxes,
+  current,
+  onSwitch,
+}: {
+  boxes: MailBox[];
+  current: number | null;
+  onSwitch: (id: number) => void;
+}) {
+  const store = useMailStore();
+  if (boxes.length < 2) return null;
+  return (
+    <div className="mail-boxes" role="tablist" aria-label="Почтовые ящики">
+      {boxes.map((box) => {
+        const unseen = store.boxes[box.id]?.unseen ?? 0;
+        return (
+          <button
+            key={box.id}
+            type="button"
+            role="tab"
+            aria-selected={box.id === current}
+            className={box.id === current ? 'mail-box on' : 'mail-box'}
+            title={box.user}
+            onClick={() => onSwitch(box.id)}
+          >
+            <span>{box.title || box.user}</span>
+            {unseen > 0 && <i>{unseen > 99 ? '99+' : unseen}</i>}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -124,14 +234,20 @@ function MailList({
   onSelect,
   seenUid,
   user,
+  account,
+  boxes,
+  onSwitch,
 }: {
   selected: number | null;
   onSelect: (uid: number) => void;
   seenUid: number | null;
   user: string;
+  account: number | null;
+  boxes: MailBox[];
+  onSwitch: (id: number) => void;
 }) {
   const modal = useModal();
-  const { unseen, latestUid } = useMailStore();
+  const { unseen, latestUid } = useMailBox(account);
   const [list, setList] = useState<ListState>({ items: [], older: false, newer: false });
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState('');
@@ -277,12 +393,14 @@ function MailList({
           >
             <ArrowLeftIcon style={{ transform: 'rotate(90deg)' }} />
           </button>
-          <button className="btn btn-green" type="button" onClick={() => modal.open(<ComposeModal />)}>
+          <button className="btn btn-green" type="button" onClick={() => modal.open(<ComposeModal from={user} />)}>
             <PlusIcon />
             Написать
           </button>
         </div>
       </div>
+
+      <BoxSwitch boxes={boxes} current={account} onSwitch={onSwitch} />
 
       <div className="mail-scroll" ref={scroller}>
         <div ref={topSentinel} className="mail-sentinel">
@@ -854,7 +972,7 @@ function ReplyBox({ uid, to }: { uid: number; to: { name: string; email: string 
 }
 
 /* ---------------------------------------------------- новое письмо */
-function ComposeModal() {
+function ComposeModal({ from }: { from: string }) {
   const frame = useModalFrame();
   const qc = useQueryClient();
   const { toast, toastError } = useToast();
@@ -902,7 +1020,7 @@ function ComposeModal() {
 
   return (
     <ModalShell
-      eyebrow="Почта"
+      eyebrow={from ? `Почта · с ящика ${from}` : 'Почта'}
       title="Новое письмо"
       foot={
         <>

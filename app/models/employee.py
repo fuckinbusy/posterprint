@@ -30,6 +30,8 @@ class Employee(Base):
     # "any" — вход с любого компьютера; "devices" — только с привязанных
     access_mode: Mapped[str] = mapped_column(String(20), default="any")
     allowed_devices: Mapped[list] = mapped_column(JSON, default=list)  # id устройств
+    # номера почтовых ящиков (MailAccount), с которыми сотрудник работает; не больше двух
+    mail_accounts: Mapped[list] = mapped_column(JSON, default=list)
     note: Mapped[str] = mapped_column(String(200), default="")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

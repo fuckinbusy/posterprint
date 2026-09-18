@@ -15,6 +15,7 @@ from app.core.permissions import PERMISSIONS, default_permissions, groups, norma
 from app.core.security import CurrentUser, current_user, hash_password, require_perm
 from app.models import Device, Employee
 from app.schemas.employees import EmployeeCreate, EmployeeOut, EmployeeUpdate
+from app.services import mail_accounts as mail_accounts_logic
 
 router = APIRouter(
     prefix="/api/employees",
@@ -66,6 +67,13 @@ def check_devices(db: Session, access_mode: str, allowed: list[int]) -> list[int
     return allowed
 
 
+def check_mail_accounts(db: Session, ids: list[int]) -> list[int]:
+    try:
+        return mail_accounts_logic.clean_ids(db, ids)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+
+
 def protect_self(user: CurrentUser, employee: Employee, changes: dict) -> None:
     """Сотрудник не может закрыть дверь за собой.
 
@@ -103,6 +111,7 @@ def create_employee(
         note=payload.note.strip(),
         access_mode=access_mode,
         allowed_devices=allowed,
+        mail_accounts=check_mail_accounts(db, list(payload.mail_accounts or [])),
     )
     db.add(employee)
     db.commit()
@@ -159,6 +168,8 @@ def update_employee(
         employee.allowed_devices = check_devices(
             db, employee.access_mode, list(employee.allowed_devices or [])
         )
+    if "mail_accounts" in changes:
+        employee.mail_accounts = check_mail_accounts(db, list(changes["mail_accounts"] or []))
     if "note" in changes:
         employee.note = changes["note"].strip()
 
@@ -184,6 +195,11 @@ def update_employee(
         applog.warning(
             "Профиль «%s» %s · изменил %s",
             employee.name, "включён" if employee.active else "отключён", user.name,
+        )
+    if "mail_accounts" in changes:
+        applog.warning(
+            "Почта «%s»: ящики %s · изменил %s",
+            employee.name, employee.mail_accounts or "—", user.name,
         )
     if "access_mode" in changes or "allowed_devices" in changes:
         applog.info(

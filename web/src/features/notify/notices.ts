@@ -8,12 +8,12 @@
    опрос сервера, кнопка «Проверить» в профиле. Показывает их компонент
    OrderNotices, подписанный через onNotice. */
 
-import type { MailSummary } from '@/api/mail';
+import type { MailBox, MailSummary } from '@/api/mail';
 import type { Order } from '@/types/api';
 
 export type Notice =
   | { id: number; kind: 'order'; order: Order; life: number; test?: boolean }
-  | { id: number; kind: 'mail'; mail: MailSummary; life: number; test?: boolean };
+  | { id: number; kind: 'mail'; mail: MailSummary; box?: MailBox; life: number; test?: boolean };
 
 /** Сколько висит уведомление. Достаточно, чтобы поднять голову и прочитать. */
 export const NOTICE_LIFE_MS = 15_000;
@@ -37,7 +37,7 @@ export function pushNotice(order: Order, options: { test?: boolean } = {}): void
   emit({ id: counter, kind: 'order', order, life: NOTICE_LIFE_MS, test: options.test });
 }
 
-export function pushMailNotice(mail: MailSummary, options: { test?: boolean } = {}): void {
+export function pushMailNotice(mail: MailSummary, options: { test?: boolean; box?: MailBox } = {}): void {
   counter += 1;
-  emit({ id: counter, kind: 'mail', mail, life: NOTICE_LIFE_MS, test: options.test });
+  emit({ id: counter, kind: 'mail', mail, box: options.box, life: NOTICE_LIFE_MS, test: options.test });
 }

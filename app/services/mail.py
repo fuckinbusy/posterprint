@@ -54,6 +54,9 @@ MAX_PAGE = 100
 UIDS_TTL = 20          # секунд живёт список UID
 FRESH_TTL = 20         # секунд живёт ответ «что нового»
 TIMEOUT = 20           # секунд на сетевую операцию
+# Сервер не принял пароль — минуту к нему не стучимся: опрос «что нового» идёт
+# с каждого рабочего места, а за частые неудачные входы почта блокирует ящик
+AUTH_COOLDOWN = 60
 
 DEFAULT_IMAP = "imap.yandex.ru:993"
 DEFAULT_SMTP = "smtp.yandex.ru:465"
@@ -73,10 +76,29 @@ class MailConfig:
     smtp_host: str
     smtp_port: int
     sender_name: str
+    # служба (yandex | mailru | custom) — для подсказок в ошибках; номер ящика — для журнала
+    provider: str = "yandex"
+    account_id: int = 0
 
     @property
     def configured(self) -> bool:
         return bool(self.user and self.password)
+
+
+def auth_hint(cfg: MailConfig) -> str:
+    """Что проверить, когда почта не пускает: у каждой службы своё место,
+    где выдаётся пароль для почтовых программ."""
+    if cfg.provider == "mailru":
+        return (
+            "Для Mail.ru нужен пароль для внешних приложений (Настройки → Безопасность), "
+            "с доступом по IMAP и SMTP — обычный пароль от ящика не подойдёт."
+        )
+    if cfg.provider == "yandex":
+        return (
+            "Для Яндекса нужен пароль приложения, не пароль от аккаунта, "
+            "и включённый IMAP в настройках ящика."
+        )
+    return "Проверьте адрес, пароль для почтовых программ и что IMAP включён."
 
 
 def _host_port(value: str, default: str) -> tuple[str, int]:
@@ -491,7 +513,12 @@ def attachment_part(msg: Message, index: int) -> Message | None:
 INBOX = "INBOX"
 # как папка отправленных называется у разных серверов, если сервер не
 # пометил её флагом \Sent
-SENT_NAMES = ("Sent", "Отправленные", "Sent Items", "Sent Messages", "INBOX/Sent", "INBOX.Sent")
+# «&BB4EQg…-» — «Отправленные» в кодировке IMAP (modified UTF-7): так папку называют
+# Mail.ru и русский Яндекс, когда сервер не пометил её флагом \Sent
+SENT_NAMES = (
+    "Sent", "Отправленные", "&BB4EQgQ,BEAEMAQyBDsENQQ9BD0ESwQ1-",
+    "Sent Items", "Sent Messages", "INBOX/Sent", "INBOX.Sent",
+)
 _LIST_RE = re.compile(rb'^\((?P<flags>[^)]*)\) (?:"[^"]*"|NIL) (?P<name>"(?:[^"\\]|\\.)*"|\S+)$')
 
 
@@ -561,6 +588,7 @@ class Mailbox:
         self._fresh: tuple[float, dict] = (0.0, {})
         self._sent: str | bool | None = False        # False — ещё не искали
         self._by_id: dict[str, tuple[float, dict | None]] = {}  # Message-ID → (когда, где лежит)
+        self._auth_failed: tuple[float, str] | None = None  # (когда, что ответить) — см. AUTH_COOLDOWN
 
     # ------------------------------------------------ соединение
     def _connect(self, cfg: MailConfig) -> imaplib.IMAP4_SSL:
@@ -569,10 +597,9 @@ class Mailbox:
             conn.login(cfg.user, cfg.password)
             conn.select("INBOX")
         except imaplib.IMAP4.error as exc:
-            raise MailError(
-                "Почтовый сервер не принял логин или пароль. Для Яндекса нужен пароль приложения, "
-                "не пароль от аккаунта, и включённый IMAP в настройках ящика."
-            ) from exc
+            text = f"Почтовый сервер не принял логин или пароль ({cfg.user}). {auth_hint(cfg)}"
+            self._auth_failed = (time.monotonic(), text)
+            raise MailError(text) from exc
         except OSError as exc:
             raise MailError(f"Не удалось соединиться с {cfg.imap_host}:{cfg.imap_port}: {exc}") from exc
         return conn
@@ -593,6 +620,7 @@ class Mailbox:
             self._fresh = (0.0, {})
             self._sent = False
             self._by_id.clear()
+            self._auth_failed = None
 
     def _ensure(self, cfg: MailConfig) -> imaplib.IMAP4_SSL:
         if not cfg.configured:
@@ -601,7 +629,10 @@ class Mailbox:
             self.reset()
             self._cfg = cfg
         if self._conn is None:
+            if self._auth_failed and time.monotonic() - self._auth_failed[0] < AUTH_COOLDOWN:
+                raise MailError(self._auth_failed[1])
             self._conn = self._connect(cfg)
+            self._auth_failed = None
         return self._conn
 
     def _call(self, cfg: MailConfig, fn):
@@ -897,7 +928,7 @@ class Mailbox:
                 smtp.login(cfg.user, cfg.password)
                 smtp.send_message(msg)
         except smtplib.SMTPAuthenticationError as exc:
-            raise MailError("SMTP не принял логин или пароль приложения") from exc
+            raise MailError(f"SMTP не принял логин или пароль ({cfg.user}). {auth_hint(cfg)}") from exc
         except (smtplib.SMTPException, OSError) as exc:
             raise MailError(f"Письмо не отправилось: {exc}") from exc
         return msg["Message-ID"]
@@ -957,4 +988,29 @@ class Mailbox:
         return result
 
 
-mailbox = Mailbox()
+# ---------------------------------------------------------------- ящики
+# У каждого подключённого ящика своё соединение, свой замок и свой кэш:
+# письма двух ящиков не смешиваются, а медленный сервер одного не держит
+# в очереди запросы к другому. Ключ — номер ящика (MailAccount.id).
+_pool: dict[int, Mailbox] = {}
+_pool_lock = threading.Lock()
+
+
+def mailbox_for(account_id: int) -> Mailbox:
+    with _pool_lock:
+        box = _pool.get(account_id)
+        if box is None:
+            box = _pool[account_id] = Mailbox()
+        return box
+
+
+def forget_mailbox(account_id: int) -> None:
+    """Ящик удалён или перенастроен — закрыть соединение и забыть кэш."""
+    with _pool_lock:
+        box = _pool.pop(account_id, None)
+    if box is not None:
+        box.reset()
+
+
+# ящик «без номера» — для проверки соединения до сохранения и для старого кода
+mailbox = mailbox_for(0)

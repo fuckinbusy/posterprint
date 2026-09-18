@@ -38,19 +38,15 @@ KEYS: dict[str, str] = {
     "pay_phone": "POSTER_PAY_PHONE",
     "pay_note": "POSTER_PAY_NOTE",
     "pay_encoding": "POSTER_PAY_ENCODING",
-    # почта: ящик, пароль приложения, серверы, имя отправителя
-    "mail_user": "POSTER_MAIL_USER",
-    "mail_password": "POSTER_MAIL_PASSWORD",
-    "mail_imap": "POSTER_MAIL_IMAP",
-    "mail_smtp": "POSTER_MAIL_SMTP",
-    "mail_sender": "POSTER_MAIL_SENDER",
+    # Почтовые ящики здесь больше не живут: их несколько, у каждого своя
+    # запись (models/mail_account.py, services/mail_accounts.py).
     # свои адресаты для сотрудников: JSON-список {name, email}; только в базе
     "mail_contacts": "",
 }
 
 # что не показываем обратно в интерфейс: только «задано / не задано».
 # В базе эти значения лежат зашифрованными (app/core/crypto.py)
-SECRET_KEYS = {"mail_password"}
+SECRET_KEYS: set[str] = set()
 
 # логотип — картинка, вшитая строкой; больше не нужно, это шапка квитанции
 MAX_LOGO_BYTES = 400 * 1024

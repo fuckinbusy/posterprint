@@ -544,6 +544,8 @@ export interface Employee {
   note: string;
   access_mode: AccessMode;
   allowed_devices: number[];
+  /** номера почтовых ящиков, с которыми работает сотрудник; не больше двух */
+  mail_accounts: number[];
   has_password: boolean;
   last_login_at: string | null;
   created_at: string | null;
@@ -555,6 +557,7 @@ export interface EmployeePayload {
   permissions: Permission[];
   access_mode: AccessMode;
   allowed_devices: number[];
+  mail_accounts: number[];
   /** пустая строка = снять пароль; поле не передано = оставить прежний */
   password?: string;
   active?: boolean;

@@ -62,6 +62,7 @@ async def lifespan(_app: FastAPI):
     for problem in deploy.file_permission_problems(BASE_DIR, data_paths()):
         logs.log.warning("Права на файлы: %s", problem)
     encrypt_secrets()
+    migrate_mail()
     if deploy.PUBLIC:
         warn_open_profiles()
 
@@ -209,6 +210,19 @@ def encrypt_secrets() -> None:
         db.close()
     if changed:
         logs.log.info("Настройки: зашифровано секретов, хранившихся открытым текстом: %s", changed)
+
+
+def migrate_mail() -> None:
+    """Единственный ящик из прежних «Настроек» (или .env) → список ящиков."""
+    from app.services import mail_accounts
+
+    db = SessionLocal()
+    try:
+        account = mail_accounts.migrate_legacy(db)
+    finally:
+        db.close()
+    if account is not None:
+        logs.log.info("Почта: ящик %s перенесён из настроек в список ящиков", account.user)
 
 
 def seed_if_empty() -> None:

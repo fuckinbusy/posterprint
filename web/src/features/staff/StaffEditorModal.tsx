@@ -1,7 +1,9 @@
 /* Окно настройки профиля: имя, откуда можно входить, пароль, права. */
 
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import { fetchMailAccounts } from '@/api/mail';
 import {
   createEmployee,
   updateEmployee,
@@ -93,13 +95,17 @@ function StaffEditor({
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<AccessMode>(employee?.access_mode ?? 'any');
   const [allowed, setAllowed] = useState<Set<number>>(new Set(employee?.allowed_devices ?? []));
+  // порядок важен: первый ящик открывается в «Почте» по умолчанию
+  const [boxes, setBoxes] = useState<number[]>(employee?.mail_accounts ?? []);
+  const mailboxes = useQuery({ queryKey: ['mail-accounts'], queryFn: fetchMailAccounts });
+  const maxBoxes = mailboxes.data?.max_per_employee ?? 2;
   const [granted, setGranted] = useState<Set<Permission>>(
     new Set(employee?.permissions ?? catalog.defaults),
   );
   const [saving, setSaving] = useState(false);
 
   const snapshot = () =>
-    JSON.stringify([name, note, password, mode, [...allowed].sort(), [...granted].sort()]);
+    JSON.stringify([name, note, password, mode, [...allowed].sort(), [...granted].sort(), boxes]);
   const [initialJson] = useState(snapshot);
   const markClean = useUnsavedGuard(snapshot() !== initialJson);
 
@@ -126,6 +132,7 @@ function StaffEditor({
       permissions: [...granted],
       access_mode: mode,
       allowed_devices: [...allowed],
+      mail_accounts: boxes,
     };
 
     /* Пароль: у нового профиля отправляем как есть (пусто = без пароля).
@@ -234,6 +241,56 @@ function StaffEditor({
           Компьютер запоминается по ключу в браузере. Очистка данных сайта или другой браузер на том
           же компьютере = новое устройство, привязку нужно обновить.
         </div>
+      </Section>
+
+      <Section title="Почта">
+        {!granted.has('mail.access' as Permission) ? (
+          <div className="hint">
+            У профиля нет права «Работать с почтой» — раздел «Почта» ему не виден. Включите право ниже,
+            тогда здесь можно будет выбрать ящики.
+          </div>
+        ) : (mailboxes.data?.accounts ?? []).length === 0 ? (
+          <div className="mx-empty">
+            Ящики ещё не подключены. Добавьте их в «Настройках» → «Почта — ящики».
+          </div>
+        ) : (
+          <>
+            <div className="dev-pick">
+              {(mailboxes.data?.accounts ?? []).map((box) => {
+                const at = boxes.indexOf(box.id);
+                const blocked = at < 0 && boxes.length >= maxBoxes;
+                return (
+                  <label className={blocked ? 'dev-opt disabled' : 'dev-opt'} key={box.id}>
+                    <input
+                      type="checkbox"
+                      checked={at >= 0}
+                      disabled={blocked}
+                      onChange={() =>
+                        setBoxes((prev) =>
+                          prev.includes(box.id) ? prev.filter((id) => id !== box.id) : [...prev, box.id],
+                        )
+                      }
+                    />
+                    <span className="txt">
+                      <b>
+                        {box.title || box.user}
+                        {at === 0 && boxes.length > 1 ? ' · основной' : ''}
+                      </b>
+                      <span>
+                        {box.user}
+                        {!box.active ? ' · выключен' : ''}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="hint" style={{ marginTop: 10 }}>
+              Не больше {maxBoxes} ящиков на сотрудника. Первый выбранный открывается в «Почте» сразу, второй —
+              через переключатель. Ничего не выбрано — почты у сотрудника не будет.
+            </div>
+          </>
+        )}
       </Section>
 
       <Section

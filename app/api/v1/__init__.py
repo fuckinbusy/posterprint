@@ -12,6 +12,7 @@ from app.api.v1 import (
     export,
     logs,
     mail,
+    mail_accounts,
     metrics,
     orders,
     prices,
@@ -22,5 +23,5 @@ from app.api.v1 import (
 
 router = APIRouter()
 for module in (auth, orders, clients, prices, templates, designs, logs, employees, devices,
-               metrics, reports, export, settings, mail):
+               metrics, reports, export, settings, mail, mail_accounts):
     router.include_router(module.router)
