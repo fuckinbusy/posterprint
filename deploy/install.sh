@@ -139,6 +139,8 @@ if ! grep -qE '^POSTER_SECRET_KEY=.{32,}' .env; then
 fi
 chmod 600 .env
 mkdir -p logs backups designs
+chmod 700 logs backups designs
+[ -f poster.db ] && chmod 600 poster.db
 # скрипты запускаются и напрямую (deploy/poster.sh ...); право на исполнение
 # не считаем правкой, иначе git pull потом споткнётся
 chmod +x deploy/*.sh 2>/dev/null || true

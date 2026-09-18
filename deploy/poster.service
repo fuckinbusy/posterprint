@@ -38,6 +38,8 @@ Restart=always
 RestartSec=5
 
 # служба видит только свою папку; остальная система для неё только на чтение
+# база, копии и журналы создаются закрытыми для остальных пользователей
+UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

@@ -32,6 +32,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)" \
     || { echo 'Ошибка: нет доступа к каталогу проекта — запустите через sudo' >&2; exit 1; }
 cd "$ROOT"
+# всё, что создаёт сервер (база, копии, журналы), — только владельцу
+umask 077
 
 # интерпретатор из окружения проекта; на Windows под Git Bash — своя раскладка
 if [ -x .venv/bin/python ]; then PY=".venv/bin/python"
@@ -202,6 +204,7 @@ cmd_install_service() {
     # бы не увидела; read-only оставляет домашние каталоги видимыми, а запись
     # в сам проект разрешает ReadWritePaths
     case "$ROOT" in /home/*|/root/*) sed -i -e "s#^ProtectHome=true#ProtectHome=read-only#" "$unit" ;; esac
+    chmod 644 "$unit"   # umask выше закрыл бы юнит от чтения — systemd на это ворчит
     systemctl daemon-reload
     systemctl enable --now "$SERVICE"
 
