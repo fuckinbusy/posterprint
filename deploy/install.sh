@@ -139,6 +139,10 @@ if ! grep -qE '^POSTER_SECRET_KEY=.{32,}' .env; then
 fi
 chmod 600 .env
 mkdir -p logs backups designs
+# скрипты запускаются и напрямую (deploy/poster.sh ...); право на исполнение
+# не считаем правкой, иначе git pull потом споткнётся
+chmod +x deploy/*.sh 2>/dev/null || true
+[ -d .git ] && git -c safe.directory="$ROOT" config core.fileMode false 2>/dev/null || true
 
 # ---------------------------------------------------------------- пароль администратора
 if grep -qE '^POSTER_ADMIN_PASSWORD_HASH=.{20,}' .env; then

@@ -27,7 +27,10 @@
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# После install-service каталог закрыт для всех, кроме пользователя службы
+# (chmod 700), поэтому обычному пользователю сюда не войти — нужен sudo.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)" \
+    || { echo 'Ошибка: нет доступа к каталогу проекта — запустите через sudo' >&2; exit 1; }
 cd "$ROOT"
 
 # интерпретатор из окружения проекта; на Windows под Git Bash — своя раскладка
@@ -195,14 +198,21 @@ cmd_install_service() {
         sed -i -e "s#--host 127.0.0.1#--host 0.0.0.0#" -e "/^Environment=POSTER_PUBLIC=1/d" "$unit"
     fi
     sed -i -e "s#--port 8000#--port $PORT#" "$unit"
+    # ProtectHome=true прячет /home и /root целиком — проект внутри них служба
+    # бы не увидела; read-only оставляет домашние каталоги видимыми, а запись
+    # в сам проект разрешает ReadWritePaths
+    case "$ROOT" in /home/*|/root/*) sed -i -e "s#^ProtectHome=true#ProtectHome=read-only#" "$unit" ;; esac
     systemctl daemon-reload
     systemctl enable --now "$SERVICE"
 
     # система не должна засыпать: сервер в мастерской работает круглосуточно
     systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target >/dev/null 2>&1 || true
 
-    # сторож раз в минуту: живой, но зависший процесс systemd сам не заметит
-    install_cron_line "* * * * * $ROOT/deploy/poster.sh watchdog >> $ROOT/logs/watchdog.log 2>&1"
+    # сторож раз в минуту: живой, но зависший процесс systemd сам не заметит.
+    # Через bash: в git у скрипта может не быть права на исполнение, и cron
+    # молча получал бы «Permission denied» каждую минуту.
+    remove_cron_lines
+    install_cron_line "* * * * * bash $ROOT/deploy/poster.sh watchdog >> $ROOT/logs/watchdog.log 2>&1"
 
     say "Служба $SERVICE установлена: автозапуск при загрузке, перезапуск после сбоя, сторож в cron."
     say "Проверка: systemctl status $SERVICE · curl $HEALTH"
@@ -213,8 +223,9 @@ cmd_enable_autostart() {
     # без systemd (контейнер, экзотика): cron поднимает при загрузке и сторожит
     have crontab || die "нет cron — установите cron или используйте install-service"
     need_venv
-    install_cron_line "@reboot sleep 20 && $ROOT/deploy/poster.sh start >> $ROOT/logs/watchdog.log 2>&1"
-    install_cron_line "* * * * * $ROOT/deploy/poster.sh watchdog >> $ROOT/logs/watchdog.log 2>&1"
+    remove_cron_lines   # прежние строки (в том числе старого вида, без bash) — долой
+    install_cron_line "@reboot sleep 20 && bash $ROOT/deploy/poster.sh start >> $ROOT/logs/watchdog.log 2>&1"
+    install_cron_line "* * * * * bash $ROOT/deploy/poster.sh watchdog >> $ROOT/logs/watchdog.log 2>&1"
     say "Автозапуск через cron включён для пользователя $(whoami): @reboot и сторож раз в минуту."
     say "Проверить: crontab -l"
 }
@@ -265,8 +276,18 @@ cmd_uninstall_service() {
 
 cmd_update() {
     need_venv
-    git pull --ff-only
-    "$PY" -m pip install -q -r requirements.txt
+    # Каталог принадлежит пользователю службы, а обновляет обычно root: git без
+    # safe.directory отказался бы («dubious ownership»). fileMode=false — чтобы
+    # chmod +x на скриптах не считался правкой и не мешал pull.
+    git -c safe.directory="$ROOT" -c core.fileMode=false pull --ff-only
+    "$PY" -m pip install -q -r requirements.txt \
+        || say "зависимости не обновились (нет сети?) — если requirements.txt не менялся, это не страшно"
+    chmod +x deploy/*.sh 2>/dev/null || true
+    # новые файлы от root вернуть владельцу каталога — иначе служба не сможет в них писать
+    if [ "$(id -u)" -eq 0 ]; then
+        local owner; owner="$(stat -c '%U:%G' "$ROOT" 2>/dev/null || true)"
+        [ -n "$owner" ] && [ "$owner" != "root:root" ] && chown -R "$owner" "$ROOT"
+    fi
     if service_exists; then
         $SUDO systemctl restart "$SERVICE"
         say "Обновлено, служба перезапущена"

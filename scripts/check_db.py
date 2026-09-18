@@ -89,7 +89,7 @@ def main() -> None:
             ("устройства", Device),
         ]
         for title, model in rows:
-            print(f"  {title:16} {db.scalar(select(func.count(model.id))) or 0}")
+            print(f"  {title:16} {db.scalar(select(func.count()).select_from(model)) or 0}")
     finally:
         db.close()
 

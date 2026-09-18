@@ -218,8 +218,8 @@ def restore_orders(db, data: dict, mode: str) -> tuple[int, int]:
         order_id = old_to_new.get(row["order_id"])
         if order_id is None:
             continue
-        signature = (order_id, round(float(row["amount"]), 2), row.get("created_at") or "")
-        if signature in known:
+        pay_signature = (order_id, round(float(row["amount"]), 2), row.get("created_at") or "")
+        if pay_signature in known:
             continue
         payment = Payment(order_id=order_id)
         apply_fields(payment, row, ["amount", "method", "author", "created_at"])
