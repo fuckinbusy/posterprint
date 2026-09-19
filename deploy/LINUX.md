@@ -69,6 +69,18 @@ python3 --version        # должно быть 3.10 или новее
 3.10 отдельно: `sudo apt install python3.10 python3.10-venv` (на Ubuntu через
 PPA deadsnakes) и дальше везде пишите `python3.10` вместо `python3`.
 
+**Сетевое хранилище (TerraMaster, Synology) вместо обычного Linux.** Python
+там часто собран без модуля `sqlite3` — система падала бы с «No module named
+'sqlite3'». Установщик это замечает и ставит замену `pysqlite3-binary`
+(только x86_64), сервер подхватывает её сам. Руками:
+`.venv/bin/python -m pip install pysqlite3-binary`. `apt` на хранилищах нет,
+поэтому `libcdr-tools` не поставить: просмотр содержимого макетов будет
+недоступен, всё остальное работает. На ARM-хранилище или если нужен просмотр
+макетов — запускайте систему в Docker (`Dockerfile` и `docker-compose.yml` в
+корне): там есть и sqlite, и libcdr. Службы systemd на хранилище тоже может не
+быть — тогда вместо `--service` используйте `deploy/poster.sh start` и
+`deploy/poster.sh enable-autostart` (cron).
+
 ## 2. Забрать код и собрать окружение
 
 ```bash

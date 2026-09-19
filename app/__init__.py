@@ -6,4 +6,6 @@ HTTP) → api/v1 (ручки). Импорт ядра здесь — чтобы .
 ни импортировали: сервер, скрипт или тест.
 """
 
+# первым делом: на NAS у Python может не быть sqlite3 — подставляем замену
+from app.core import sqlite_compat as _sqlite_compat  # noqa: F401, I001
 from app.core import paths as _paths  # noqa: F401

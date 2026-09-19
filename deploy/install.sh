@@ -119,6 +119,18 @@ if ! .venv/bin/python -m pip install -q "${pip_args[@]}" -r requirements.txt; th
 fi
 echo "зависимости установлены"
 
+# На сетевых хранилищах (TerraMaster, часть Synology) Python собран без модуля
+# sqlite3, а база у системы — SQLite. Пакет pysqlite3-binary несёт тот же модуль
+# с вшитой библиотекой; сервер подхватывает его сам (app/core/sqlite_compat.py).
+if ! .venv/bin/python -c 'import sqlite3' >/dev/null 2>&1; then
+    echo "у этого Python нет sqlite3 (так бывает на NAS) — ставим замену pysqlite3-binary"
+    if ! .venv/bin/python -m pip install -q "${pip_args[@]}" pysqlite3-binary; then
+        die "pysqlite3-binary не установился. Он есть только для x86_64; на ARM-хранилище запускайте систему в Docker (Dockerfile в корне проекта)"
+    fi
+    .venv/bin/python -c 'import app; from app.core import sqlite_compat as s; print("sqlite:", s.BACKEND)' \
+        || die "замена sqlite3 не заработала"
+fi
+
 # ---------------------------------------------------------------- разборщик макетов
 # Просмотр содержимого .cdr и выгрузка в SVG работают через libcdr. Пакет
 # маленький; не поставился (нет сети, не root) — не беда: эскизы и скачивание
@@ -132,8 +144,11 @@ elif [ "$(id -u)" -eq 0 ] && command -v apt-get >/dev/null 2>&1; then
     else
         echo "libcdr-tools не поставился — позже: sudo apt install libcdr-tools"
     fi
-else
+elif command -v apt-get >/dev/null 2>&1; then
     echo "не установлен — для просмотра макетов: sudo apt install libcdr-tools"
+else
+    echo "не установлен, и apt в этой системе нет (NAS?) — просмотр содержимого макетов будет"
+    echo "недоступен; эскизы, загрузка и скачивание макетов работают. С просмотром — запуск в Docker."
 fi
 
 # ---------------------------------------------------------------- .env
