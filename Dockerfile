@@ -17,6 +17,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# разборщик макетов CorelDRAW: просмотр содержимого .cdr и выгрузка в SVG
+RUN apt-get update && apt-get install -y --no-install-recommends libcdr-tools \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY app ./app
 COPY scripts ./scripts
 COPY static ./static

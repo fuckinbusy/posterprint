@@ -191,6 +191,72 @@ def delete_design(
     db.commit()
 
 
+@router.get("/scene")
+def design_scene(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_perm("design.view")),
+) -> dict:
+    """Содержимое макета для просмотра: страницы, объекты, размеры.
+
+    Нельзя показать (нет разборщика, файл не читается) — это не ошибка
+    сервера: отвечаем available=false и причиной, интерфейс покажет её
+    вместо холста, а эскиз и скачивание работают как раньше.
+    """
+    from app.services import cdr_scene
+
+    order = _order(db, order_id)
+    path = designs.design_path(order.number)
+    if not path.exists():
+        raise HTTPException(404, "Макет не загружен")
+    base = {"available": False, "reason": "", "version": cdr_scene.version(path), "tools": cdr_scene.tools()}
+    try:
+        scene = cdr_scene.scene(path, designs.scene_cache_path(order.number))
+    except cdr_scene.SceneError as exc:
+        applog.info("Макет %s: просмотр недоступен — %s", order.number, exc)
+        return {**base, "reason": str(exc)}
+    return {**base, **scene, "available": True}
+
+
+@router.get("/export")
+def design_export(
+    order_id: int,
+    format: str = Query(default="svg", pattern="^(svg|pdf)$"),
+    page: int = Query(default=1, ge=1, le=500),
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_perm("design.view")),
+) -> Response:
+    """Макет в открытом формате — чтобы открыть файл новой версии в старом
+    CorelDRAW (X6 импортирует и SVG, и PDF). Сам .cdr записать умеет только
+    CorelDRAW, поэтому «пересохранить в версию 16» здесь нельзя."""
+    from urllib.parse import quote
+
+    from app.services import cdr_scene
+
+    order = _order(db, order_id)
+    path = designs.design_path(order.number)
+    if not path.exists():
+        raise HTTPException(404, "Макет не загружен")
+    try:
+        if format == "pdf":
+            payload, media = cdr_scene.convert_to_pdf(path), "application/pdf"
+        else:
+            scene = cdr_scene.scene(path, designs.scene_cache_path(order.number))
+            if page > len(scene["pages"]):
+                raise HTTPException(404, f"В макете страниц: {len(scene['pages'])}")
+            payload, media = cdr_scene.standalone_svg(scene["pages"][page - 1]), "image/svg+xml"
+    except cdr_scene.SceneError as exc:
+        raise HTTPException(422, str(exc)) from None
+    suffix = f"-стр{page}" if format == "svg" and page > 1 else ""
+    filename = f"{order.number}{suffix}.{format}"
+    applog.info("Макет %s выгружен в %s · %s", order.number, format.upper(), user.name)
+    return Response(
+        content=payload,
+        media_type=media,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
+    )
+
+
 @router.get("/inspect")
 def inspect_design(
     order_id: int,

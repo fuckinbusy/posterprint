@@ -8223,3 +8223,313 @@ body.touch-dragging {
     flex-wrap: wrap;
   }
 }
+
+/* ---------- просмотр содержимого макета ---------- */
+/* Во весь экран поверх окна заказа: сверху панель, слева холст, справа сведения. */
+.dv {
+  position: fixed;
+  inset: 0;
+  z-index: 230;
+  display: flex;
+  flex-direction: column;
+  background: var(--ink);
+  color: var(--text);
+}
+.dv-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.dv-title {
+  display: grid;
+  min-width: 0;
+  margin-right: auto;
+}
+.dv-title b {
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-title span {
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  color: var(--green);
+}
+.dv-zoom,
+.dv-pages,
+.dv-export {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dv-zoom span {
+  min-width: 52px;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.dv-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 9px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.dv-bar button.wide {
+  padding: 0 12px;
+  font-size: 13px;
+}
+.dv-bar button svg {
+  width: 15px;
+  height: 15px;
+}
+.dv-bar button:hover:not(:disabled),
+.dv-bar button.on {
+  color: var(--green);
+  border-color: var(--green);
+}
+.dv-bar button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.dv-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.dv-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  /* точки — чтобы было видно, что холст едет, даже когда страница за краем */
+  background:
+    radial-gradient(rgba(var(--fg-rgb), 0.09) 1px, transparent 1px) 0 0 / 22px 22px,
+    rgba(var(--fg-rgb), 0.02);
+}
+.dv-stage:active {
+  cursor: grabbing;
+}
+.dv-page {
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 18px 50px rgba(0, 0, 0, 0.45);
+  transform-origin: 0 0;
+}
+.dv-holder,
+.dv-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.dv-svg {
+  overflow: visible;
+  /* общий стиль иконок (svg { stroke: currentColor; fill: none … }) наследовался бы
+     объектами макета: у кривой без своей обводки появлялся светлый контур, а заливка
+     по умолчанию пропадала. Возвращаем значения, с которыми SVG рисуется сам по себе. */
+  color: #000;
+  fill: #000;
+  stroke: none;
+  stroke-width: 1;
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+}
+.dv-svg [data-o] {
+  cursor: pointer;
+}
+.dv-frame {
+  position: absolute;
+  pointer-events: none;
+  border: 1.5px solid #ff3d8b;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+}
+.dv-frame i {
+  position: absolute;
+  font-style: normal;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #ff3d8b;
+  color: #fff;
+}
+.dv-frame i.w {
+  left: 50%;
+  bottom: 100%;
+  transform: translate(-50%, -5px);
+}
+.dv-frame i.h {
+  left: 100%;
+  top: 50%;
+  transform: translate(5px, -50%);
+}
+.dv-status {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #e8ece6;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  pointer-events: none;
+}
+.dv-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 30px;
+  text-align: center;
+  color: var(--muted);
+  cursor: default;
+}
+.dv-msg b {
+  color: var(--text);
+  font-size: 16px;
+}
+.dv-msg span {
+  max-width: 560px;
+  line-height: 1.5;
+}
+.dv-msg img {
+  max-width: min(520px, 80%);
+  max-height: 46vh;
+  margin-top: 10px;
+  border-radius: 8px;
+  background: #fff;
+}
+.dv-side {
+  flex: 0 0 320px;
+  overflow-y: auto;
+  border-left: 1px solid var(--line);
+  padding: 4px 18px 18px;
+}
+.dv-side section {
+  padding: 16px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.dv-side section:last-child {
+  border-bottom: 0;
+}
+.dv-side h4 {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 10px;
+}
+.dv-side dl {
+  display: grid;
+  grid-template-columns: 118px 1fr;
+  gap: 7px 10px;
+  font-size: 13.5px;
+}
+.dv-side dt {
+  color: var(--muted);
+}
+.dv-side dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.dv-side dd.big {
+  font-size: 17px;
+  font-weight: 700;
+}
+.dv-side dd.warn {
+  color: #f0b429;
+}
+.dv-side dd.quote {
+  color: var(--muted);
+  font-style: italic;
+}
+.dv-chip {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 7px;
+  border-radius: 3px;
+  border: 1px solid var(--line-strong);
+  vertical-align: -1px;
+}
+.dv-hint,
+.dv-note {
+  margin-top: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.dv-note {
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--text);
+  background: rgba(60, 199, 7, 0.07);
+  border: 1px solid rgba(60, 199, 7, 0.35);
+}
+.dv-side-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+.dv-side-actions button {
+  flex: 1;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.dv-side-actions button:hover:not(:disabled) {
+  color: var(--green);
+  border-color: var(--green);
+}
+.dv-side-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.dv-thumb {
+  width: 100%;
+  border-radius: 8px;
+  background: #fff;
+}
+@media (max-width: 860px) {
+  .dv-body {
+    flex-direction: column;
+  }
+  .dv-side {
+    flex: 0 0 38vh;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}

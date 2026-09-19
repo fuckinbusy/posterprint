@@ -82,6 +82,11 @@ def _stamp_path(order_number: str) -> Path:
     return PREVIEW_DIR / f"{cdr.safe_filename(order_number)}.stamp"
 
 
+def scene_cache_path(order_number: str) -> Path:
+    """Разобранное содержимое макета (app/services/cdr_scene.py) — рядом с эскизом."""
+    return PREVIEW_DIR / f"{cdr.safe_filename(order_number)}.scene.json.gz"
+
+
 def _stamp(path: Path) -> str:
     stat = path.stat()
     return f"{stat.st_size}:{int(stat.st_mtime)}"
@@ -182,7 +187,7 @@ def delete(order_number: str) -> bool:
 
 
 def _drop_cache(order_number: str) -> None:
-    for path in (_preview_path(order_number), _stamp_path(order_number)):
+    for path in (_preview_path(order_number), _stamp_path(order_number), scene_cache_path(order_number)):
         with contextlib.suppress(OSError):
             path.unlink(missing_ok=True)
 

@@ -57,8 +57,13 @@ deploy/poster.sh uninstall-service    снести службу целиком; 
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip git
+sudo apt install -y libcdr-tools     # просмотр содержимого макетов .cdr и выгрузка в SVG
 python3 --version        # должно быть 3.10 или новее
 ```
+
+`libcdr-tools` — необязательный, но без него кнопка «Открыть макет» покажет
+только эскиз. Установщик (`deploy/install.sh`), запущенный от root, ставит
+его сам. Нужен ещё и PDF для старого CorelDRAW — добавьте `inkscape`.
 
 Если в системе Python старее 3.10 (например, Ubuntu 20.04 с 3.8) — поставьте
 3.10 отдельно: `sudo apt install python3.10 python3.10-venv` (на Ubuntu через

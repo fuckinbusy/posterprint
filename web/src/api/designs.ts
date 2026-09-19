@@ -35,3 +35,42 @@ export function useDesignInfo(orderId: number | null, enabled: boolean) {
     enabled: orderId !== null && enabled,
   });
 }
+
+/* ---------------------------------------------------- содержимое макета */
+/** Страница макета: чистый SVG и размеры. Координаты внутри — в пунктах
+ *  (1/72 дюйма); mm_per_unit переводит их в миллиметры. */
+export interface DesignPage {
+  index: number;
+  width_mm: number;
+  height_mm: number;
+  view_box: [number, number, number, number];
+  mm_per_unit: number;
+  objects: number;
+  svg: string;
+}
+
+export interface DesignVersion {
+  number: number;
+  name: string;
+  label: string;
+}
+
+export interface DesignScene {
+  available: boolean;
+  /** почему содержимое показать нельзя: нет разборщика, файл не читается */
+  reason: string;
+  version: DesignVersion | null;
+  tools: { libcdr: string; inkscape: string; can_view: boolean; can_pdf: boolean };
+  tool?: string;
+  pages?: DesignPage[];
+  stats?: { objects: number; curves: number; texts: number; images: number };
+  fonts?: string[];
+  warnings?: string[];
+}
+
+export const fetchDesignScene = (orderId: number): Promise<DesignScene> =>
+  request<DesignScene>(`/orders/${orderId}/design/scene`);
+
+/** Макет в открытом формате — чтобы открыть файл новой версии в старом CorelDRAW. */
+export const fetchDesignExport = (orderId: number, format: 'svg' | 'pdf', page = 1): Promise<Blob | null> =>
+  requestBlob(`/orders/${orderId}/design/export?format=${format}&page=${page}`);

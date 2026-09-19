@@ -119,6 +119,23 @@ if ! .venv/bin/python -m pip install -q "${pip_args[@]}" -r requirements.txt; th
 fi
 echo "зависимости установлены"
 
+# ---------------------------------------------------------------- разборщик макетов
+# Просмотр содержимого .cdr и выгрузка в SVG работают через libcdr. Пакет
+# маленький; не поставился (нет сети, не root) — не беда: эскизы и скачивание
+# макетов работают и без него, а интерфейс подскажет, чего не хватает.
+say "Разборщик макетов CorelDRAW"
+if command -v cdr2xhtml >/dev/null 2>&1; then
+    echo "libcdr-tools уже установлен"
+elif [ "$(id -u)" -eq 0 ] && command -v apt-get >/dev/null 2>&1; then
+    if apt-get install -y -q libcdr-tools >/dev/null 2>&1; then
+        echo "libcdr-tools установлен"
+    else
+        echo "libcdr-tools не поставился — позже: sudo apt install libcdr-tools"
+    fi
+else
+    echo "не установлен — для просмотра макетов: sudo apt install libcdr-tools"
+fi
+
 # ---------------------------------------------------------------- .env
 say "Настройки .env"
 if [ ! -f .env ]; then

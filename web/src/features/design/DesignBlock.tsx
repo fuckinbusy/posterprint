@@ -20,11 +20,12 @@ import { qk } from '@/api/keys';
 import { useCan } from '@/app/AuthProvider';
 import { useConfirm } from '@/app/ConfirmProvider';
 import { useToast } from '@/app/ToastProvider';
-import { DownloadIcon, FileIcon, TrashIcon, UploadIcon, ZoomIcon } from '@/components/Icons';
+import { DownloadIcon, FileIcon, OpenIcon, TrashIcon, UploadIcon, ZoomIcon } from '@/components/Icons';
 import { Section } from '@/components/ui';
 import { dtFullRu, fileSize } from '@/lib/format';
 import type { DesignInfo } from '@/types/api';
 
+import { DesignViewer } from './DesignViewer';
 import { Lightbox } from './Lightbox';
 
 export function DesignBlock({ orderId }: { orderId: number }) {
@@ -49,6 +50,7 @@ function DesignBody({ orderId, info }: { orderId: number; info: DesignInfo }) {
 
   const [preview, setPreview] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const [busy, setBusy] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -247,6 +249,14 @@ function DesignBody({ orderId, info }: { orderId: number; info: DesignInfo }) {
               </span>
             )}
             <div className="dz-actions">
+              <button
+                className="btn btn-ghost"
+                type="button"
+                title="Содержимое макета: двигать, приближать, смотреть размеры объектов"
+                onClick={() => setViewing(true)}
+              >
+                <OpenIcon /> Открыть макет
+              </button>
               <button className="btn btn-ghost" type="button" onClick={download}>
                 <DownloadIcon /> Скачать
               </button>
@@ -263,6 +273,15 @@ function DesignBody({ orderId, info }: { orderId: number; info: DesignInfo }) {
             </div>
           </div>
         </div>
+      )}
+
+      {viewing && info.exists && (
+        <DesignViewer
+          orderId={orderId}
+          title={info.filename}
+          thumbnail={preview}
+          onClose={() => setViewing(false)}
+        />
       )}
 
       {zoomed && preview && (
