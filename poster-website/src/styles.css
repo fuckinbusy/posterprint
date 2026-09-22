@@ -1,0 +1,134 @@
+/* Стили заготовки. У сайта своя тема, не связанная с интерфейсом системы:
+   у них разные читатели — клиенты и сотрудники. */
+
+:root {
+  --ink: #0a0b0a;
+  --paper: #f6f6f4;
+  --text: #1c1e1b;
+  --muted: #6b7166;
+  --line: rgba(0, 0, 0, 0.1);
+  --green: #1c7a0f;
+  --green-bright: #3cc707;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font: 16px/1.55 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--text);
+  background: var(--paper);
+}
+
+a {
+  color: var(--green);
+}
+
+.site {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-head {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+.site-head .logo {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.site-head nav {
+  display: flex;
+  gap: 18px;
+}
+.site-head nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.site-head nav a.active,
+.site-head nav a:hover {
+  color: var(--ink);
+}
+.site-head .staff {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.site-main {
+  flex: 1;
+  width: min(960px, 100% - 48px);
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.hero {
+  padding: 48px 0;
+}
+.hero h1 {
+  font-size: clamp(32px, 5vw, 52px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+}
+.hero p {
+  font-size: 19px;
+  color: var(--muted);
+  max-width: 560px;
+}
+
+.btn {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+}
+.btn:hover {
+  background: var(--green);
+}
+
+.cards {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.cards li {
+  padding: 22px 20px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.site-foot {
+  padding: 20px 24px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .site-head {
+    flex-wrap: wrap;
+    gap: 12px 18px;
+  }
+  .site-head .staff {
+    margin-left: 0;
+  }
+}

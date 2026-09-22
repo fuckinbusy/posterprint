@@ -86,7 +86,7 @@ PPA deadsnakes) и дальше везде пишите `python3.10` вмест�
 ```bash
 sudo mkdir -p /opt/poster && sudo chown "$USER" /opt/poster
 git clone https://github.com/fuckinbusy/posterprint-ocr /opt/poster
-cd /opt/poster
+cd /opt/poster/poster-ocr        # система лежит в подпапке: рядом сайт-визитка
 
 python3 -m venv .venv                 # отдельное окружение только для этого проекта
 .venv/bin/pip install --upgrade pip

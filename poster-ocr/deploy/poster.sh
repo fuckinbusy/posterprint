@@ -300,7 +300,9 @@ cmd_update() {
     # Каталог принадлежит пользователю службы, а обновляет обычно root: git без
     # safe.directory отказался бы («dubious ownership»). fileMode=false — чтобы
     # chmod +x на скриптах не считался правкой и не мешал pull.
-    git -c safe.directory="$ROOT" -c core.fileMode=false pull --ff-only
+    # safe.directory='*': проект лежит в подпапке репозитория (posterprint/poster-ocr),
+    # а владелец репозитория — пользователь службы, не тот, кто обновляет
+    git -c safe.directory='*' -c core.fileMode=false pull --ff-only
     "$PY" -m pip install -q -r requirements.txt \
         || say "зависимости не обновились (нет сети?) — если requirements.txt не менялся, это не страшно"
     chmod +x deploy/*.sh 2>/dev/null || true

@@ -1,0 +1,17 @@
+# Caddy внутри контейнера сайта: отдаёт собранный React из /srv.
+# https, домен и сжатие — у главного Caddy сервера (../deploy/Caddyfile);
+# здесь только http на 80 по внутренней сети.
+
+:80 {
+	root * /srv
+	# адреса без файла (/uslugi, /kontakty) — это маршруты React Router:
+	# отдаём index.html, дальше разбирается приложение
+	try_files {path} /index.html
+	file_server
+
+	# сборка с хэшами в именах кэшируется надолго, сама страница — нет:
+	# после обновления сайта посетитель должен получить новую
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	header /index.html Cache-Control "no-cache"
+}

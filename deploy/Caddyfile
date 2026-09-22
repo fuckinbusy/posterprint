@@ -1,24 +1,20 @@
-# Caddy перед ПОСТЕРом на одном домене с сайтом-визиткой.
+# Caddy на сервере: один домен, сайт-визитка в корне, система под своим путём.
 #
-#   https://example.ru/               сайт-визитка — статические файлы из site/
-#   https://example.ru/poster-crm/    система (POSTER_BASE_PATH)
+#   https://example.ru/               сайт-визитка — контейнер site (poster-website)
+#   https://example.ru/poster-crm/    система — контейнер app (poster-ocr)
 #
 # https с сертификатом Let's Encrypt выпускается и продлевается сам: домен
 # должен указывать на этот сервер, порты 80 и 443 — быть открыты.
 #
 # Переменные приходят из docker-compose.yml (POSTER_DOMAIN, POSTER_BASE_PATH).
 # Без Docker впишите значения руками: домен вместо {$POSTER_DOMAIN}, путь
-# вместо {$POSTER_BASE_PATH}, 127.0.0.1:8000 вместо app:8000, свою папку
-# вместо /srv/site.
-#
-# Когда визитка станет отдельным приложением (Node, ещё один контейнер),
-# замените блок «сайт-визитка» на reverse_proxy site:3000 — система от этого
-# не зависит: у неё свой путь.
+# вместо {$POSTER_BASE_PATH}, 127.0.0.1:8000 вместо app:8000, а блок визитки
+# замените на «root * /путь/к/собранному/сайту» + «file_server».
 
 {$POSTER_DOMAIN} {
 	encode zstd gzip
 
-	# ---- система: /poster-crm/… → приложение, префикс отрезается
+	# ---- система: /poster-crm/… → приложение, префикс отрезается.
 	# «/poster-crm» без косой черты — на «/poster-crm/», иначе относительные
 	# адреса страницы ушли бы в корень домена, к визитке
 	redir {$POSTER_BASE_PATH} {$POSTER_BASE_PATH}/ permanent
@@ -39,11 +35,10 @@
 		}
 	}
 
-	# ---- сайт-визитка: всё остальное
+	# ---- сайт-визитка: всё остальное. Свой Caddy внутри контейнера отдаёт
+	# собранный React и знает про адреса без файлов (маршруты приложения)
 	handle {
-		root * /srv/site
-		file_server
-		header Cache-Control "public, max-age=3600"
+		reverse_proxy site:80
 	}
 
 	header {

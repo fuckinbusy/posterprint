@@ -1081,3 +1081,16 @@ Excel по-русски: `;`, десятичная запятая, BOM — от�
   проверяются на VPS. Прежний вариант «система в корне домена» —
   `POSTER_BASE_PATH=` пусто; Caddyfile тогда нужно упростить (убрать блок
   визитки и `handle_path`).
+
+* Монорепозиторий (22.09.2026): корень — `posterprint/`, система переехала в
+  `poster-ocr/` (всё как было, включая свой Dockerfile и deploy/), рядом
+  `poster-website/` — сайт-визитка на React + Vite (каркас: шапка, три
+  страницы, свой Dockerfile «Node собирает → Caddy отдаёт»). В корне общее:
+  `docker-compose.yml` (app + site + caddy), `deploy/Caddyfile`
+  (визитка в корне домена через reverse_proxy site:80, система под
+  POSTER_BASE_PATH), корневой `.env` с доменом и путём — compose передаёт их
+  системе сам. Скрипты запуска работают из `poster-ocr/`; git в них — с
+  safe.directory='*', потому что корень репозитория теперь выше папки
+  проекта. На сервере в мастерской после обновления кода перенести `.env`,
+  `.secret`, `poster.db*`, `designs/`, `backups/`, `logs/`, `.venv/` внутрь
+  `poster-ocr/`.

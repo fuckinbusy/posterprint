@@ -176,7 +176,8 @@ chmod 700 logs backups designs
 # скрипты запускаются и напрямую (deploy/poster.sh ...); право на исполнение
 # не считаем правкой, иначе git pull потом споткнётся
 chmod +x deploy/*.sh 2>/dev/null || true
-[ -d .git ] && git -c safe.directory="$ROOT" config core.fileMode false 2>/dev/null || true
+git -c safe.directory='*' rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+    && git -c safe.directory='*' config core.fileMode false 2>/dev/null || true
 
 # ---------------------------------------------------------------- пароль администратора
 if grep -qE '^POSTER_ADMIN_PASSWORD_HASH=.{20,}' .env; then
