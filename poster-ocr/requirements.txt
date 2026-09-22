@@ -16,3 +16,6 @@ cryptography>=42,<47
 
 # для перехода на Postgres на сервере:
 # psycopg[binary]>=3.1
+
+# эскизы макетов CorelDRAW: без Pillow превью молча не находятся
+Pillow>=10

@@ -47,9 +47,8 @@ import os
 import time
 import uuid
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
 
-from app.core.paths import BASE_DIR
+from app.core.paths import data_dir
 
 
 def _clean(name: str, default: str) -> str:
@@ -70,7 +69,7 @@ def _int(name: str, default: int) -> int:
         return default
 
 
-LOG_DIR = Path((os.getenv("POSTER_LOG_DIR") or str(BASE_DIR / "logs")).split("#")[0].strip())
+LOG_DIR = data_dir("POSTER_LOG_DIR", "logs")
 LOG_LEVEL = _clean("POSTER_LOG_LEVEL", "INFO").upper()
 LOG_REQUESTS = _clean("POSTER_LOG_REQUESTS", "1") != "0"
 SLOW_MS = _int("POSTER_SLOW_MS", 800)

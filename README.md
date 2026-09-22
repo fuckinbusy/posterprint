@@ -50,7 +50,7 @@ npm run dev                         # http://localhost:5174
 
 ```bash
 curl -fsSL https://get.docker.com | sh
-git clone https://github.com/fuckinbusy/posterprint-ocr /opt/poster && cd /opt/poster
+git clone https://github.com/fuckinbusy/posterprint /opt/poster && cd /opt/poster
 cp .env.example .env                              # домен и путь системы
 cp poster-ocr/.env.example poster-ocr/.env        # настройки системы
 nano .env poster-ocr/.env

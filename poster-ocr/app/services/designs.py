@@ -19,19 +19,16 @@
 from __future__ import annotations
 
 import contextlib
-import os
 import shutil
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app.core.paths import BASE_DIR
+from app.core.paths import data_dir
 from app.services import cdr
 
 # только strip: в пути к сетевой папке пробелы вполне бывают
-DESIGNS_DIR = Path(
-    (os.getenv("POSTER_DESIGNS_DIR") or str(BASE_DIR / "designs")).strip()
-).resolve()
+DESIGNS_DIR = data_dir("POSTER_DESIGNS_DIR", "designs")
 # без точки в начале: на Windows скрытая папка только сбивает с толку,
 # да и некоторые файловые системы не дают её создать
 PREVIEW_DIR = DESIGNS_DIR / "_previews"

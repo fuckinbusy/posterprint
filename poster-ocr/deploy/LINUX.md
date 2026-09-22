@@ -14,7 +14,7 @@ Python 3.10 или новее и git; Node.js не нужен — интерфе
 
 ```bash
 sudo apt install -y python3 python3-venv git
-git clone https://github.com/fuckinbusy/posterprint-ocr /opt/poster && cd /opt/poster
+git clone https://github.com/fuckinbusy/posterprint /opt/poster && cd /opt/poster
 
 sudo bash deploy/install.sh --service --lan     # в своей сети без прокси
 # или
@@ -85,7 +85,7 @@ PPA deadsnakes) и дальше везде пишите `python3.10` вмест�
 
 ```bash
 sudo mkdir -p /opt/poster && sudo chown "$USER" /opt/poster
-git clone https://github.com/fuckinbusy/posterprint-ocr /opt/poster
+git clone https://github.com/fuckinbusy/posterprint /opt/poster
 cd /opt/poster/poster-ocr        # система лежит в подпапке: рядом сайт-визитка
 
 python3 -m venv .venv                 # отдельное окружение только для этого проекта

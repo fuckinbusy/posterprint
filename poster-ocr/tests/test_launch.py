@@ -80,3 +80,18 @@ def test_на_windows_проверка_прав_молчит(monkeypatch, tmp_pa
     monkeypatch.setattr(os, "name", "nt")
     (tmp_path / ".env").write_text("x")
     assert deploy.file_permission_problems(tmp_path) == []
+
+
+def test_относительные_папки_данных_считаются_от_проекта(monkeypatch, tmp_path):
+    """POSTER_LOG_DIR=./logs при запуске из корня монорепозитория заводил
+    папку logs там, а не в poster-ocr/."""
+    from app.core import paths
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("POSTER_LOG_DIR", "./logs   # пояснение")
+    assert paths.data_dir("POSTER_LOG_DIR", "logs") == (paths.BASE_DIR / "logs").resolve()
+    monkeypatch.delenv("POSTER_LOG_DIR")
+    assert paths.data_dir("POSTER_LOG_DIR", "logs") == paths.BASE_DIR / "logs"
+    absolute = tmp_path / "elsewhere"
+    monkeypatch.setenv("POSTER_LOG_DIR", str(absolute))
+    assert paths.data_dir("POSTER_LOG_DIR", "logs") == absolute

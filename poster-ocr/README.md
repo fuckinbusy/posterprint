@@ -216,7 +216,7 @@ systemd она стоит всегда):
 curl -fsSL https://get.docker.com | sh
 
 # 2. код
-git clone https://github.com/fuckinbusy/posterprint-ocr /opt/poster && cd /opt/poster
+git clone https://github.com/fuckinbusy/posterprint /opt/poster && cd /opt/poster
 
 # 3. настройки: домен и путь — в корневом .env, система — в poster-ocr/.env
 cp .env.example .env && cp poster-ocr/.env.example poster-ocr/.env
@@ -532,7 +532,7 @@ Windows, «Планировщик заданий» — раз в сутки:
 ```
 Программа:  D:\путь\.venv\Scripts\python.exe
 Аргументы:  -m scripts.backup --keep 30
-Папка:      D:\путь\posterprint-ocr
+Папка:      D:\путь\posterprint\poster-ocr
 ```
 
 Linux — та же команда в cron.

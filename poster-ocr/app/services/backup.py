@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import sqlite3
 from datetime import date, datetime
@@ -28,12 +27,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import DB_URL, SessionLocal
-from app.core.paths import BASE_DIR
+from app.core.paths import BASE_DIR, data_dir
 from app.models import Client, Order, OrderEvent, Payment, PriceItem
 
 # папка копий: рядом с проектом, либо своя — на сервере данные держат
 # отдельно от кода (том, другой диск), см. POSTER_BACKUP_DIR
-BACKUP_DIR = Path((os.getenv("POSTER_BACKUP_DIR") or str(BASE_DIR / "backups")).strip()).resolve()
+BACKUP_DIR = data_dir("POSTER_BACKUP_DIR", "backups")
 
 SECTIONS = ("orders", "clients", "prices")
 STAMP = "%Y-%m-%d_%H-%M-%S"
