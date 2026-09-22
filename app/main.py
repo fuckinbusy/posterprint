@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import router as api_router
@@ -80,6 +80,9 @@ app = FastAPI(
     lifespan=lifespan,
     # описание API наружу не отдаём: сотрудникам оно не нужно, а чужому —
     # готовая карта всех ручек
+    # за прокси под своим путём («/poster-crm»): так FastAPI строит верные
+    # адреса в документации и переадресациях
+    root_path=deploy.BASE_PATH,
     docs_url=None if deploy.PUBLIC else "/docs",
     redoc_url=None if deploy.PUBLIC else "/redoc",
     openapi_url=None if deploy.PUBLIC else "/openapi.json",
@@ -183,10 +186,12 @@ NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
 
 
 @app.get("/", include_in_schema=False)
-def index() -> FileResponse:
+def index() -> HTMLResponse:
     """Отдаёт интерфейс: собранный React из static/dist (исходники в web/,
-    сборка командой `npm run build`)."""
-    return FileResponse(STATIC_DIR / "dist" / "index.html", headers=NO_CACHE)
+    сборка командой `npm run build`). Файл читается на каждый запрос — он
+    маленький, а после пересборки новая страница уезжает без перезапуска."""
+    html = (STATIC_DIR / "dist" / "index.html").read_text(encoding="utf-8")
+    return HTMLResponse(deploy.inject_base(html, deploy.BASE_PATH), headers=NO_CACHE)
 
 
 def data_paths() -> list:

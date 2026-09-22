@@ -1,27 +1,49 @@
-# Caddy перед ПОСТЕРом: https с автоматическим сертификатом, сжатие,
-# передача настоящего адреса клиента.
+# Caddy перед ПОСТЕРом на одном домене с сайтом-визиткой.
 #
-# Домен берётся из переменной POSTER_DOMAIN (docker-compose.yml). Без Docker
-# впишите домен вместо {$POSTER_DOMAIN} и адрес 127.0.0.1:8000 вместо app:8000.
+#   https://example.ru/               сайт-визитка — статические файлы из site/
+#   https://example.ru/poster-crm/    система (POSTER_BASE_PATH)
+#
+# https с сертификатом Let's Encrypt выпускается и продлевается сам: домен
+# должен указывать на этот сервер, порты 80 и 443 — быть открыты.
+#
+# Переменные приходят из docker-compose.yml (POSTER_DOMAIN, POSTER_BASE_PATH).
+# Без Docker впишите значения руками: домен вместо {$POSTER_DOMAIN}, путь
+# вместо {$POSTER_BASE_PATH}, 127.0.0.1:8000 вместо app:8000, свою папку
+# вместо /srv/site.
+#
+# Когда визитка станет отдельным приложением (Node, ещё один контейнер),
+# замените блок «сайт-визитка» на reverse_proxy site:3000 — система от этого
+# не зависит: у неё свой путь.
 
 {$POSTER_DOMAIN} {
-	# сертификат Let's Encrypt выпускается и продлевается сам; для этого
-	# домен должен указывать на этот сервер, а порты 80 и 443 быть открыты
 	encode zstd gzip
 
-	# макеты .cdr бывают по сотне мегабайт — лимит выше, чем у самого приложения
-	request_body {
-		max_size 320MB
+	# ---- система: /poster-crm/… → приложение, префикс отрезается
+	# «/poster-crm» без косой черты — на «/poster-crm/», иначе относительные
+	# адреса страницы ушли бы в корень домена, к визитке
+	redir {$POSTER_BASE_PATH} {$POSTER_BASE_PATH}/ permanent
+
+	handle_path {$POSTER_BASE_PATH}/* {
+		# макеты .cdr бывают по сотне мегабайт — лимит выше, чем у самого приложения
+		request_body {
+			max_size 320MB
+		}
+		# X-Forwarded-For и X-Forwarded-Proto Caddy ставит сам; по ним приложение
+		# считает лимит попыток входа, отмечает устройства и включает HSTS
+		reverse_proxy app:8000 {
+			# загрузка большого макета по медленному каналу
+			transport http {
+				read_timeout 10m
+				write_timeout 10m
+			}
+		}
 	}
 
-	# X-Forwarded-For и X-Forwarded-Proto Caddy ставит сам; по ним приложение
-	# считает лимит попыток входа, отмечает устройства и включает HSTS
-	reverse_proxy app:8000 {
-		# загрузка большого макета по медленному каналу
-		transport http {
-			read_timeout 10m
-			write_timeout 10m
-		}
+	# ---- сайт-визитка: всё остальное
+	handle {
+		root * /srv/site
+		file_server
+		header Cache-Control "public, max-age=3600"
 	}
 
 	header {

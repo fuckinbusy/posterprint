@@ -6,7 +6,20 @@
    получает либо данные, либо ApiError с человеческим текстом.
    ========================================================= */
 
-export const API = '/api';
+/* Под каким путём система живёт на домене («/poster-crm»): сервер вписывает
+ * его в <meta name="poster-base"> при отдаче страницы. Дома и в разработке
+ * там пусто, и всё работает от корня, как раньше. */
+export const BASE: string =
+  (typeof document !== 'undefined' &&
+    document.querySelector('meta[name="poster-base"]')?.getAttribute('content')) ||
+  '';
+
+export const API = `${BASE}/api`;
+
+/** Абсолютный адрес из ответа сервера («/api/…») — с учётом префикса пути.
+ *  Сервер сам добавляет префикс; здесь страховка на случай, если его нет. */
+export const apiHref = (url: string): string =>
+  BASE && url.startsWith('/api/') ? `${BASE}${url}` : url;
 
 const TOKEN_KEY = 'poster.token';
 const DEVICE_KEY_STORAGE = 'poster.device';

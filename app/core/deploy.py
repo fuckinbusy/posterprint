@@ -44,6 +44,35 @@ PUBLIC = _flag(os.getenv("POSTER_PUBLIC"))
 ALLOWED_HOSTS = _list(os.getenv("POSTER_ALLOWED_HOSTS"))
 
 
+def base_path(value: str | None) -> str:
+    """Под каким путём система живёт на домене: «/poster-crm». Пусто — в корне.
+
+    Прокси (Caddy) отрезает этот префикс, приложение внутри по-прежнему
+    видит «/api/…» и «/static/…»; префикс нужен только там, где адреса
+    уходят в браузер — в index.html и в ссылках на скачивание.
+    """
+    text = (value or "").strip().strip("/")
+    if not text:
+        return ""
+    if not re.fullmatch(r"[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*", text):
+        raise ValueError(
+            f"POSTER_BASE_PATH={value!r}: путь — латиница, цифры, дефис и точка, например /poster-crm"
+        )
+    return "/" + text
+
+
+BASE_PATH = base_path(os.getenv("POSTER_BASE_PATH"))
+
+
+def inject_base(html: str, base: str) -> str:
+    """index.html с учётом префикса: адреса «/static/…» получают его, а в <head>
+    появляется <meta name="poster-base">, по которому интерфейс строит адрес
+    API. Встроенный скрипт темы не трогается — его хэш в CSP остаётся верным."""
+    marker = f'<meta name="poster-base" content="{base}" />'
+    html = html.replace('="/static/', f'="{base}/static/') if base else html
+    return html.replace("<head>", f"<head>\n{marker}", 1)
+
+
 def check(env: Mapping[str, str | None]) -> list[str]:
     """Что мешает открывать сервер наружу. Пусто — можно.
 

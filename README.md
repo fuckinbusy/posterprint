@@ -150,7 +150,31 @@ pip install "psycopg[binary]"
 Чтобы сотрудники работали из дома или из другого города, сервер ставится на
 арендованную машину (VPS) с доменом. Всё, что для этого нужно, лежит в
 репозитории: `Dockerfile`, `docker-compose.yml`, `deploy/Caddyfile`,
-`deploy/poster.service`.
+`deploy/poster.service`, `site/`.
+
+### Один домен: сайт-визитка в корне, система под своим путём
+
+Корень домена обычно занят сайтом мастерской, поэтому система живёт под
+путём, по умолчанию `/poster-crm`:
+
+    https://example.ru/               сайт-визитка (папка site/)
+    https://example.ru/poster-crm/    система
+
+Путь задаётся одной переменной `POSTER_BASE_PATH` (в `.env`); её читают и
+приложение, и Caddy. Caddy отрезает префикс, приложение внутри видит
+привычные `/api/…` и `/static/…`, а при отдаче страницы вписывает префикс в
+адреса сборки и в `<meta name="poster-base">`, по которому интерфейс строит
+адрес API. Дома и в разработке переменная пуста, всё работает от корня.
+Разделы интерфейса живут после `#` (`/poster-crm/#/mail`), поэтому с
+визиткой они не пересекаются, а `/poster-crm` без косой черты Caddy
+переадресует на `/poster-crm/`.
+
+Сайт-визитка — обычные файлы в `site/`: Caddy отдаёт их как есть. Когда
+визитка станет отдельным приложением (например, Node в своём контейнере),
+в `deploy/Caddyfile` блок `handle` с `file_server` меняется на
+`reverse_proxy site:3000`, а в `docker-compose.yml` добавляется сервис —
+система от этого не зависит, у неё свой путь. Так и задумано: один сервер,
+один Caddy, один сертификат, а сайт и система обновляются независимо.
 
 ### Что защищает сервер снаружи
 
@@ -191,8 +215,9 @@ git clone https://github.com/fuckinbusy/posterprint-ocr /opt/poster && cd /opt/p
 cp .env.example .env && nano .env
 #    POSTER_ADMIN_PASSWORD=…            длинный, не словарный
 #    POSTER_SECRET_KEY=…                python3 -c "import secrets; print(secrets.token_urlsafe(48))"
-#    POSTER_ALLOWED_HOSTS=poster.example.ru
-#    POSTER_DOMAIN=poster.example.ru    его же читает Caddy
+#    POSTER_ALLOWED_HOSTS=example.ru
+#    POSTER_DOMAIN=example.ru           его же читает Caddy
+#    POSTER_BASE_PATH=/poster-crm       путь на домене; пусто — в корне
 #    POSTER_BACKUP_AT=03:30             ежедневная копия силами сервера
 
 # 4. домен должен указывать на адрес сервера (A-запись), порты 80 и 443 открыты
@@ -203,8 +228,9 @@ docker compose up -d
 docker compose logs -f app        # первый старт: таблицы, каталог, предупреждения
 ```
 
-Интерфейс — `https://poster.example.ru`. Порт 8000 наружу не открыт: к
-приложению можно попасть только через Caddy по https.
+Интерфейс — `https://example.ru/poster-crm/`, в корне — сайт из `site/`.
+Порт 8000 наружу не открыт: к приложению можно попасть только через Caddy
+по https. Просмотр содержимого макетов работает сразу: libcdr входит в образ.
 
 Данные лежат в `/opt/poster/data` (база, копии, макеты, логи) — это том,
 образ можно пересобирать сколько угодно. Обновление:
@@ -219,7 +245,7 @@ cd /opt/poster && git pull && docker compose up -d --build
 потери машины:
 
 ```bash
-rsync -a user@poster.example.ru:/opt/poster/data/backups/ ~/poster-backups/
+rsync -a user@example.ru:/opt/poster/data/backups/ ~/poster-backups/
 ```
 
 Сделать копию вручную или восстановиться:
@@ -231,10 +257,12 @@ docker compose exec app python -m scripts.restore --list
 
 ### Без Docker
 
-То же самое службой systemd: пошагово — в шапке `deploy/poster.service`.
+То же самое службой systemd: пошагово — в шапке `deploy/poster.service`,
+плюс `POSTER_BASE_PATH=/poster-crm` в `.env` и `sudo apt install libcdr-tools`.
 Перед приложением ставится Caddy (`apt install caddy`) с `deploy/Caddyfile`,
-где вместо `{$POSTER_DOMAIN}` вписан домен, а вместо `app:8000` —
-`127.0.0.1:8000`.
+где вместо `{$POSTER_DOMAIN}` вписан домен, вместо `{$POSTER_BASE_PATH}` —
+путь, вместо `app:8000` — `127.0.0.1:8000`, вместо `/srv/site` — папка с
+визиткой.
 
 ### Сотрудники на удалёнке
 

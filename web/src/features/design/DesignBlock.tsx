@@ -16,6 +16,7 @@ import {
   uploadDesign,
   useDesignInfo,
 } from '@/api/designs';
+import { apiHref } from '@/api/client';
 import { qk } from '@/api/keys';
 import { useCan } from '@/app/AuthProvider';
 import { useConfirm } from '@/app/ConfirmProvider';
@@ -119,7 +120,7 @@ function DesignBody({ orderId, info }: { orderId: number; info: DesignInfo }) {
     try {
       const link = await fetchDesignLink(orderId);
       const a = document.createElement('a');
-      a.href = link.url;
+      a.href = apiHref(link.url);
       a.download = link.filename || '';
       document.body.append(a);
       a.click();

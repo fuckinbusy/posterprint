@@ -1,8 +1,10 @@
-# ПОСТЕР на сервере в интернете: приложение + Caddy.
+# ПОСТЕР на сервере в интернете: приложение + Caddy + сайт-визитка.
 #
 # Caddy принимает 80/443, сам получает и продлевает сертификат Let's Encrypt
-# для домена из POSTER_DOMAIN и передаёт запросы приложению по внутренней сети.
-# Порт 8000 наружу не открыт: к приложению можно попасть только через https.
+# для домена из POSTER_DOMAIN. В корне домена лежит сайт-визитка (папка
+# site/), система живёт под путём POSTER_BASE_PATH («/poster-crm») и получает
+# запросы по внутренней сети. Порт 8000 наружу не открыт: к приложению можно
+# попасть только через Caddy по https.
 #
 # Запуск:   cp .env.example .env  →  заполнить  →  docker compose up -d
 # Обновить: git pull && docker compose up -d --build
@@ -17,6 +19,8 @@ services:
       # снаружи — всегда строгий режим; отключить можно только сознательно,
       # убрав эту строку
       POSTER_PUBLIC: "1"
+      # путь на домене; тот же читает Caddy. Пусто — система в корне домена
+      POSTER_BASE_PATH: ${POSTER_BASE_PATH:-/poster-crm}
       # пути к данным задаются здесь, а не в .env: строки вроде
       # POSTER_LOG_DIR=./logs из .env.example иначе увели бы логи и макеты
       # из тома внутрь контейнера, где они пропадают при пересборке
@@ -48,8 +52,11 @@ services:
     environment:
       # домен, на который указывает DNS сервера; тот же, что в POSTER_ALLOWED_HOSTS
       POSTER_DOMAIN: ${POSTER_DOMAIN:?задайте POSTER_DOMAIN в .env}
+      POSTER_BASE_PATH: ${POSTER_BASE_PATH:-/poster-crm}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # сайт-визитка: статические файлы. Заменить на свои — просто положить в site/
+      - ./site:/srv/site:ro
       # сертификаты и ключи Let's Encrypt — чтобы не запрашивать заново при перезапуске
       - caddy_data:/data
       - caddy_config:/config

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, Up
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.core import deploy
 from app.core.database import get_db
 from app.core.logs import log as applog
 from app.core.security import CurrentUser, make_scoped_token, require_perm, verify_scoped_token
@@ -77,7 +78,8 @@ def design_link(
         raise HTTPException(404, "Макет не загружен")
     token = make_scoped_token(f"design:{order_id}")
     return {
-        "url": f"/api/orders/{order_id}/design/file?t={token}",
+        # с префиксом пути (POSTER_BASE_PATH): браузер идёт по ссылке сам, без нашего клиента
+        "url": f"{deploy.BASE_PATH}/api/orders/{order_id}/design/file?t={token}",
         "filename": designs.design_path(order.number).name,
     }
 
