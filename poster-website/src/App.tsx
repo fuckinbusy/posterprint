@@ -1,96 +1,60 @@
-/* Каркас сайта-визитки: шапка с навигацией, страницы, подвал.
+/* Сайт-визитка: одна длинная страница с разделами, как старый сайт на
+   Tilda, — меню ведёт по якорям (#uslugi, #kontakty). React Router остаётся
+   ради страницы «нет такого адреса» и будущих отдельных страниц (например,
+   своя страница у каждой услуги). */
 
-   Это заготовка — структура и стили, которые заменятся настоящим дизайном.
-   Ссылка на систему ведёт на /poster-crm/: на сервере это отдельное
-   приложение за тем же Caddy, в разработке — прокси на локальный uvicorn
-   (vite.config.ts). */
+import { Route, Routes } from 'react-router-dom';
 
-import { NavLink, Route, Routes } from 'react-router-dom';
-
-const CRM_URL = '/poster-crm/';
-
-const NAV = [
-  { to: '/', label: 'Главная' },
-  { to: '/uslugi', label: 'Услуги' },
-  { to: '/kontakty', label: 'Контакты' },
-];
+import { PriceDialogProvider } from '@/components/PriceDialog';
+import { About } from '@/sections/About';
+import { Clients } from '@/sections/Clients';
+import { Contacts } from '@/sections/Contacts';
+import { Footer } from '@/sections/Footer';
+import { Header } from '@/sections/Header';
+import { Hero } from '@/sections/Hero';
+import { Portfolio } from '@/sections/Portfolio';
+import { Requirements } from '@/sections/Requirements';
+import { Services } from '@/sections/Services';
 
 export function App() {
   return (
-    <div className="site">
-      <header className="site-head">
-        <NavLink to="/" className="logo">
-          Печатная мастерская
-        </NavLink>
-        <nav aria-label="Разделы сайта">
-          {NAV.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.to === '/'}>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-        {/* обычная ссылка, не NavLink: это другой сайт, React Router о нём не знает */}
-        <a className="staff" href={CRM_URL}>
-          Вход для сотрудников
-        </a>
-      </header>
-
-      <main className="site-main">
+    <PriceDialogProvider>
+      <Header />
+      <main>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/uslugi" element={<Services />} />
-          <Route path="/kontakty" element={<Contacts />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-
-      <footer className="site-foot">© {new Date().getFullYear()} Печатная мастерская</footer>
-    </div>
+      <Footer />
+    </PriceDialogProvider>
   );
 }
 
 function Home() {
   return (
-    <section className="hero">
-      <h1>Печать, которая не подводит</h1>
-      <p>Баннеры, наклейки, визитки и полиграфия. С макетом или без — поможем.</p>
-      <NavLink className="btn" to="/kontakty">
-        Связаться
-      </NavLink>
-    </section>
-  );
-}
-
-function Services() {
-  const items = ['Широкоформатная печать', 'Наклейки и этикетки', 'Визитки и листовки', 'Постпечать'];
-  return (
-    <section>
-      <h1>Услуги</h1>
-      <ul className="cards">
-        {items.map((title) => (
-          <li key={title}>{title}</li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function Contacts() {
-  return (
-    <section>
-      <h1>Контакты</h1>
-      <p>Адрес, телефон и часы работы появятся здесь.</p>
-    </section>
+    <>
+      <Hero />
+      <About />
+      <Services />
+      <Portfolio />
+      <Requirements />
+      <Clients />
+      <Contacts />
+    </>
   );
 }
 
 function NotFound() {
   return (
-    <section>
-      <h1>Страницы нет</h1>
-      <p>
-        Такого адреса на сайте нет. <NavLink to="/">На главную</NavLink>
-      </p>
+    <section className="sec not-found">
+      <div className="wrap">
+        <p className="eyebrow">404</p>
+        <h1>Такой страницы нет</h1>
+        <p>
+          Возможно, адрес набран с ошибкой. <a href="/">На главную</a>
+        </p>
+      </div>
     </section>
   );
 }
