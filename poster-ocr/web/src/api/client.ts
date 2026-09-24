@@ -155,6 +155,23 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 }
 
+/** Файл в ответ на форму (готовый PDF раскладки). Ошибку сервера — ApiError
+ *  с его понятным текстом, как у request(). */
+export async function requestFormBlob(path: string, form: FormData): Promise<{ blob: Blob; headers: Headers }> {
+  let res: Response;
+  try {
+    res = await fetch(API + path, { method: 'POST', headers: buildHeaders(form), body: form });
+  } catch {
+    throw new ApiError('Сервер недоступен. Проверьте, запущена ли программа.', 0);
+  }
+  if (!res.ok) {
+    const message = await readError(res);
+    if (res.status === 401) onUnauthorized?.();
+    throw new ApiError(message, res.status);
+  }
+  return { blob: await res.blob(), headers: res.headers };
+}
+
 /** Картинка превью: сервер отдаёт PNG, а не JSON.
  *  Отсутствие превью — обычное дело, поэтому вместо ошибки возвращаем null. */
 export async function requestBlob(path: string): Promise<Blob | null> {
