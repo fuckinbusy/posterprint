@@ -178,6 +178,7 @@ def test_третий_файл_ждет_не_блокируя_сервер(db, c
     отвечает всем остальным. Ожидание места не должно держать цикл событий:
     у сервера он один на всех, и заблокированный цикл — это зависшая CRM."""
     import asyncio
+    import itertools
     import threading
     import time
 
@@ -206,5 +207,5 @@ def test_третий_файл_ждет_не_блокируя_сервер(db, c
 
     replies = asyncio.run(main())
     assert [r.status_code for r in replies[:3]] == [200, 200, 200]
-    gaps = [b - a for a, b in zip(beats, beats[1:], strict=False)]
+    gaps = [b - a for a, b in itertools.pairwise(beats)]
     assert max(gaps) < 0.3, f"цикл событий стоял {max(gaps):.2f} с"
