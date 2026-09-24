@@ -117,3 +117,46 @@ def test_настройки_из_окружения(monkeypatch):
     monkeypatch.setenv("POSTER_BACKUP_KEEP", "не число")
     job = autobackup.from_env()
     assert job is not None and job.at == (4, 0) and job.keep == autobackup.DEFAULT_KEEP
+
+
+# ---------------------------------------------------------------- разрешённые имена (Host)
+def test_к_домену_добавляются_локальные_имена_для_проверки_здоровья():
+    """Проверка здоровья в контейнере стучится на 127.0.0.1: без него
+    строгий режим отвечал ей 400, и Docker считал живую систему больной."""
+    hosts = deploy.trusted_hosts("crm.example.ru")
+    assert hosts[0] == "crm.example.ru"
+    assert {"127.0.0.1", "localhost"} <= set(hosts)
+    assert deploy.trusted_hosts("") == []   # не задан — проверки Host нет вовсе, как раньше
+
+
+def test_проверка_здоровья_проходит_а_чужой_host_нет():
+    import asyncio
+
+    from starlette.applications import Starlette
+    from starlette.middleware.trustedhost import TrustedHostMiddleware
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+
+    inner = Starlette(routes=[Route("/health", lambda request: PlainTextResponse("ok"))])
+    app = TrustedHostMiddleware(inner, allowed_hosts=deploy.trusted_hosts("crm.example.ru"))
+
+    def status(host: str) -> int:
+        codes: list[int] = []
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message):
+            if message["type"] == "http.response.start":
+                codes.append(message["status"])
+
+        scope = {"type": "http", "method": "GET", "path": "/health", "raw_path": b"/health",
+                 "query_string": b"", "headers": [(b"host", host.encode())], "scheme": "http",
+                 "server": ("127.0.0.1", 8000), "client": ("127.0.0.1", 1), "root_path": "",
+                 "http_version": "1.1", "asgi": {"version": "3.0"}}
+        asyncio.run(app(scope, receive, send))
+        return codes[0]
+
+    assert status("127.0.0.1:8000") == 200
+    assert status("crm.example.ru") == 200
+    assert status("evil.example") == 400

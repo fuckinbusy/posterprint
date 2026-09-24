@@ -31,7 +31,7 @@
 3. **Первый запрос:**
 
    ```bash
-   curl -H "X-API-Key: pst_ваш_ключ" https://example.ru/poster-crm/api/auth/me
+   curl -H "X-API-Key: pst_ваш_ключ" https://crm.постерпринт.рф/api/auth/me
    ```
 
    ```json
@@ -49,7 +49,7 @@
 import os
 import requests
 
-API = "https://example.ru/poster-crm/api"
+API = "https://crm.xn--e1agpbecgbfkg.xn--p1ai/api"   # crm.постерпринт.рф
 session = requests.Session()
 session.headers["X-API-Key"] = os.environ["POSTER_API_KEY"]   # ключ — не в коде
 
@@ -65,11 +65,14 @@ print(me["name"], me["permissions"])
 
 | Где стоит система | Адрес API |
 |---|---|
-| Сервер в интернете (Docker, по умолчанию) | `https://домен/poster-crm/api/…` |
+| Сервер в интернете | `https://crm.постерпринт.рф/api/…` — поддомен CRM |
 | Компьютер в мастерской | `http://адрес-компьютера:8000/api/…` |
 
-Путь `/poster-crm` задаёт `POSTER_BASE_PATH` в корневом `.env`; если его
-поменяли — поменяется и адрес. Дальше в гайде пути пишутся от `/api`.
+Домен CRM — `POSTER_CRM_DOMAIN` в корневом `.env` сервера
+(`../deploy/README.md`). Программам, которые не понимают кириллицу в адресе,
+пишите его в punycode: `crm.xn--e1agpbecgbfkg.xn--p1ai`. Если CRM отдают под
+путём чужого домена (`POSTER_BASE_PATH`), путь добавляется перед `/api`.
+Дальше в гайде пути пишутся от `/api`.
 
 Снаружи — только https. Документация `/docs` на сервере в интернете
 выключена намеренно (карта всех ручек для чужих); дома, без

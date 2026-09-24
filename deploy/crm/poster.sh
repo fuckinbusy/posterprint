@@ -1,36 +1,42 @@
 #!/usr/bin/env bash
-# Управление сервером ПОСТЕР на Linux одной командой.
+# Управление системой ПОСТЕР (CRM) на Linux без Docker — одной командой.
+# Команды — из корня репозитория (или через ./poster.sh … crm):
 #
-#   deploy/poster.sh run                 в текущем терминале (Ctrl+C — стоп)
-#   deploy/poster.sh start|stop|restart  служба systemd, если установлена; иначе фоновый
+#   deploy/crm/poster.sh run                 в текущем терминале (Ctrl+C — стоп)
+#   deploy/crm/poster.sh start|stop|restart  служба systemd, если установлена; иначе фоновый
 #                                        процесс (pid в logs/poster.pid). После stop сторож
 #                                        сервер не поднимает — до следующего start
-#   deploy/poster.sh status              жив ли процесс и отвечает ли /health
-#   deploy/poster.sh logs [N]            последние N строк журнала и дальше вживую
-#   deploy/poster.sh health              0 — отвечает, 1 — нет (для сторожа)
-#   deploy/poster.sh watchdog            поднять, если не отвечает (для cron)
-#   deploy/poster.sh install-service [--lan] [--user имя]
+#   deploy/crm/poster.sh status              жив ли процесс и отвечает ли /health
+#   deploy/crm/poster.sh logs [N]            последние N строк журнала и дальше вживую
+#   deploy/crm/poster.sh health              0 — отвечает, 1 — нет (для сторожа)
+#   deploy/crm/poster.sh watchdog            поднять, если не отвечает (для cron)
+#   deploy/crm/poster.sh install-service [--lan] [--user имя]
 #                                        служба systemd: автозапуск при загрузке,
 #                                        перезапуск после сбоя, сторож, без сна
-#   deploy/poster.sh enable-autostart    автозапуск без systemd: @reboot и сторож в cron
-#   deploy/poster.sh disable-autostart   убрать из автозапуска: служба остаётся, но при
+#   deploy/crm/poster.sh enable-autostart    автозапуск без systemd: @reboot и сторож в cron
+#   deploy/crm/poster.sh disable-autostart   убрать из автозапуска: служба остаётся, но при
 #                                        загрузке не стартует; сторож и @reboot из cron убраны
-#   deploy/poster.sh uninstall-service   снести службу целиком (файлы и данные не трогает)
-#   deploy/poster.sh update              git pull, зависимости, перезапуск
-#   deploy/poster.sh backup              копия базы прямо сейчас
+#   deploy/crm/poster.sh uninstall-service   снести службу целиком (файлы и данные не трогает)
+#   deploy/crm/poster.sh update              git pull, зависимости, перезапуск
+#   deploy/crm/poster.sh backup              копия базы прямо сейчас
 #
 # Сервер слушает $POSTER_HOST:$POSTER_PORT (по умолчанию 0.0.0.0:8000) —
 # переменные можно задать в .env или перед командой:
-#   POSTER_PORT=8010 deploy/poster.sh start
+#   POSTER_PORT=8010 deploy/crm/poster.sh start
 #
-# Скрипт работает из любого каталога: сам находит корень проекта.
+# Скрипт работает из любого каталога: сам находит папку системы
+# (../../poster-ocr от себя). Раньше он лежал в poster-ocr/deploy/ — там
+# осталась переадресация сюда, чтобы уже установленные служба и сторож
+# в cron продолжили работать.
 
 set -euo pipefail
 
 # После install-service каталог закрыт для всех, кроме пользователя службы
 # (chmod 700), поэтому обычному пользователю сюда не войти — нужен sudo.
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)" \
-    || { echo 'Ошибка: нет доступа к каталогу проекта — запустите через sudo' >&2; exit 1; }
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SELF="$HERE/$(basename "${BASH_SOURCE[0]}")"
+ROOT="$(cd "$HERE/../../poster-ocr" 2>/dev/null && pwd)" \
+    || { echo 'Ошибка: нет доступа к папке poster-ocr — запустите через sudo' >&2; exit 1; }
 cd "$ROOT"
 # всё, что создаёт сервер (база, копии, журналы), — только владельцу
 umask 077
@@ -68,7 +74,7 @@ fi
 
 say()  { printf '%s\n' "$*"; }
 die()  { printf 'Ошибка: %s\n' "$*" >&2; exit 1; }
-need_venv() { [ -n "$PY" ] || die "нет окружения .venv — сначала deploy/install.sh"; }
+need_venv() { [ -n "$PY" ] || die "нет окружения .venv — сначала deploy/crm/install.sh"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 uvicorn_cmd() { echo "$PY" -m uvicorn app.main:app --host "$HOST" --port "$PORT" --workers 1; }
@@ -134,7 +140,7 @@ cmd_stop() {
     touch "$STOP_MARK"
     if service_exists; then
         $SUDO systemctl stop "$SERVICE"
-        say "Служба остановлена. Сторож её не поднимет, пока не сделать: deploy/poster.sh start"
+        say "Служба остановлена. Сторож её не поднимет, пока не сделать: deploy/crm/poster.sh start"
         return 0
     fi
     if ! pid_alive; then say "Не запущен"; rm -f "$PID_FILE"; return 0; fi
@@ -151,7 +157,7 @@ cmd_stop() {
 }
 
 cmd_status() {
-    [ -f "$STOP_MARK" ] && say "Остановлен намеренно (deploy/poster.sh stop) — сторож не вмешивается"
+    [ -f "$STOP_MARK" ] && say "Остановлен намеренно (deploy/crm/poster.sh stop) — сторож не вмешивается"
     if service_exists; then
         say "Служба systemd: $(systemctl is-active "$SERVICE" 2>/dev/null || true), автозапуск: $(systemctl is-enabled "$SERVICE" 2>/dev/null || true)"
     elif pid_alive; then
@@ -191,7 +197,7 @@ cmd_watchdog() {
 
 cmd_install_service() {
     have systemctl || die "нет systemd — используйте enable-autostart"
-    [ "$(id -u)" -eq 0 ] || die "нужен root: sudo deploy/poster.sh install-service"
+    [ "$(id -u)" -eq 0 ] || die "нужен root: sudo deploy/crm/poster.sh install-service"
     need_venv
     local user="poster" lan=0
     while [ $# -gt 0 ]; do
@@ -209,10 +215,10 @@ cmd_install_service() {
     [ -f .env ] && chmod 600 .env
     [ -f .secret ] && chmod 600 .secret
 
-    # юнит из deploy/poster.service, но с настоящими путём и пользователем
+    # юнит из poster.service рядом со скриптом, но с настоящими путём и пользователем
     local unit="/etc/systemd/system/$SERVICE.service"
     sed -e "s#/opt/poster#$ROOT#g" -e "s#^User=poster#User=$user#" -e "s#^Group=poster#Group=$user#" \
-        deploy/poster.service >"$unit"
+        "$HERE/poster.service" >"$unit"
     if [ "$lan" -eq 1 ]; then
         # своя сеть без прокси: слушать все интерфейсы, строгий режим не нужен
         sed -i -e "s#--host 127.0.0.1#--host 0.0.0.0#" -e "/^Environment=POSTER_PUBLIC=1/d" "$unit"
@@ -233,7 +239,7 @@ cmd_install_service() {
     # Через bash: в git у скрипта может не быть права на исполнение, и cron
     # молча получал бы «Permission denied» каждую минуту.
     remove_cron_lines
-    install_cron_line "* * * * * bash $ROOT/deploy/poster.sh watchdog >> $ROOT/logs/watchdog.log 2>&1"
+    install_cron_line "* * * * * bash $SELF watchdog >> $ROOT/logs/watchdog.log 2>&1"
 
     say "Служба $SERVICE установлена: автозапуск при загрузке, перезапуск после сбоя, сторож в cron."
     say "Проверка: systemctl status $SERVICE · curl $HEALTH"
@@ -245,8 +251,8 @@ cmd_enable_autostart() {
     have crontab || die "нет cron — установите cron или используйте install-service"
     need_venv
     remove_cron_lines   # прежние строки (в том числе старого вида, без bash) — долой
-    install_cron_line "@reboot sleep 20 && bash $ROOT/deploy/poster.sh start >> $ROOT/logs/watchdog.log 2>&1"
-    install_cron_line "* * * * * bash $ROOT/deploy/poster.sh watchdog >> $ROOT/logs/watchdog.log 2>&1"
+    install_cron_line "@reboot sleep 20 && bash $SELF start >> $ROOT/logs/watchdog.log 2>&1"
+    install_cron_line "* * * * * bash $SELF watchdog >> $ROOT/logs/watchdog.log 2>&1"
     say "Автозапуск через cron включён для пользователя $(whoami): @reboot и сторож раз в минуту."
     say "Проверить: crontab -l"
 }
@@ -259,25 +265,26 @@ install_cron_line() {
 }
 
 remove_cron_lines() {
-    # все строки cron, которые ссылаются на этот скрипт (сторож, @reboot)
+    # все строки cron, которые ссылаются на этот скрипт (сторож, @reboot), —
+    # и на прежнее его место в poster-ocr/deploy: их ставили старые установки
     have crontab || return 0
     local current; current="$(crontab -l 2>/dev/null || true)"
     [ -n "$current" ] || return 0
-    local rest; rest="$(printf '%s\n' "$current" | grep -Fv "$ROOT/deploy/poster.sh" || true)"
+    local rest; rest="$(printf '%s\n' "$current" | grep -Fv -e "$SELF" -e "$ROOT/deploy/poster.sh" || true)"
     if [ -z "$rest" ]; then crontab -r 2>/dev/null || true; else printf '%s\n' "$rest" | crontab -; fi
 }
 
 cmd_disable_autostart() {
     local removed=0
     if service_exists; then
-        [ "$(id -u)" -eq 0 ] || [ -n "$SUDO" ] || die "нужен root: sudo deploy/poster.sh disable-autostart"
+        [ "$(id -u)" -eq 0 ] || [ -n "$SUDO" ] || die "нужен root: sudo deploy/crm/poster.sh disable-autostart"
         $SUDO systemctl disable --now "$SERVICE" 2>/dev/null && removed=1
-        say "Служба $SERVICE выключена и убрана из автозапуска (файл службы остался — вернуть: deploy/poster.sh start и sudo systemctl enable $SERVICE)"
+        say "Служба $SERVICE выключена и убрана из автозапуска (файл службы остался — вернуть: deploy/crm/poster.sh start и sudo systemctl enable $SERVICE)"
     fi
     # cron: и от текущего пользователя, и от root (install-service писал от root)
     remove_cron_lines
     if [ "$(id -u)" -ne 0 ] && [ -n "$SUDO" ]; then
-        $SUDO bash -c "$(declare -f have remove_cron_lines); ROOT='$ROOT'; remove_cron_lines" 2>/dev/null || true
+        $SUDO bash -c "$(declare -f have remove_cron_lines); ROOT='$ROOT'; SELF='$SELF'; remove_cron_lines" 2>/dev/null || true
     fi
     pid_alive && cmd_stop
     rm -f "$STOP_MARK"
@@ -286,7 +293,7 @@ cmd_disable_autostart() {
 
 cmd_uninstall_service() {
     have systemctl || die "нет systemd"
-    [ "$(id -u)" -eq 0 ] || die "нужен root: sudo deploy/poster.sh uninstall-service"
+    [ "$(id -u)" -eq 0 ] || die "нужен root: sudo deploy/crm/poster.sh uninstall-service"
     cmd_disable_autostart
     rm -f "/etc/systemd/system/$SERVICE.service"
     systemctl daemon-reload
@@ -305,7 +312,7 @@ cmd_update() {
     git -c safe.directory='*' -c core.fileMode=false pull --ff-only
     "$PY" -m pip install -q -r requirements.txt \
         || say "зависимости не обновились (нет сети?) — если requirements.txt не менялся, это не страшно"
-    chmod +x deploy/*.sh 2>/dev/null || true
+    chmod +x "$HERE"/*.sh 2>/dev/null || true
     # новые файлы от root вернуть владельцу каталога — иначе служба не сможет в них писать
     if [ "$(id -u)" -eq 0 ]; then
         local owner; owner="$(stat -c '%U:%G' "$ROOT" 2>/dev/null || true)"
@@ -323,7 +330,7 @@ cmd_update() {
 
 cmd_backup() { need_venv; "$PY" -m scripts.backup "$@"; }
 
-cmd_help() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
+cmd_help() { sed -n '2,21p' "$SELF" | sed 's/^# \{0,1\}//'; }
 
 case "${1:-help}" in
     run) cmd_run ;;
@@ -341,5 +348,5 @@ case "${1:-help}" in
     update) cmd_update ;;
     backup) shift; cmd_backup "$@" ;;
     help|-h|--help) cmd_help ;;
-    *) die "неизвестная команда: $1 (deploy/poster.sh help)" ;;
+    *) die "неизвестная команда: $1 (deploy/crm/poster.sh help)" ;;
 esac

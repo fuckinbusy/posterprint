@@ -1,18 +1,21 @@
 ﻿<#
-Управление сервером ПОСТЕР на Windows одной командой (PowerShell 5.1 или 7).
+Управление системой ПОСТЕР (CRM) на Windows одной командой (PowerShell 5.1 или 7).
+Команды — из корня репозитория (или через .\poster.ps1 … crm). Раньше скрипт
+лежал в poster-ocr\deploy\ — там осталась переадресация сюда, чтобы уже
+созданные задачи планировщика продолжили работать.
 
-  deploy\poster.ps1 run                 в текущем окне (Ctrl+C — стоп)
-  deploy\poster.ps1 start|stop|restart  в фоне, скрытым окном (pid в logs\poster.pid)
-  deploy\poster.ps1 status              жив ли процесс и отвечает ли /health
-  deploy\poster.ps1 logs [N]            последние N строк журнала и дальше вживую
-  deploy\poster.ps1 health              0 — отвечает, 1 — нет
-  deploy\poster.ps1 watchdog            поднять, если не отвечает (для планировщика)
-  deploy\poster.ps1 install-autostart   задача планировщика: старт при включении
+  deploy\crm\poster.ps1 run                 в текущем окне (Ctrl+C — стоп)
+  deploy\crm\poster.ps1 start|stop|restart  в фоне, скрытым окном (pid в logs\poster.pid)
+  deploy\crm\poster.ps1 status              жив ли процесс и отвечает ли /health
+  deploy\crm\poster.ps1 logs [N]            последние N строк журнала и дальше вживую
+  deploy\crm\poster.ps1 health              0 — отвечает, 1 — нет
+  deploy\crm\poster.ps1 watchdog            поднять, если не отвечает (для планировщика)
+  deploy\crm\poster.ps1 install-autostart   задача планировщика: старт при включении
                                         компьютера ещё до входа в Windows, перезапуск
                                         после сбоя, сторож раз в минуту, без сна
-  deploy\poster.ps1 remove-autostart    убрать задачи планировщика
-  deploy\poster.ps1 update              git pull, зависимости, перезапуск
-  deploy\poster.ps1 backup              копия базы прямо сейчас
+  deploy\crm\poster.ps1 remove-autostart    убрать задачи планировщика
+  deploy\crm\poster.ps1 update              git pull, зависимости, перезапуск
+  deploy\crm\poster.ps1 backup              копия базы прямо сейчас
 
 Запуск: из PowerShell «от имени администратора» для install-autostart, остальное
 от обычного пользователя. Если система ругается на политику выполнения:
@@ -29,7 +32,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+# папка системы в репозитории: deploy\crm → ..\..\poster-ocr
+$Root = (Resolve-Path (Join-Path $PSScriptRoot '..\..\poster-ocr')).Path
 Set-Location $Root
 
 $Py = Join-Path $Root '.venv\Scripts\python.exe'

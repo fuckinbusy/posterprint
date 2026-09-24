@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
-# Первая установка ПОСТЕР на Linux: от голой системы до работающего сервера.
+# Первая установка системы ПОСТЕР (CRM) на Linux без Docker: от голой системы
+# до работающего сервера. Команды — из корня репозитория.
 #
-#   bash deploy/install.sh                 окружение, зависимости, .env, пароль
-#   sudo bash deploy/install.sh --service  то же плюс служба systemd с автозапуском
-#   bash deploy/install.sh --service --lan для своей сети без прокси (0.0.0.0, без POSTER_PUBLIC)
-#   bash deploy/install.sh --no-password   не спрашивать пароль администратора (задать позже)
-#   bash deploy/install.sh --python python3.11   какой интерпретатор брать (по умолчанию 3.10,
+#   bash deploy/crm/install.sh                 окружение, зависимости, .env, пароль
+#   sudo bash deploy/crm/install.sh --service  то же плюс служба systemd с автозапуском
+#   bash deploy/crm/install.sh --service --lan для своей сети без прокси (0.0.0.0, без POSTER_PUBLIC)
+#   bash deploy/crm/install.sh --no-password   не спрашивать пароль администратора (задать позже)
+#   bash deploy/crm/install.sh --python python3.11   какой интерпретатор брать (по умолчанию 3.10,
 #                                          если он есть; иначе первый подходящий ≥ 3.10)
-#   bash deploy/install.sh --recreate      пересобрать .venv заново (например, другой версией Python)
-#   bash deploy/install.sh --pip-index URL зеркало PyPI, если pypi.org не отвечает
+#   bash deploy/crm/install.sh --recreate      пересобрать .venv заново (например, другой версией Python)
+#   bash deploy/crm/install.sh --pip-index URL зеркало PyPI, если pypi.org не отвечает
 #                                          (например https://pypi.tuna.tsinghua.edu.cn/simple)
-#   bash deploy/install.sh --wheels ПАПКА  вообще без интернета: зависимости из папки с
-#                                          wheel-файлами (см. deploy/LINUX.md, «Без интернета»)
+#   bash deploy/crm/install.sh --wheels ПАПКА  вообще без интернета: зависимости из папки с
+#                                          wheel-файлами (см. deploy/crm/LINUX.md, «Без интернета»)
 #
 # Повторный запуск безопасен: что уже сделано, пропускается.
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$HERE/../../poster-ocr" && pwd)"   # папка системы в репозитории
 cd "$ROOT"
 
 SERVICE=0; LAN=0; ASK_PASSWORD=1; RECREATE=0; WANT_PYTHON="${POSTER_PYTHON:-}"
@@ -43,7 +45,7 @@ die() { printf 'Ошибка: %s\n' "$*" >&2; exit 1; }
 # служба ставится от root, но окружение и .env должны принадлежать тому,
 # кто будет запускать; при --service владельца поправит install-service
 if [ "$SERVICE" -eq 1 ] && [ "$(id -u)" -ne 0 ]; then
-    die "для --service нужен root: sudo bash deploy/install.sh --service"
+    die "для --service нужен root: sudo bash deploy/crm/install.sh --service"
 fi
 
 # ---------------------------------------------------------------- python
@@ -93,7 +95,7 @@ else
     have_version="$(.venv/bin/python --version 2>&1)"
     want_version="$("$PYTHON" --version 2>&1)"
     if [ "$have_version" != "$want_version" ]; then
-        echo "уже есть, но на $have_version, а выбран $want_version — пересобрать: bash deploy/install.sh --recreate"
+        echo "уже есть, но на $have_version, а выбран $want_version — пересобрать: bash deploy/crm/install.sh --recreate"
     else
         echo "уже есть ($have_version)"
     fi
@@ -115,7 +117,7 @@ if [ -z "$WHEELS" ]; then
         || echo "pip не обновился — не страшно, ставим зависимости тем, что есть"
 fi
 if ! .venv/bin/python -m pip install -q "${pip_args[@]}" -r requirements.txt; then
-    die "зависимости не установились. Сеть: --pip-index https://pypi.tuna.tsinghua.edu.cn/simple; без сети: --wheels ПАПКА (deploy/LINUX.md, «Без интернета»)"
+    die "зависимости не установились. Сеть: --pip-index https://pypi.tuna.tsinghua.edu.cn/simple; без сети: --wheels ПАПКА (deploy/crm/LINUX.md, «Без интернета»)"
 fi
 echo "зависимости установлены"
 
@@ -173,9 +175,9 @@ chmod 600 .env
 mkdir -p logs backups designs
 chmod 700 logs backups designs
 [ -f poster.db ] && chmod 600 poster.db
-# скрипты запускаются и напрямую (deploy/poster.sh ...); право на исполнение
+# скрипты запускаются и напрямую (deploy/crm/poster.sh ...); право на исполнение
 # не считаем правкой, иначе git pull потом споткнётся
-chmod +x deploy/*.sh 2>/dev/null || true
+chmod +x "$HERE"/*.sh 2>/dev/null || true
 git -c safe.directory='*' rev-parse --is-inside-work-tree >/dev/null 2>&1 \
     && git -c safe.directory='*' config core.fileMode false 2>/dev/null || true
 
@@ -194,15 +196,15 @@ if [ "$SERVICE" -eq 1 ]; then
     say "Служба systemd"
     args=()
     [ "$LAN" -eq 1 ] && args+=(--lan)
-    bash deploy/poster.sh install-service "${args[@]}"
+    bash "$HERE/poster.sh" install-service "${args[@]}"
 else
     say "Готово"
     cat <<EOF
-Запуск руками:        deploy/poster.sh run
-В фоне:               deploy/poster.sh start   (stop, status, logs)
+Запуск руками:        deploy/crm/poster.sh run
+В фоне:               deploy/crm/poster.sh start   (stop, status, logs)
 Как служба с автозапуском:
-                      sudo bash deploy/install.sh --service        (за прокси)
-                      sudo bash deploy/install.sh --service --lan  (в своей сети)
-Подробно — deploy/LINUX.md
+                      sudo bash deploy/crm/install.sh --service        (за прокси)
+                      sudo bash deploy/crm/install.sh --service --lan  (в своей сети)
+Подробно — deploy/crm/LINUX.md
 EOF
 fi

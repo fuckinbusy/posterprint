@@ -1,0 +1,50 @@
+# Как отдать систему и как — сайт. Режимы (all.caddy, crm.caddy, site.caddy)
+# только решают, на каком домене какой кусок подключить.
+
+(crm) {
+	encode zstd gzip
+
+	# макеты .cdr бывают по сотне мегабайт — лимит выше, чем у самого приложения
+	request_body {
+		max_size 320MB
+	}
+	# X-Forwarded-For и X-Forwarded-Proto Caddy ставит сам; по ним приложение
+	# считает лимит попыток входа, отмечает устройства и включает HSTS.
+	# Свои заголовки безопасности система ставит сама.
+	reverse_proxy app:8000 {
+		# загрузка большого макета по медленному каналу
+		transport http {
+			read_timeout 10m
+			write_timeout 10m
+		}
+	}
+
+	header -Server
+	log {
+		output stderr
+		format console
+	}
+}
+
+(site) {
+	encode zstd gzip
+
+	# Свой Caddy внутри контейнера сайта отдаёт собранный React и знает про
+	# адреса без файлов (маршруты приложения); здесь — заголовки безопасности.
+	# HSTS тот же, что у системы: полгода браузер не пойдёт по http. Без CSP:
+	# на сайте карта Яндекса во фрейме, строгая политика её бы сломала, а
+	# своих форм и входа на сайте нет
+	header {
+		Strict-Transport-Security "max-age=15552000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+	reverse_proxy site:80
+
+	log {
+		output stderr
+		format console
+	}
+}

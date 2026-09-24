@@ -1,0 +1,9 @@
+# Режим all: сайт на основном домене, система — на своём поддомене.
+
+{$POSTER_DOMAIN} {
+	import site
+}
+
+{$POSTER_CRM_DOMAIN} {
+	import crm
+}

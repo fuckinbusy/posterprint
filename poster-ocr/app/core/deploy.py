@@ -43,6 +43,20 @@ def _list(value: str | None) -> list[str]:
 PUBLIC = _flag(os.getenv("POSTER_PUBLIC"))
 ALLOWED_HOSTS = _list(os.getenv("POSTER_ALLOWED_HOSTS"))
 
+# Имена, на которые сервер отвечает всегда, если проверка Host включена:
+# проверка здоровья Docker и setup.sh стучатся изнутри контейнера на
+# 127.0.0.1 — без них строгий режим отвечал ей 400, и Docker считал живую
+# систему больной. Снаружи такой Host до приложения не дойдёт: прокси
+# пропускает к нему только запросы на его домен, порт 8000 наружу закрыт.
+LOCAL_HOSTS = ["127.0.0.1", "localhost"]
+
+
+def trusted_hosts(value: str | None) -> list[str]:
+    """Для TrustedHostMiddleware: домены из POSTER_ALLOWED_HOSTS плюс
+    локальные имена. Домены не заданы — пусто: проверки Host нет вовсе."""
+    hosts = _list(value)
+    return hosts + [h for h in LOCAL_HOSTS if h not in hosts] if hosts else []
+
 
 def base_path(value: str | None) -> str:
     """Под каким путём система живёт на домене: «/poster-crm». Пусто — в корне.

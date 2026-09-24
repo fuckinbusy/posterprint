@@ -9,6 +9,10 @@ WORKDIR /src
 COPY package.json package-lock.json* ./
 RUN npm ci --no-audit --no-fund 2>/dev/null || npm install --no-audit --no-fund
 COPY . .
+# куда ведёт «Вход для сотрудников» — из POSTER_CRM_DOMAIN корневого .env
+# (docker-compose.yml); пусто — ссылки на сайте нет
+ARG VITE_CRM_URL=""
+ENV VITE_CRM_URL=$VITE_CRM_URL
 RUN npm run build
 
 FROM caddy:2-alpine

@@ -18,7 +18,7 @@ import sys
 HINT = (
     "У этого Python нет модуля sqlite3 (так бывает на NAS). Поставьте замену: "
     ".venv/bin/python -m pip install pysqlite3-binary — и запустите снова. "
-    "deploy/install.sh делает это сам."
+    "deploy/crm/install.sh (в корне репозитория) делает это сам."
 )
 
 

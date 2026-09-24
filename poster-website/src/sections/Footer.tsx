@@ -1,12 +1,15 @@
-/* Подвал. Ссылка на систему ведёт на /poster-crm/: на сервере это
-   отдельное приложение за тем же Caddy, в разработке — прокси на локальный
-   uvicorn (vite.config.ts). Обычная <a>, не NavLink: React Router о другом
-   приложении не знает. */
+/* Подвал. «Вход для сотрудников» ведёт в систему (CRM) — отдельное
+   приложение на своём поддомене (crm.домен). Адрес приходит при сборке из
+   VITE_CRM_URL (docker-compose.yml берёт его из POSTER_CRM_DOMAIN). В
+   разработке — /poster-crm/, его vite проксирует на локальный uvicorn
+   (vite.config.ts). Собранный без адреса сайт ссылку не показывает: вести
+   ей некуда. Обычная <a>, не NavLink: React Router о другом приложении не
+   знает. */
 
 import { Brand, SpotBar } from '@/components/Brand';
 import { CONTACTS, NAV } from '@/content';
 
-const CRM_URL = '/poster-crm/';
+const CRM_URL: string = import.meta.env.VITE_CRM_URL || (import.meta.env.DEV ? '/poster-crm/' : '');
 
 export function Footer() {
   return (
@@ -36,9 +39,11 @@ export function Footer() {
         <span>
           © {new Date().getFullYear()} {CONTACTS.company} · Реклама &amp; полиграфия
         </span>
-        <a className="staff" href={CRM_URL}>
-          Вход для сотрудников
-        </a>
+        {CRM_URL && (
+          <a className="staff" href={CRM_URL}>
+            Вход для сотрудников
+          </a>
+        )}
       </div>
     </footer>
   );

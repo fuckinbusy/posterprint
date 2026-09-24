@@ -39,3 +39,7 @@ poster-website/dist/
 # намеренно: сервер отдаёт именно его, и на рабочем компьютере Node.js может
 # не быть вовсе. А вот карты исходников — по 2 МБ на сборку, для работы не нужны.
 **/static/dist/**/*.map
+
+# Сайт, запущенный ./poster.sh start site: pid и журнал процесса
+poster-website/.site.pid
+poster-website/site.log*

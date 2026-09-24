@@ -1,5 +1,11 @@
 # Запуск на Linux отдельным процессом
 
+> Этот гайд — про систему (CRM) без Docker: компьютер или NAS в мастерской,
+> служба systemd. Сервер в интернете, сайт и выбор, что запускать, — в
+> [`deploy/README.md`](../README.md). Скрипты `deploy/crm/*` запускаются из
+> корня репозитория (`/opt/poster`); ручные шаги 3–5 — из папки системы
+> `/opt/poster/poster-ocr`.
+
 Как поднять сервер из терминала на любом Linux (Ubuntu, Debian, Astra,
 Alt — разницы нет): сначала руками, чтобы увидеть, что всё работает, потом
 как службу, чтобы он жил сам и переживал перезагрузку. Нужен только
@@ -10,15 +16,16 @@ Python 3.10 или новее и git; Node.js не нужен — интерфе
 
 ## Коротко: два скрипта делают всё
 
-Если читать некогда — шаги 1–6 ниже упакованы в два скрипта из `deploy/`:
+Если читать некогда — шаги 1–6 ниже упакованы в два скрипта из `deploy/crm/`
+(команды — из корня репозитория, `/opt/poster`):
 
 ```bash
 sudo apt install -y python3 python3-venv git
 git clone https://github.com/fuckinbusy/posterprint /opt/poster && cd /opt/poster
 
-sudo bash deploy/install.sh --service --lan     # в своей сети без прокси
+sudo bash deploy/crm/install.sh --service --lan     # в своей сети без прокси
 # или
-sudo bash deploy/install.sh --service           # за https-прокси (Caddy, туннель)
+sudo bash deploy/crm/install.sh --service           # за https-прокси (Caddy, туннель)
 ```
 
 `install.sh` берёт Python 3.10 (если стоит несколько версий — именно его; другой задаётся `--python python3.11`), собирает `.venv`, ставит зависимости,
@@ -28,20 +35,20 @@ sudo bash deploy/install.sh --service           # за https-прокси (Caddy
 автозапуском при загрузке и перезапуском после сбоя, запрещает спящий
 режим и вешает сторож в cron. Повторный запуск ничего не ломает.
 
-Дальше — `deploy/poster.sh`:
+Дальше — `deploy/crm/poster.sh`:
 
 ```
-deploy/poster.sh status              жив ли, отвечает ли
-deploy/poster.sh logs                 журнал вживую
-deploy/poster.sh update               git pull, зависимости, перезапуск
-deploy/poster.sh backup               копия базы сейчас
-deploy/poster.sh run                  в терминале (для проверки)
-deploy/poster.sh start | stop         в фоне без systemd (pid в logs/poster.pid)
-deploy/poster.sh install-service      только служба, если install.sh шёл без --service
-deploy/poster.sh enable-autostart     автозапуск через cron там, где нет systemd
-deploy/poster.sh watchdog             поднять, если не отвечает — его и зовёт cron
-deploy/poster.sh disable-autostart    убрать из автозапуска (служба остаётся, сторож выключен)
-deploy/poster.sh uninstall-service    снести службу целиком; данные не трогает
+deploy/crm/poster.sh status              жив ли, отвечает ли
+deploy/crm/poster.sh logs                 журнал вживую
+deploy/crm/poster.sh update               git pull, зависимости, перезапуск
+deploy/crm/poster.sh backup               копия базы сейчас
+deploy/crm/poster.sh run                  в терминале (для проверки)
+deploy/crm/poster.sh start | stop         в фоне без systemd (pid в logs/poster.pid)
+deploy/crm/poster.sh install-service      только служба, если install.sh шёл без --service
+deploy/crm/poster.sh enable-autostart     автозапуск через cron там, где нет systemd
+deploy/crm/poster.sh watchdog             поднять, если не отвечает — его и зовёт cron
+deploy/crm/poster.sh disable-autostart    убрать из автозапуска (служба остаётся, сторож выключен)
+deploy/crm/poster.sh uninstall-service    снести службу целиком; данные не трогает
 ```
 
 Скрипт сам понимает, как запущен сервер (служба или фоновый процесс), и
@@ -62,7 +69,7 @@ python3 --version        # должно быть 3.10 или новее
 ```
 
 `libcdr-tools` — необязательный, но без него кнопка «Открыть макет» покажет
-только эскиз. Установщик (`deploy/install.sh`), запущенный от root, ставит
+только эскиз. Установщик (`deploy/crm/install.sh`), запущенный от root, ставит
 его сам. Нужен ещё и PDF для старого CorelDRAW — добавьте `inkscape`.
 
 Если в системе Python старее 3.10 (например, Ubuntu 20.04 с 3.8) — поставьте
@@ -78,8 +85,8 @@ PPA deadsnakes) и дальше везде пишите `python3.10` вмест�
 недоступен, всё остальное работает. На ARM-хранилище или если нужен просмотр
 макетов — запускайте систему в Docker (`Dockerfile` и `docker-compose.yml` в
 корне): там есть и sqlite, и libcdr. Службы systemd на хранилище тоже может не
-быть — тогда вместо `--service` используйте `deploy/poster.sh start` и
-`deploy/poster.sh enable-autostart` (cron).
+быть — тогда вместо `--service` используйте `deploy/crm/poster.sh start` и
+`deploy/crm/poster.sh enable-autostart` (cron).
 
 ## 2. Забрать код и собрать окружение
 
@@ -116,7 +123,7 @@ python -m pip download -r requirements.txt uvloop -d wheels \
 и ставят из неё:
 
 ```bash
-sudo bash deploy/install.sh --service --lan --wheels /opt/poster/wheels
+sudo bash deploy/crm/install.sh --service --lan --wheels /opt/poster/wheels
 ```
 
 Либо руками, без скрипта: `.venv/bin/pip install --no-index --find-links wheels -r requirements.txt`.
@@ -207,14 +214,16 @@ tmux new -s poster                    # открылась отдельная с
 ### 5в. systemd — постоянно (рекомендуется)
 
 Служба стартует вместе с системой, перезапускается после сбоя, пишет журнал.
-Готовый файл лежит в `deploy/poster.service`.
+Готовый файл лежит в `deploy/crm/poster.service`.
 
 ```bash
 # отдельный пользователь без права входа: сервер работает от него, а не от вас
-sudo useradd --system --home /opt/poster --shell /usr/sbin/nologin poster
-sudo chown -R poster:poster /opt/poster
+sudo useradd --system --home /opt/poster/poster-ocr --shell /usr/sbin/nologin poster
+sudo chown -R poster:poster /opt/poster/poster-ocr
 
-sudo cp deploy/poster.service /etc/systemd/system/poster.service
+# в шаблоне папка системы — /opt/poster; в монорепозитории она в poster-ocr/
+sed 's#/opt/poster#/opt/poster/poster-ocr#g' /opt/poster/deploy/crm/poster.service \
+    | sudo tee /etc/systemd/system/poster.service >/dev/null
 sudo nano /etc/systemd/system/poster.service     # проверить пути и --host
 sudo systemctl daemon-reload
 sudo systemctl enable --now poster               # включить и запустить
@@ -256,10 +265,10 @@ sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.ta
 `sudo systemctl restart systemd-logind`.
 
 **Служба стартует с системой и встаёт после сбоя.** Всё в этом шаге
-делает одна команда `sudo deploy/poster.sh install-service` (или
+делает одна команда `sudo deploy/crm/poster.sh install-service` (или
 `install.sh --service`); руками — так. Это делает `systemd`
 из шага 5в: команда `systemctl enable` включает запуск при загрузке,
-а в `deploy/poster.service` стоит `Restart=always` — упавший процесс
+а в `deploy/crm/poster.service` стоит `Restart=always` — упавший процесс
 поднимается через 5 секунд, сколько бы раз он ни падал. Проверить, что
 автозапуск включён, и убедиться перезагрузкой:
 
@@ -276,13 +285,13 @@ curl -s http://127.0.0.1:8000/health
 (`crontab -e`), но перезапуска после сбоя она не даёт:
 
 ```
-@reboot sleep 20 && cd /opt/poster && .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 >> logs/uvicorn.out 2>&1
+@reboot sleep 20 && cd /opt/poster/poster-ocr && .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 >> logs/uvicorn.out 2>&1
 ```
 
-**Убрать из автозапуска.** `sudo deploy/poster.sh disable-autostart` —
+**Убрать из автозапуска.** `sudo deploy/crm/poster.sh disable-autostart` —
 служба выключается, при загрузке больше не стартует, сторож и `@reboot`
-уходят из cron; запустить руками по-прежнему можно (`deploy/poster.sh
-start`). Совсем снести службу — `sudo deploy/poster.sh uninstall-service`
+уходят из cron; запустить руками по-прежнему можно (`deploy/crm/poster.sh
+start`). Совсем снести службу — `sudo deploy/crm/poster.sh uninstall-service`
 (код, база и копии остаются). Руками это `sudo systemctl disable --now
 poster` плюс удаление строк со `poster.sh` из `sudo crontab -e`.
 
@@ -315,9 +324,9 @@ ss -ltnp | grep 8000                                       # кто слушае
 
 ## 8. Обновление
 
-Одной командой: `sudo bash deploy/poster.sh update` — забирает код,
+Одной командой: `sudo bash deploy/crm/poster.sh update` — забирает код,
 доставляет зависимости, возвращает файлы пользователю службы и
-перезапускает её. Если `git pull` ругается на изменённые `deploy/*.sh`
+перезапускает её. Если `git pull` ругается на изменённые `deploy/crm/*.sh`
 (вы делали им `chmod +x`), один раз выполните в каталоге проекта
 `sudo git -c safe.directory=/opt/poster config core.fileMode false` —
 установщик новых версий делает это сам.
@@ -325,7 +334,7 @@ ss -ltnp | grep 8000                                       # кто слушае
 То же руками:
 
 ```bash
-cd /opt/poster
+cd /opt/poster/poster-ocr
 sudo -u poster git pull                  # или git pull, если запускали от себя
 sudo -u poster .venv/bin/pip install -r requirements.txt   # если менялись зависимости
 sudo systemctl restart poster
@@ -341,9 +350,9 @@ sudo systemctl restart poster
 компьютеру: файлы проекта должен читать только пользователь службы.
 
 ```bash
-sudo chown -R poster:poster /opt/poster
-sudo chmod 700 /opt/poster                 # чужим — ни войти, ни прочитать
-sudo chmod 600 /opt/poster/.env /opt/poster/.secret
+sudo chown -R poster:poster /opt/poster/poster-ocr
+sudo chmod 700 /opt/poster/poster-ocr      # чужим — ни войти, ни прочитать
+sudo chmod 600 /opt/poster/poster-ocr/.env /opt/poster/poster-ocr/.secret
 ```
 
 В `.env` лежит ключ подписи сессий — с ним подделывают вход
@@ -369,7 +378,7 @@ sudo chmod 600 /opt/poster/.env /opt/poster/.secret
 | Симптом | Что смотреть |
 |---|---|
 | `Address already in use` | порт занят другим процессом: `ss -ltnp \| grep 8000`, остановить его или взять другой `--port` |
-| `Permission denied` на базе или папках | владелец файлов не тот пользователь, от которого запущен сервер: `sudo chown -R poster:poster /opt/poster` |
+| `Permission denied` на базе или папках | владелец файлов не тот пользователь, от которого запущен сервер: `sudo chown -R poster:poster /opt/poster/poster-ocr` |
 | сервер стартует, страница пустая | нет `static/dist` — не докачали репозиторий целиком; `git status` и `ls static/dist` |
 | `POSTER_PUBLIC=1, но сервер не готов` | в тексте ошибки перечислено, чего не хватает в `.env` |
 | после `git pull` ошибка импорта | обновились зависимости: `.venv/bin/pip install -r requirements.txt` |

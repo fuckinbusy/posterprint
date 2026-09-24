@@ -1,64 +1,22 @@
-# Caddy на сервере: один домен, сайт-визитка в корне, система под своим путём.
+# Caddy на сервере: принимает 80/443, сам выпускает и продлевает сертификаты
+# Let's Encrypt и решает, какой адрес кому отдать.
 #
-#   https://example.ru/               сайт-визитка — контейнер site (poster-website)
-#   https://example.ru/poster-crm/    система — контейнер app (poster-ocr)
+#   https://постерпринт.рф/        сайт-визитка — контейнер site (poster-website)
+#   https://crm.постерпринт.рф/    система (CRM) — контейнер app (poster-ocr)
 #
-# https с сертификатом Let's Encrypt выпускается и продлевается сам: домен
-# должен указывать на этот сервер, порты 80 и 443 — быть открыты.
+# Какие адреса обслуживает этот сервер, задаёт режим — POSTER_RUN (из
+# COMPOSE_PROFILES в корневом .env): all — оба, crm — только система,
+# site — только сайт. Правила каждого режима — в caddy/<режим>.caddy, общие
+# куски (как отдать систему, как — сайт) — в caddy/snippets.caddy.
 #
-# Переменные приходят из docker-compose.yml (POSTER_DOMAIN, POSTER_BASE_PATH).
-# Без Docker впишите значения руками: домен вместо {$POSTER_DOMAIN}, путь
-# вместо {$POSTER_BASE_PATH}, 127.0.0.1:8000 вместо app:8000, а блок визитки
-# замените на «root * /путь/к/собранному/сайту» + «file_server».
+# Домены — POSTER_DOMAIN (сайт) и POSTER_CRM_DOMAIN (система), в punycode:
+# xn--e1agpbecgbfkg.xn--p1ai, а не «постерпринт.рф». Каждый должен указывать
+# на этот сервер (A-запись), порты 80 и 443 — быть открыты.
+#
+# Без Docker: в caddy/snippets.caddy замените app:8000 на 127.0.0.1:8000, а
+# «reverse_proxy site:80» — на «root * /путь/к/poster-website/dist»,
+# «try_files {path} /index.html» и «file_server»; вместо {$…} впишите
+# значения руками или задайте переменные окружения службе caddy.
 
-{$POSTER_DOMAIN} {
-	encode zstd gzip
-
-	# ---- система: /poster-crm/… → приложение, префикс отрезается.
-	# «/poster-crm» без косой черты — на «/poster-crm/», иначе относительные
-	# адреса страницы ушли бы в корень домена, к визитке
-	redir {$POSTER_BASE_PATH} {$POSTER_BASE_PATH}/ permanent
-
-	handle_path {$POSTER_BASE_PATH}/* {
-		# макеты .cdr бывают по сотне мегабайт — лимит выше, чем у самого приложения
-		request_body {
-			max_size 320MB
-		}
-		# X-Forwarded-For и X-Forwarded-Proto Caddy ставит сам; по ним приложение
-		# считает лимит попыток входа, отмечает устройства и включает HSTS
-		reverse_proxy app:8000 {
-			# загрузка большого макета по медленному каналу
-			transport http {
-				read_timeout 10m
-				write_timeout 10m
-			}
-		}
-	}
-
-	# ---- сайт-визитка: всё остальное. Свой Caddy внутри контейнера отдаёт
-	# собранный React и знает про адреса без файлов (маршруты приложения)
-	handle {
-		# система ставит свои заголовки безопасности сама; сайту — здесь.
-		# HSTS тот же, что у системы: полгода браузер не пойдёт по http.
-		# Без CSP: на сайте карта Яндекса во фрейме, строгая политика её бы
-		# сломала, а своих форм и входа на сайте нет
-		header {
-			Strict-Transport-Security "max-age=15552000"
-			X-Content-Type-Options "nosniff"
-			Referrer-Policy "strict-origin-when-cross-origin"
-			X-Frame-Options "SAMEORIGIN"
-		}
-		reverse_proxy site:80
-	}
-
-	header {
-		# приложение отдаёт свои заголовки безопасности; здесь только то,
-		# что имеет смысл на уровне сервера
-		-Server
-	}
-
-	log {
-		output stderr
-		format console
-	}
-}
+import caddy/snippets.caddy
+import caddy/{$POSTER_RUN}.caddy

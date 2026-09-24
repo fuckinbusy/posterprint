@@ -1,14 +1,19 @@
-# Всё на одном сервере: система (app), сайт-визитка (site) и Caddy.
+# Сервер в интернете: система (app), сайт-визитка (site) и Caddy — три
+# отдельных контейнера, каждый со своей сборкой и своим перезапуском.
 #
-# Caddy принимает 80/443, сам получает и продлевает сертификат Let's Encrypt
-# для домена из POSTER_DOMAIN. В корне домена — визитка, система живёт под
-# путём POSTER_BASE_PATH («/poster-crm»). Оба приложения доступны только по
-# внутренней сети: наружу открыты лишь порты Caddy.
+# Что поднимать, решает режим — COMPOSE_PROFILES в корневом .env:
+#   all   система на POSTER_CRM_DOMAIN и сайт на POSTER_DOMAIN (оба — здесь)
+#   crm   только система: сайт на другом сервере, на Tilda или его пока нет
+#   site  только сайт: система на другом сервере
+# Caddy работает всегда: принимает 80/443, сам выпускает сертификаты
+# Let's Encrypt и отдаёт каждому домену своё (deploy/Caddyfile). Оба
+# приложения доступны только по внутренней сети.
 #
-# Настройки: корневой .env (домен, путь) + poster-ocr/.env (сама система).
-# Запуск:   docker compose up -d
-# Обновить: git pull && docker compose up -d --build
-# Подробно — README в корне. Первый запуск — скрипт deploy/setup.sh.
+# Настройки: корневой .env (режим, домены) + poster-ocr/.env (сама система).
+# Первый запуск — deploy/setup.sh. Подробно — deploy/README.md.
+#   docker compose up -d                    всё, что включено режимом
+#   git pull && docker compose up -d --build
+#   docker compose up -d --build site       пересобрать и перезапустить только сайт
 
 # Журналы контейнеров Docker по умолчанию растут без предела и однажды
 # занимают весь диск. Три файла по 10 МБ на контейнер — с запасом на
@@ -22,17 +27,23 @@ x-logging: &logging
 
 services:
   app:
-    build: ./poster-ocr
+    build:
+      context: ./poster-ocr
+      args:
+        # зеркало Debian для сборки (deploy/README.md, «Медленная сборка»)
+        DEBIAN_MIRROR: ${POSTER_DEBIAN_MIRROR:-}
+    profiles: [all, crm]
     restart: unless-stopped
     logging: *logging
     env_file: ./poster-ocr/.env
     environment:
       # снаружи — всегда строгий режим; отключить можно только сознательно,
-      # убрав эту строку
+      # убрав эту строку. Без POSTER_ALLOWED_HOSTS он сервер не запустит.
       POSTER_PUBLIC: "1"
-      # домен и путь — из корневого .env, чтобы не дублировать их в двух файлах
-      POSTER_ALLOWED_HOSTS: ${POSTER_DOMAIN:?задайте POSTER_DOMAIN в .env}
-      POSTER_BASE_PATH: ${POSTER_BASE_PATH:-/poster-crm}
+      # домен — из корневого .env, чтобы не дублировать его в двух файлах.
+      # Система — в корне своего поддомена, префикс пути не нужен.
+      POSTER_ALLOWED_HOSTS: ${POSTER_CRM_DOMAIN:-}
+      POSTER_BASE_PATH: ""
       # пути к данным задаются здесь, а не в .env: строки вроде
       # POSTER_LOG_DIR=./logs из .env.example иначе увели бы логи и макеты
       # из тома внутрь контейнера, где они пропадают при пересборке
@@ -55,28 +66,38 @@ services:
   site:
     # сайт-визитка: собирается из исходников при docker compose build и
     # отдаётся своим маленьким Caddy (poster-website/Dockerfile)
-    build: ./poster-website
+    build:
+      context: ./poster-website
+      args:
+        # куда ведёт «Вход для сотрудников»; пусто — ссылки на сайте нет
+        VITE_CRM_URL: ${POSTER_CRM_DOMAIN:+https://${POSTER_CRM_DOMAIN}/}
+    profiles: [all, site]
     restart: unless-stopped
     logging: *logging
     expose:
       - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
     logging: *logging
-    depends_on:
-      - app
-      - site
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
     environment:
-      POSTER_DOMAIN: ${POSTER_DOMAIN:?задайте POSTER_DOMAIN в .env}
-      POSTER_BASE_PATH: ${POSTER_BASE_PATH:-/poster-crm}
+      # режим выбирает правила: deploy/caddy/<режим>.caddy
+      POSTER_RUN: ${COMPOSE_PROFILES:-all}
+      POSTER_DOMAIN: ${POSTER_DOMAIN:-}
+      POSTER_CRM_DOMAIN: ${POSTER_CRM_DOMAIN:-}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/caddy:/etc/caddy/caddy:ro
       # сертификаты и ключи Let's Encrypt — чтобы не запрашивать заново при перезапуске
       - caddy_data:/data
       - caddy_config:/config

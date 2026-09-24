@@ -605,7 +605,7 @@ export function DesignViewer({
                 <p className="dv-note">
                   Файл новее CorelDRAW X6 — он его не откроет. Скачайте SVG или PDF кнопками наверху и
                   импортируйте в X6: кривые и размеры переносятся один к одному. Готовый .cdr версии 16 делает
-                  скрипт deploy/cdr_to_v16.ps1 на компьютере с CorelDRAW.
+                  скрипт scripts/cdr_to_v16.ps1 на компьютере с CorelDRAW.
                 </p>
               )}
               {(data.warnings ?? []).map((w) => (

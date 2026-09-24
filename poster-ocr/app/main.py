@@ -93,7 +93,8 @@ app = FastAPI(
 # (без этого заголовок Host можно подставить в ссылку на сброс, в письмо и
 # т. п.). Не задано — как раньше, для домашней сети и разработки.
 if deploy.ALLOWED_HOSTS:
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=deploy.ALLOWED_HOSTS)
+    # плюс 127.0.0.1 и localhost — для проверки здоровья изнутри контейнера
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=deploy.trusted_hosts(os.getenv("POSTER_ALLOWED_HOSTS")))
 
 # сотруднику на удалёнке доска и прайс уезжают в несколько раз быстрее сжатыми;
 # файлы сборки и так сжаты прокси, но сервер может стоять и без него

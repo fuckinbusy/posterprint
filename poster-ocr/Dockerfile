@@ -17,8 +17,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# разборщик макетов CorelDRAW: просмотр содержимого .cdr и выгрузка в SVG
-RUN apt-get update && apt-get install -y --no-install-recommends libcdr-tools \
+# разборщик макетов CorelDRAW: просмотр содержимого .cdr и выгрузка в SVG.
+# DEBIAN_MIRROR — зеркало Debian вместо deb.debian.org (из России тот бывает
+# медленнее в сотни раз): https://mirror.yandex.ru/debian. Пусто — как есть.
+ARG DEBIAN_MIRROR=""
+RUN if [ -n "$DEBIAN_MIRROR" ]; then \
+        sed -i "s#http://deb.debian.org/debian#$DEBIAN_MIRROR#g" /etc/apt/sources.list.d/debian.sources; \
+    fi \
+    && apt-get update && apt-get install -y --no-install-recommends libcdr-tools \
     && rm -rf /var/lib/apt/lists/*
 
 COPY app ./app
