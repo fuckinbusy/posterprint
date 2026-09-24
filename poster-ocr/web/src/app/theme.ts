@@ -59,6 +59,17 @@ type DocumentWithVT = Document & {
   startViewTransition?: (update: () => void) => { finished: Promise<void> };
 };
 
+/* У кнопок, карточек и рамок есть свои transition на цвета — для наведения.
+   При смене темы они срабатывали все разом (на пустой доске — 90 штук):
+   круг новой темы уже прошёл, а элементы под ним ещё полсекунды доплывали
+   из старых цветов, и каждый кадр раскрытия пересчитывал их стили. На время
+   смены темы переходы выключены; снимаются, когда анимация закончилась. */
+const SWITCHING = 'theme-switching';
+/* Сколько смен идёт сейчас. При двойном нажатии первая анимация
+   прерывается и завершается раньше второй — снимать класс по её концу
+   нельзя, иначе вторая смена снова запустит все переходы. */
+let switching = 0;
+
 const FALLBACK_MS = 480;
 
 /** Сменить тему, красиво. origin — откуда расходится круг (точка нажатия). */
@@ -76,7 +87,13 @@ export function setTheme(theme: Theme, origin?: Origin): void {
     // радиус до самого дальнего угла — круг должен накрыть весь экран
     const r = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
     root.style.setProperty('--vt-r', `${Math.ceil(r)}px`);
-    doc.startViewTransition(() => apply(theme));
+    switching += 1;
+    root.classList.add(SWITCHING);
+    const transition = doc.startViewTransition(() => apply(theme));
+    transition.finished.finally(() => {
+      switching -= 1;
+      if (switching === 0) root.classList.remove(SWITCHING);
+    });
     return;
   }
 

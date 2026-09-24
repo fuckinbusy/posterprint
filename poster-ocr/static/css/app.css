@@ -89,6 +89,12 @@ html {
     clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 100%) var(--vt-y, 0));
   }
 }
+/* на время смены темы — без переходов у элементов (см. theme.ts) */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+}
 html.theme-anim,
 html.theme-anim *,
 html.theme-anim *::before,
