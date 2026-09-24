@@ -130,3 +130,21 @@ def test_свойства_на_переборе():
                 assert any((m.x1 == m.x2 == c.pos) if c.axis == "x" else (m.y1 == m.y2 == c.pos) for m in layout.marks)
         assert layout.count <= (sw - 2 * job.margin) * (sh - 2 * job.margin) // (w * h)
     assert checked > 900  # перебор действительно дошёл до проверок
+
+
+def test_слишком_мелкое_изделие_отказ_сразу():
+    # случайная рамка в пару миллиметров — это тысячи копий и минуты счёта;
+    # отказ должен прийти сразу и объяснить, в чём дело
+    import time
+
+    start = time.monotonic()
+    with pytest.raises(ImposeError, match="слишком мелкое"):
+        impose(Job(6, 6))
+    with pytest.raises(ImposeError, match="слишком мелкое"):
+        impose(Job(0.001, 0.001))
+    assert time.monotonic() - start < 0.5
+
+
+def test_мелкие_наклейки_еще_раскладываются():
+    layout = impose(Job(20, 20))
+    assert 250 < layout.count < 1000

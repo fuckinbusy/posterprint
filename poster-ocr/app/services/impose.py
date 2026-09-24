@@ -31,6 +31,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 EPS = 1e-6
+# больше копий на листе не бывает на деле: это почти всегда случайная рамка в
+# пару миллиметров, а перебор и развод вылетов растут с квадратом числа копий
+MAX_COPIES = 1000
 
 # копия-черновик: (x, y, w, h, повёрнута)
 Item = tuple[float, float, float, float, bool]
@@ -111,6 +114,17 @@ def check(job: Job) -> None:
             raise ImposeError(f"Отрицательный {name}")
     if job.marks and job.mark_offset + EPS < job.bleed:
         raise ImposeError("Отступ меток меньше вылета — метки напечатаются на вылетах")
+    # верхняя оценка числа копий — по площади с зазором; считается до перебора,
+    # чтобы крошечное изделие не успело занять сервер
+    r = reserve(job)
+    avail_w = job.sheet_w - 2 * job.margin - 2 * r
+    avail_h = job.sheet_h - 2 * job.margin - 2 * r
+    if avail_w > 0 and avail_h > 0:
+        bound = (avail_w + job.gap) * (avail_h + job.gap) / ((job.item_w + job.gap) * (job.item_h + job.gap))
+        if bound > MAX_COPIES:
+            raise ImposeError(
+                f"Изделие слишком мелкое: на лист встало бы больше {MAX_COPIES} шт. — проверьте выбранную область"
+            )
 
 
 def reserve(job: Job) -> float:
