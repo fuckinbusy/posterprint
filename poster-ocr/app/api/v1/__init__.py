@@ -19,9 +19,10 @@ from app.api.v1 import (
     reports,
     settings,
     templates,
+    tools,
 )
 
 router = APIRouter()
 for module in (auth, orders, clients, prices, templates, designs, logs, employees, devices,
-               metrics, reports, export, settings, mail, mail_accounts):
+               metrics, reports, export, settings, mail, mail_accounts, tools):
     router.include_router(module.router)
