@@ -13,8 +13,8 @@
 
 Метки реза стоят на полях снаружи раскладки, поэтому место под них
 вычитается из печатного поля: от обрезного края до внешнего конца метки —
-отступ плюс длина. Метка не должна попасть на вылет — отступ не меньше
-вылета.
+отступ плюс длина. Метка не должна попасть на вылет, поэтому отступ меньше
+вылета поднимается до вылета сам (вылет 3–5 мм — обычное дело).
 
 Какие раскладки перебираются
 ----------------------------
@@ -112,8 +112,6 @@ def check(job: Job) -> None:
                         ("отступ метки", job.mark_offset), ("длина метки", job.mark_length)):
         if value < 0:
             raise ImposeError(f"Отрицательный {name}")
-    if job.marks and job.mark_offset + EPS < job.bleed:
-        raise ImposeError("Отступ меток меньше вылета — метки напечатаются на вылетах")
     # верхняя оценка числа копий — по площади с зазором; считается до перебора,
     # чтобы крошечное изделие не успело занять сервер
     r = reserve(job)
@@ -127,9 +125,15 @@ def check(job: Job) -> None:
             )
 
 
+def mark_offset(job: Job) -> float:
+    """Отступ метки от обрезного края — не меньше вылета, иначе метка
+    напечатается на вылете соседней копии."""
+    return max(job.mark_offset, job.bleed)
+
+
 def reserve(job: Job) -> float:
     """Сколько места нужно снаружи обрезного края крайних копий."""
-    return max(job.bleed, job.mark_offset + job.mark_length) if job.marks else job.bleed
+    return max(job.bleed, mark_offset(job) + job.mark_length) if job.marks else job.bleed
 
 
 def fits(length: float, size: float, gap: float) -> int:
@@ -234,7 +238,7 @@ def _marks(cuts: list[Cut], box: tuple[float, float, float, float], job: Job) ->
     if not job.marks:
         return []
     left, top, right, bottom = box
-    off, length = job.mark_offset, job.mark_length
+    off, length = mark_offset(job), job.mark_length
     out: list[Mark] = []
     for c in cuts:
         if c.axis == "x":

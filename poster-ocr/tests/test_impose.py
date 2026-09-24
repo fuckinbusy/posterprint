@@ -85,7 +85,6 @@ def test_не_помещается():
     [
         (Job(0, 50), "больше нуля"),
         (Job(90, 50, bleed=-1), "Отрицательный"),
-        (Job(90, 50, bleed=3, mark_offset=2), "вылетах"),
     ],
 )
 def test_неверные_параметры(job, text):
@@ -148,3 +147,17 @@ def test_слишком_мелкое_изделие_отказ_сразу():
 def test_мелкие_наклейки_еще_раскладываются():
     layout = impose(Job(20, 20))
     assert 250 < layout.count < 1000
+
+
+def test_метки_сами_отступают_за_вылет():
+    # вылет 3 мм — обычное дело, 5 мм — у широкого формата; отступ меток по
+    # умолчанию 2,5 мм. Метки отодвигаются за вылет, а не ломают раскладку
+    for bleed in (3.0, 5.0):
+        layout = impose(Job(90, 50, bleed=bleed))
+        top = min(p.y for p in layout.placements)
+        left = min(p.x for p in layout.placements)
+        vertical = [m for m in layout.marks if m.x1 == m.x2]
+        horizontal = [m for m in layout.marks if m.y1 == m.y2]
+        assert vertical and horizontal
+        assert all(max(m.y1, m.y2) <= top - bleed + 1e-6 or min(m.y1, m.y2) >= top for m in vertical)
+        assert all(max(m.x1, m.x2) <= left - bleed + 1e-6 or min(m.x1, m.x2) >= left for m in horizontal)
