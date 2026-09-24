@@ -1,6 +1,6 @@
 """Макеты заказов: превью, загрузка, скачивание.
 
-Хранение — в app/designs.py, разбор CDR — в app/cdr.py.
+Хранение — в app/services/designs.py, разбор CDR — в app/services/cdr.py.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def design_link(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(require_perm("design.view")),
 ) -> dict:
-    """Адрес для скачивания с одноразовым токеном.
+    """Адрес для скачивания с коротким токеном (пять минут, только этот заказ).
 
     Обычная ссылка <a href download> не отправляет наши заголовки — браузер
     ходит по ней сам. Поэтому выдаём адрес с коротким токеном на пять минут.
@@ -87,7 +87,7 @@ def design_link(
 @router.get("/file")
 def design_file(
     order_id: int,
-    t: str | None = Query(default=None, description="одноразовый токен из /link"),
+    t: str | None = Query(default=None, description="токен из /link: пять минут, только этот заказ"),
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(current_user),
 ) -> FileResponse:
@@ -278,4 +278,7 @@ def inspect_design(
     from app.services import cdr
 
     order = _order(db, order_id)
-    return cdr.inspect(designs.design_path(order.number))
+    path = designs.design_path(order.number)
+    if not path.exists():
+        raise HTTPException(404, "Макет не загружен")
+    return cdr.inspect(path)

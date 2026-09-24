@@ -38,6 +38,20 @@ class TemplateIn(BaseModel):
     fields: list[FieldIn] = []
 
 
+class TemplateUpdate(BaseModel):
+    """Правка вида работ: меняется только присланное. Без `fields` поля вида
+    работ остаются как были — раньше их отсутствие стирало все поля. Интерфейс
+    шлёт вид работ целиком, для него ничего не поменялось."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    short: str | None = Field(default=None, max_length=40)
+    hint: str | None = Field(default=None, max_length=300)
+    icon: str | None = Field(default=None, max_length=30)
+    quantity_label: str | None = Field(default=None, max_length=80)
+    active: bool | None = None
+    fields: list[FieldIn] | None = None
+
+
 class TemplateOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

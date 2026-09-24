@@ -128,6 +128,9 @@ def to_out(
         data.surplus = 0.0
         data.payment = "hidden"
         data.refunded = False
+        # ставка доп. услуги — тоже цена: «Монтаж × 2» видно, почём — нет
+        for extra in data.extras:
+            extra.rate = 0.0
     if user is not None and not user.can("clients.view"):
         data.client_phone = ""
         data.client_contact = ""
@@ -169,7 +172,7 @@ def record_movement(
     """Строка в журнал кассы, если внесённое по заказу изменилось.
 
     Сравниваем состояние до правки с тем, что стало: разница и есть
-    движение денег — плюс приняли, минус вернули (см. app/ledger.py).
+    движение денег — плюс приняли, минус вернули (см. app/services/ledger.py).
     """
     delta = ledger.movement(before, (float(order.prepaid or 0), bool(order.refunded)))
     if delta:

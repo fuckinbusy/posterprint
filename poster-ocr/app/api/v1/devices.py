@@ -1,6 +1,6 @@
 """Управление устройствами. Доступно тем, у кого есть staff.manage.
 
-Логика — в app/devices.py.
+Логика — в app/services/devices.py.
 """
 
 from __future__ import annotations

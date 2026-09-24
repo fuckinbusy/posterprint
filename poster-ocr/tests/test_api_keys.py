@@ -10,25 +10,17 @@
   списка открытых, с ключом без прав — всё, кроме справочных. Новая ручка,
   которую забыли защитить, уронит этот тест.
 
-База — SQLite в памяти. Запросы идут прямо в приложение по ASGI, без сети
-и без запуска сервера (lifespan не выполняется): ни файлов, ни портов.
+База в памяти и запросы прямо в приложение — tests/api_helpers.py.
 """
 
 from __future__ import annotations
 
-import asyncio
-import json as jsonlib
 import re
-from dataclasses import dataclass, field
 
 import conftest  # noqa: F401 — добавляет корень проекта в sys.path
-import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from api_helpers import admin_headers, staff
 
 from app.core import security
-from app.core.database import Base, get_db
 from app.core.permissions import ALL_KEYS
 from app.main import app
 from app.models import Employee
@@ -56,104 +48,6 @@ ADMIN_ONLY = {
     ("GET", "/api/employees/{employee_id}/api-key"),
     ("POST", "/api/employees/{employee_id}/api-key"),
 }
-
-
-@dataclass
-class Reply:
-    status_code: int
-    headers: dict[str, str] = field(default_factory=dict)
-    text: str = ""
-
-    def json(self):
-        return jsonlib.loads(self.text)
-
-
-class AsgiClient:
-    """Запрос прямо в приложение по протоколу ASGI.
-
-    TestClient из Starlette 1.x требует отдельный пакет httpx2; здесь он не
-    нужен: ASGI — это один вызов app(scope, receive, send), и собрать его
-    руками — два десятка строк.
-    """
-
-    def request(self, method: str, path: str, headers: dict[str, str] | None = None, json=None) -> Reply:
-        body = b"" if json is None else jsonlib.dumps(json).encode()
-        raw_headers = [(b"host", b"testserver")]
-        if json is not None:
-            raw_headers.append((b"content-type", b"application/json"))
-        raw_headers += [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()]
-        scope = {
-            "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
-            "method": method, "scheme": "http", "path": path, "raw_path": path.encode(),
-            "root_path": "", "query_string": b"", "headers": raw_headers,
-            "client": ("203.0.113.7", 50000), "server": ("testserver", 80),
-        }
-        reply = Reply(0)
-        chunks: list[bytes] = []
-        sent = False
-
-        async def receive():
-            nonlocal sent
-            if sent:
-                return {"type": "http.disconnect"}
-            sent = True
-            return {"type": "http.request", "body": body, "more_body": False}
-
-        async def send(message):
-            if message["type"] == "http.response.start":
-                reply.status_code = message["status"]
-                reply.headers = {k.decode().lower(): v.decode() for k, v in message["headers"]}
-            elif message["type"] == "http.response.body":
-                chunks.append(message.get("body", b""))
-
-        asyncio.run(app(scope, receive, send))
-        reply.text = b"".join(chunks).decode("utf-8", "replace")
-        return reply
-
-    def get(self, path: str, headers: dict[str, str] | None = None) -> Reply:
-        return self.request("GET", path, headers)
-
-    def post(self, path: str, headers: dict[str, str] | None = None, json=None) -> Reply:
-        return self.request("POST", path, headers, json)
-
-
-@pytest.fixture
-def db():
-    # StaticPool: одна база в памяти на все потоки, в которых FastAPI зовёт зависимости
-    engine = create_engine(
-        "sqlite://", future=True, connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    Base.metadata.create_all(engine)
-    session = sessionmaker(bind=engine, expire_on_commit=False)()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-@pytest.fixture
-def client(db):
-    app.dependency_overrides[get_db] = lambda: db
-    security._failures.clear()  # счётчик неудач живёт в памяти процесса
-    try:
-        yield AsgiClient()
-    finally:
-        app.dependency_overrides.clear()
-        security._failures.clear()
-
-
-def staff(db, name: str, perms: list[str], *, active: bool = True, **extra) -> tuple[Employee, str]:
-    """Сотрудник с ключом. Возвращает профиль и ключ."""
-    employee = Employee(name=name, permissions=perms, active=active, **extra)
-    db.add(employee)
-    key = api_keys.issue(employee)
-    db.commit()
-    return employee, key
-
-
-def admin_headers() -> dict[str, str]:
-    token, _ = security.make_token("admin")
-    return {"Authorization": f"Bearer {token}"}
 
 
 def all_routes() -> list[tuple[str, str]]:

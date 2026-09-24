@@ -1,7 +1,7 @@
 """HTTP-ручки страницы «Прайс»: разделы и позиции.
 
 Разделы и цены живут в базе и настраиваются администратором. Стартовый набор —
-в app/seed_catalog.py. Расчёт — в app/pricing.py.
+в app/services/seed_catalog.py. Расчёт — в app/services/pricing.py.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from app.core.security import CurrentUser, require_perm
 from app.core.text import slugify
 from app.models import PriceChange, PriceGroup, PriceItem, Template, TemplateField
 from app.schemas import PriceItemCreate, PriceItemOut, PriceItemUpdate
-from app.schemas.prices import GroupIn, MoveIn
+from app.schemas.prices import GroupIn, GroupUpdate, MoveIn
 from app.services import pricing
 
 router = APIRouter(
@@ -222,7 +222,7 @@ def create_group(
 @router.patch("/groups/{group_id}")
 def update_group(
     group_id: int,
-    payload: GroupIn,
+    payload: GroupUpdate,
     db: Session = Depends(get_db),
     user: CurrentUser = EDIT,
 ) -> dict:
@@ -231,13 +231,22 @@ def update_group(
         raise HTTPException(404, "Раздел не найден")
     was = (group.title, group.unit, group.kind)
     was_parent = group.parent_key
-    group.parent_key = _check_parent(db, group, payload.parent_key)
-    group.title = payload.title.strip()
-    group.hint = payload.hint.strip()
-    group.unit = payload.unit.strip() or "₽"
-    group.kind = "factor" if payload.kind == "factor" else "money"
-    group.icon = payload.icon
-    group.active = payload.active
+    # только присланное; null — «не трогать», как у заказов и клиентов
+    changes = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if "parent_key" in changes:
+        group.parent_key = _check_parent(db, group, changes["parent_key"])
+    if "title" in changes:
+        group.title = changes["title"].strip()
+    if "hint" in changes:
+        group.hint = changes["hint"].strip()
+    if "unit" in changes:
+        group.unit = changes["unit"].strip() or "₽"
+    if "kind" in changes:
+        group.kind = "factor" if changes["kind"] == "factor" else "money"
+    if "icon" in changes:
+        group.icon = changes["icon"]
+    if "active" in changes:
+        group.active = changes["active"]
     db.commit()
     if was != (group.title, group.unit, group.kind):
         applog.info(
@@ -308,14 +317,17 @@ def create_price(
     user: CurrentUser = EDIT,
 ) -> PriceItemOut:
     # раздел должен существовать: позиция «в никуда» уходит в псевдораздел
-    # «Без раздела» и в расчёте не участвует
-    group = db.scalar(select(PriceGroup).where(PriceGroup.key == payload.group_key.strip()))
+    # «Без раздела» и в расчёте не участвует. Ключ раздела — без пробелов по
+    # краям везде: раньше раздел искался по очищенному, а позиция писалась с
+    # пробелами и в раздел не попадала
+    group_key = payload.group_key.strip()
+    group = db.scalar(select(PriceGroup).where(PriceGroup.key == group_key))
     if group is None:
         raise HTTPException(404, "Раздел прайса не найден")
 
     exists = db.scalar(
         select(PriceItem).where(
-            PriceItem.group_key == payload.group_key,
+            PriceItem.group_key == group_key,
             PriceItem.item_key == payload.item_key.strip(),
         )
     )
@@ -324,7 +336,7 @@ def create_price(
 
     last = db.scalar(
         select(PriceItem.sort_order)
-        .where(PriceItem.group_key == payload.group_key)
+        .where(PriceItem.group_key == group_key)
         .order_by(PriceItem.sort_order.desc())
         .limit(1)
     )
@@ -332,7 +344,7 @@ def create_price(
     unit = payload.unit.strip() or group.unit
 
     item = PriceItem(
-        group_key=payload.group_key,
+        group_key=group_key,
         item_key=payload.item_key.strip(),
         title=payload.title.strip() or payload.item_key.strip(),
         value=payload.value,
@@ -362,7 +374,9 @@ def update_price(
     if item is None:
         raise HTTPException(404, "Позиция не найдена")
 
-    changes = payload.model_dump(exclude_unset=True)
+    # null — «не трогать», как у заказов и клиентов: записанный в NOT NULL
+    # колонку, он ронял запрос ошибкой 500
+    changes = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     # кто поменял — из профиля: история цен заведена ради вопроса «кто поднял»,
     # и подписывать правку чужим именем через форму нельзя
     author = user.name

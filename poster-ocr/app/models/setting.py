@@ -13,7 +13,7 @@ from app.models.base import utcnow
 
 class Setting(Base):
     """Настройка, которую правит владелец из интерфейса: реквизиты мастерской
-    и оплаты. Ключ/значение; значение из базы главнее .env (app/settings.py)."""
+    и оплаты. Ключ/значение; значение из базы главнее .env (app/services/settings.py)."""
 
     __tablename__ = "settings"
 

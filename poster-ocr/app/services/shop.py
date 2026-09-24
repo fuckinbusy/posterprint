@@ -18,7 +18,7 @@ def details(overrides: dict[str, str] | None = None) -> dict:
     """Название, телефон, адрес и строка под ними (часы работы, сайт).
 
     overrides — то, что владелец записал на странице «Настройки»
-    (app/settings.py); оно главнее .env. Логотип живёт только там.
+    (app/services/settings.py); оно главнее .env. Логотип живёт только там.
     """
     from app.services.settings import pick
 

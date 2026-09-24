@@ -90,7 +90,7 @@ class TemplateField(Base):
     options: Mapped[list] = mapped_column(JSON, default=list)         # для source="list"
     default_value: Mapped[str] = mapped_column(String(120), default="")
 
-    # как значение поля влияет на цену — см. app/pricing.py
+    # как значение поля влияет на цену — см. app/services/pricing.py
     pricing_role: Mapped[str] = mapped_column(String(20), default="none")
     # для полей-галочек: какая позиция прайса даёт ставку (пусто = ключ поля)
     price_item: Mapped[str] = mapped_column(String(80), default="")
@@ -112,7 +112,7 @@ class TemplateField(Base):
 class PriceItem(Base):
     """Одна строка прайса: «Баннер 510 г — 700 ₽/м²».
 
-    group_key  — к какой группе относится (см. app/seed_catalog.py);
+    group_key  — к какой группе относится (см. app/services/seed_catalog.py);
     item_key   — по нему расчёт находит цену, менять его в готовых позициях
                  не стоит: он должен совпадать с вариантом в шаблоне заказа;
     title      — подпись для человека, её можно править свободно.

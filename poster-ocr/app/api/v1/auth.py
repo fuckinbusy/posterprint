@@ -1,6 +1,6 @@
 """HTTP-ручки входа.
 
-Механика — в app/security.py и app/devices.py. Здесь приём запроса и ответ.
+Механика — в app/core/security.py и app/services/devices.py. Здесь приём запроса и ответ.
 """
 
 from __future__ import annotations

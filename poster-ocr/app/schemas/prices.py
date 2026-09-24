@@ -57,5 +57,19 @@ class GroupIn(BaseModel):
     parent_key: str = Field(default="", max_length=40)
 
 
+class GroupUpdate(BaseModel):
+    """Правка раздела: меняется только присланное. Раньше правка шла той же
+    схемой, что создание, и не присланные поля сбрасывались к умолчаниям —
+    бот, поменявший подсказку, заодно возвращал разделу значок «printer»."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    hint: str | None = Field(default=None, max_length=300)
+    unit: str | None = Field(default=None, max_length=20)
+    kind: str | None = Field(default=None, max_length=20)
+    icon: str | None = Field(default=None, max_length=30)
+    active: bool | None = None
+    parent_key: str | None = Field(default=None, max_length=40)
+
+
 class MoveIn(BaseModel):
     group_key: str = Field(min_length=1, max_length=40)

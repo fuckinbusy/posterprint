@@ -1,6 +1,6 @@
 """HTTP-ручки справочника клиентов.
 
-Логика — в app/clients.py.
+Логика — в app/services/clients.py.
 
 Права:
     clients.view     видеть контакты (телефон, почту)
@@ -72,6 +72,10 @@ def list_clients(
     else:
         if not user.can("clients.list"):
             raise HTTPException(403, "Нет прав на просмотр списка клиентов")
+        # Суммы без finance.totals скрыты, но порядок «по сумме» выдал бы
+        # рейтинг клиентов по деньгам — без права сортируем по свежести
+        if sort == "sum" and not user.can("finance.totals"):
+            sort = "recent"
         found, total = clients_logic.browse(db, sort=sort, limit=limit, offset=offset)
 
     stats = clients_logic.stats_map(db, [c.id for c in found])

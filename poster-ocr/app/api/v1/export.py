@@ -32,6 +32,7 @@ PAYMENT_TITLES = {
     "partial": "частично",
     "none": "не оплачен",
     "refunded": "возврат",
+    "overpaid": "переплата",
     "unset": "цена не указана",
 }
 

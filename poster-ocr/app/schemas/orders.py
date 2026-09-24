@@ -59,6 +59,10 @@ class OrderBase(BaseModel):
 
 
 class OrderCreate(OrderBase):
+    # Незнакомое поле — ошибка, а не тишина: опечатка в имени поля
+    # («notse») молча терялась, и бот считал, что заметку записал
+    model_config = ConfigDict(extra="forbid")
+
     # Статус при создании не принимается: заказ всегда начинается с «Новый».
     # Раньше поле было, и профиль без права на смену статуса мог завести
     # заказ сразу «Выданным» — мимо таблицы переходов и без completed_at.
@@ -67,7 +71,7 @@ class OrderCreate(OrderBase):
     # и ставки (ExtraOut), а изменяемое поле другим типом не переопределяют
     extras: list[ExtraIn] = Field(default_factory=list, max_length=MAX_EXTRAS)
     # Как приняли внесённое: cash | transfer. Не хранится в заказе — уходит
-    # строкой в журнал кассы (app/ledger.py). Пусто — наличные.
+    # строкой в журнал кассы (app/services/ledger.py). Пусто — наличные.
     pay_method: str | None = Field(default=None, max_length=20)
 
 

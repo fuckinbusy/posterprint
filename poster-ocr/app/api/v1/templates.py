@@ -1,6 +1,6 @@
 """Виды работ и их поля. Настройка доступна с правом prices.edit.
 
-Логика сборки — в app/catalog.py, расчёт — в app/pricing.py.
+Логика сборки — в app/services/catalog.py, расчёт — в app/services/pricing.py.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from app.core.logs import log as applog
 from app.core.security import CurrentUser, require_perm
 from app.core.text import slugify
 from app.models import Order, PriceGroup, PriceItem, Template, TemplateField
-from app.schemas.templates import FieldIn, PreviewIn, TemplateIn, TemplateOut
+from app.schemas.templates import FieldIn, PreviewIn, TemplateIn, TemplateOut, TemplateUpdate
 from app.services import catalog
 
 router = APIRouter(
@@ -121,6 +121,8 @@ def meta() -> dict:
              "hint": "Оттиск, штука изделия"},
             {"key": "step_per_unit", "title": "Цена по ступеням тиража",
              "hint": "От 100 шт одна цена, от 500 — другая"},
+            {"key": "step_key", "title": "Уточняет таблицу тиража",
+             "hint": "Цветность, стороны: следующая часть ключа ступени. Сама ничего не стоит"},
             {"key": "per_sqm", "title": "Цена за м² × площадь",
              "hint": "Плёнка, баннер. Нужны поля ширины и высоты"},
             {"key": "per_m", "title": "Цена за пог. м × периметр",
@@ -221,7 +223,7 @@ def create_template(
 @router.patch("/{template_id}", response_model=TemplateOut)
 def update_template(
     template_id: int,
-    payload: TemplateIn,
+    payload: TemplateUpdate,
     db: Session = Depends(get_db),
     user: CurrentUser = EDIT,
 ) -> TemplateOut:
@@ -230,13 +232,22 @@ def update_template(
         raise HTTPException(404, "Вид работ не найден")
 
     was = (template.title, template.active, len(template.fields))
-    template.title = payload.title.strip()
-    template.short = payload.short.strip() or template.title[:20]
-    template.hint = payload.hint.strip()
-    template.icon = payload.icon if payload.icon in ICONS else template.icon
-    template.quantity_label = payload.quantity_label.strip() or "Количество, шт"
-    template.active = payload.active
-    apply_fields(db, template, payload.fields)
+    # только присланное: без `fields` поля остаются, null — «не трогать»
+    changes = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if "title" in changes:
+        template.title = changes["title"].strip()
+    if "short" in changes:
+        template.short = changes["short"].strip() or template.title[:20]
+    if "hint" in changes:
+        template.hint = changes["hint"].strip()
+    if "icon" in changes and changes["icon"] in ICONS:
+        template.icon = changes["icon"]
+    if "quantity_label" in changes:
+        template.quantity_label = changes["quantity_label"].strip() or "Количество, шт"
+    if "active" in changes:
+        template.active = changes["active"]
+    if payload.fields is not None:
+        apply_fields(db, template, payload.fields)
     db.commit()
     db.refresh(template)
     # поля переписываются целиком, поэтому пишем итог: было столько — стало

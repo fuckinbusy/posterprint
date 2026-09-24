@@ -70,22 +70,18 @@ def write_settings(
     unknown = set(payload.values) - set(settings_logic.KEYS)
     if unknown:
         raise HTTPException(422, f"Неизвестные настройки: {sorted(unknown)}")
-    # пустой пароль в форме — «не менять», а не «стереть»: форма его и не
-    # показывает. Стереть — очистить ящик, без него пароль не нужен.
+    # секретная настройка, пришедшая пустой, — «не менять», а не «стереть»:
+    # форма секретов не показывает. (Пароли почты живут в /api/mail-accounts.)
     values = dict(payload.values)
     for key in settings_logic.SECRET_KEYS:
         if key in values and not values[key].strip():
             values.pop(key)
-    if not values.get("mail_user", "x").strip():
-        values["mail_password"] = ""
     try:
         if "mail_contacts" in values:
             values["mail_contacts"] = mail.normalize_contacts(values["mail_contacts"])
         settings_logic.save(db, values)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from None
-    if any(k.startswith("mail_") for k in values):
-        mail.mailbox.reset()  # ящик или пароль поменялись — старое соединение забыть
     changed = sorted(k for k in payload.values if k != "shop_logo")
     applog.warning("Настройки изменены: %s · %s", ", ".join(changed) or "логотип", user.name)
     return _snapshot(db)

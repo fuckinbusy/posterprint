@@ -8,7 +8,11 @@
    выбранного. Первый вариант раскладывал все услуги чипами — с десятью
    глаза разбегались, а с полусотней стало бы нечитаемо. В списке цена
    стоит подсказкой справа, выбранное убирается крестиком, у штучных услуг
-   (вёрстка за страницу) есть количество. */
+   (вёрстка за страницу) есть количество.
+
+   Без права видеть стоимость (orders.price.view) цен нет вовсе: сервер
+   присылает вместо них нули, а здесь не рисуется ни цена, ни сумма —
+   услугу можно добавить, но почём она, не видно. */
 
 import { Select } from '@/components/Select';
 import { CloseIcon } from '@/components/Icons';
@@ -19,6 +23,8 @@ interface ExtrasPickerProps {
   options: ExtraOption[];
   value: OrderExtraIn[];
   onChange: (value: OrderExtraIn[]) => void;
+  /** показывать цены — только с правом orders.price.view */
+  showPrices: boolean;
 }
 
 const perPiece = (option: ExtraOption): boolean => option.unit.includes('шт');
@@ -27,7 +33,7 @@ const perPiece = (option: ExtraOption): boolean => option.unit.includes('шт');
  *  «Простой макет». Диапазон остаётся в подсказке списка и на странице прайса. */
 const shortTitle = (title: string): string => title.replace(/\s*\([^)]*\)\s*$/, '').trim() || title;
 
-export function ExtrasPicker({ options, value, onChange }: ExtrasPickerProps) {
+export function ExtrasPicker({ options, value, onChange, showPrices }: ExtrasPickerProps) {
   const byKey = new Map(options.map((o) => [o.key, o]));
   const chosen = new Set(value.map((e) => e.key));
   const total = value.reduce((acc, e) => acc + (byKey.get(e.key)?.price ?? 0) * e.qty, 0);
@@ -45,7 +51,7 @@ export function ExtrasPicker({ options, value, onChange }: ExtrasPickerProps) {
     .map((o) => ({
       value: o.key,
       label: shortTitle(o.title),
-      hint: perPiece(o) ? `${money(o.price)} / шт` : money(o.price),
+      hint: !showPrices ? undefined : perPiece(o) ? `${money(o.price)} / шт` : money(o.price),
     }));
 
   return (
@@ -54,7 +60,13 @@ export function ExtrasPicker({ options, value, onChange }: ExtrasPickerProps) {
         <span className="extras-title">Дополнительные услуги</span>
         {value.length > 0 ? (
           <span className="extras-total">
-            {value.length} · <b>{money(total)}</b>
+            {value.length}
+            {showPrices && (
+              <>
+                {' '}
+                · <b>{money(total)}</b>
+              </>
+            )}
           </span>
         ) : (
           <span className="extras-hint">макет, замеры, монтаж — прибавятся к стоимости</span>
@@ -81,12 +93,12 @@ export function ExtrasPicker({ options, value, onChange }: ExtrasPickerProps) {
                       aria-label={`Количество: ${option.title}`}
                       onChange={(ev) => setQty(e.key, Number(ev.target.value) || 1)}
                     />
-                    <span>× {money(option.price)}</span>
+                    {showPrices && <span>× {money(option.price)}</span>}
                   </label>
                 ) : (
                   <span className="extra-qty" />
                 )}
-                <b className="extra-sum">{money(option.price * e.qty)}</b>
+                <b className="extra-sum">{showPrices ? money(option.price * e.qty) : ''}</b>
                 <button
                   className="extra-remove"
                   type="button"

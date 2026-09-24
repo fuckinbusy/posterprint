@@ -52,12 +52,17 @@ SEARCH_LIMIT = 200
 # ------------------------------------------------------------------ справочники
 # прайс с ценами и реквизиты мастерской — только вошедшим: это единственная
 # ручка, которую интерфейс зовёт сразу после входа, и без токена ей делать нечего
-@router.get("/catalog", dependencies=[Depends(require_login)])
-def get_catalog(db: Session = Depends(get_db)) -> dict:
+@router.get("/catalog")
+def get_catalog(db: Session = Depends(get_db), user: CurrentUser = Depends(require_login)) -> dict:
+    extras = pricing.extras_catalog(db)
+    # Список услуг нужен всем, кто оформляет заказ, а их цены — только тем,
+    # кто видит стоимость: цена из прайса — те же деньги, что цена заказа
+    if not user.can("orders.price.view"):
+        extras = [{**extra, "price": 0.0} for extra in extras]
     return {
         "templates": catalog.all_templates(db),
         # доп. услуги к любому заказу — из раздела «Услуги» прайса
-        "extras": pricing.extras_catalog(db),
+        "extras": extras,
         # реквизиты мастерской для шапки квитанции: справочник, который
         # читается один раз вместе с остальными
         "shop": shop.details(settings_logic.overrides(db)),

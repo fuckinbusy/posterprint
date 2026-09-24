@@ -601,6 +601,7 @@ function OrderForm({
             options={extraOptions}
             value={form.extras}
             onChange={(extras) => set('extras', extras)}
+            showPrices={can('orders.price.view')}
           />
         )}
 

@@ -64,9 +64,14 @@ def test_с_правом_можно():
 # ------------------------------------------------------------------ статус при создании
 def test_статус_при_создании_не_принимается():
     """Раньше можно было создать заказ сразу «Выданным» — мимо таблицы
-    переходов и без completed_at, из-за чего он ещё и попадал в выручку."""
-    payload = OrderCreate(template_key="banner_print", status="done")  # type: ignore[call-arg]
-    assert not hasattr(payload, "status")
+    переходов и без completed_at, из-за чего он ещё и попадал в выручку.
+    Потом поле молча отбрасывалось; теперь незнакомое поле — ошибка, чтобы
+    программа узнала, что статус так не ставится."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        OrderCreate(template_key="banner_print", status="done")  # type: ignore[call-arg]
+    assert "status" not in OrderCreate.model_fields
 
 
 # ------------------------------------------------------------------ карточка клиента
