@@ -344,7 +344,7 @@ curl -H "X-API-Key: $KEY" -o макет.pdf "$API/orders/42/design/export?format
 # содержимое любого .cdr (как /design/scene у заказа, плюс thumbnail — data:-PNG)
 curl -H "X-API-Key: $KEY" -F "file=@макет.cdr" "$API/tools/design-scene"
 
-# страницы PDF: рамки MediaBox/TrimBox/BleedBox (пункты PDF), /Rotate, размер в мм
+# страницы PDF: рамки MediaBox/TrimBox/BleedBox (пункты PDF; без BleedBox — CropBox или страница), /Rotate, размер в мм
 curl -H "X-API-Key: $KEY" -F "file=@визитка.pdf" "$API/tools/impose/info"
 
 # схема раскладки без файла: сколько встанет, где копии, резы и метки (мм)
@@ -360,9 +360,10 @@ curl -H "X-API-Key: $KEY" -F "file=@визитка.pdf" \
 Параметры раскладки (мм, кроме `trim`): `bleed` вылет (2), `sheet_w`/`sheet_h`
 лист (SRA3 320×450), `margin` непечатное поле (5), `gap` зазор: 0 — рез
 встык (0), `rotate` можно поворачивать (true), `marks` метки реза (true),
-`mark_offset`/`mark_length` (2,5 / 3). Для листа ещё `page`, `back_page`
-(оборот, null — без него), `flip`: `long` | `short` — как переворачивают лист.
-Число копий — в заголовке ответа `X-Impose-Count`. Страница вставляется в
+`mark_offset`/`mark_length` (2,5 / 3; отступ меньше вылета поднимается до вылета сам). Для листа ещё `page`, `back_page`
+(оборот, null — без него), `flip`: `long` | `short` — как переворачивают лист
+(по длинной или короткой стороне — с учётом того, книжный лист или альбомный).
+Больше 1000 копий на лист — отказ «изделие слишком мелкое». Число копий — в заголовке ответа `X-Impose-Count`. Страница вставляется в
 лист как есть: цвета CMYK и плашки остаются как в файле.
 
 ### Касса и выгрузки
