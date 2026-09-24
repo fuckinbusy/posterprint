@@ -8,6 +8,7 @@ import { useAuth } from '@/app/AuthProvider';
 import { Empty, PageHead } from '@/components/ui';
 
 import { TOOLS } from './tools';
+import { ToolsNotice } from './ToolsNotice';
 
 export function ToolsPage() {
   const { can } = useAuth();
@@ -20,6 +21,7 @@ export function ToolsPage() {
           title="Инструменты"
           sub="Утилиты для работы с макетами. Файлы на сервере не сохраняются: открыли, поработали, ушли."
         />
+        <ToolsNotice />
         {tools.length === 0 ? (
           <Empty>Для вашего профиля утилит нет — права выдаёт администратор.</Empty>
         ) : (

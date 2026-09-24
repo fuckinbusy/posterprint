@@ -94,12 +94,21 @@ def test_просмотр_только_cdr_и_в_пределах_размера
                         files={"file": ("a.pdf", b"%PDF", "application/pdf")})
     assert wrong.status_code == 422
     assert ".cdr" in wrong.json()["detail"]
-    monkeypatch.setattr(tool_files, "MAX_TOOL_BYTES", 10)
+    monkeypatch.setattr(tool_files, "MAX_VIEW_BYTES", 10)
     big = client.post("/api/tools/design-scene", headers={"X-API-Key": key},
                       files={"file": ("a.cdr", b"x" * 11, "application/octet-stream")})
     assert big.status_code == 422
     assert "МБ" in big.json()["detail"]
     assert _left(tmp_root) == []
+
+
+def test_предел_просмотра_как_у_макета_заказа():
+    # сотрудник смотрит те же файлы, что грузят к заказу: предел один — иначе
+    # макет, который система принимает в заказ, в просмотр не влезает
+    from app.services import designs
+
+    assert tool_files.MAX_VIEW_BYTES == designs.MAX_UPLOAD_BYTES == 300 * 1024 * 1024
+    assert tool_files.MAX_PDF_BYTES == 100 * 1024 * 1024
 
 
 def test_просмотр_без_права_нельзя(db, client):

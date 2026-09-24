@@ -22,9 +22,12 @@ from typing import Any, TypeVar
 from fastapi import UploadFile
 from starlette.concurrency import run_in_threadpool
 
-from app.services import cdr
+from app.services import cdr, designs
 
-MAX_TOOL_BYTES = 100 * 1024 * 1024
+# просмотр — те же файлы, что грузят к заказу, и предел тот же (300 МБ);
+# раскладка читает PDF целиком в память, ей — поменьше
+MAX_VIEW_BYTES = designs.MAX_UPLOAD_BYTES
+MAX_PDF_BYTES = 100 * 1024 * 1024
 WAIT_SECONDS = 60
 _slots = threading.BoundedSemaphore(2)
 
@@ -59,8 +62,8 @@ async def limited(fn: Callable[..., T], *args: Any) -> T:
     return await run_in_threadpool(_in_slot, fn, *args)
 
 
-async def save_upload(file: UploadFile, folder: Path, suffixes: tuple[str, ...]) -> Path:
-    """Пишет загрузку кусками на диск, пока не перешагнула предел.
+async def save_upload(file: UploadFile, folder: Path, suffixes: tuple[str, ...], limit: int) -> Path:
+    """Пишет загрузку кусками на диск, пока не перешагнула предел limit.
 
     Имя берётся только ради расширения: сам файл ложится под нейтральным
     именем — так кириллица и пробелы в имени не доходят до внешних утилит."""
@@ -72,8 +75,8 @@ async def save_upload(file: UploadFile, folder: Path, suffixes: tuple[str, ...])
     with open(target, "wb") as out:
         while chunk := await file.read(1024 * 1024):
             size += len(chunk)
-            if size > MAX_TOOL_BYTES:
-                raise ToolFileError(f"Файл больше {MAX_TOOL_BYTES // 1024 // 1024} МБ")
+            if size > limit:
+                raise ToolFileError(f"Файл больше {limit // 1024 // 1024} МБ")
             out.write(chunk)
     if size == 0:
         raise ToolFileError("Файл пустой")

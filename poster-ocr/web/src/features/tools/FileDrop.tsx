@@ -1,9 +1,24 @@
-/* Поле «перетащите файл или выберите» — общее для утилит. Проверяет только
-   расширение: всё остальное проверит сервер и скажет понятно. */
+/* Поле «перетащите файл или выберите» — общее для утилит. Проверяет
+   расширение и размер: файл больше предела на сервер не отправляется —
+   гонять сотни мегабайт ради отказа незачем. Остальное проверит сервер и
+   скажет понятно. */
 
 import { useRef, useState } from 'react';
 
-export function FileDrop({ accept, hint, onFile }: { accept: string; hint: string; onFile: (file: File) => void }) {
+import { fileSize } from '@/lib/format';
+
+export function FileDrop({
+  accept,
+  hint,
+  maxBytes,
+  onFile,
+}: {
+  accept: string;
+  hint: string;
+  /** предел размера; больше — красная надпись, без отправки */
+  maxBytes?: number;
+  onFile: (file: File) => void;
+}) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [wrong, setWrong] = useState('');
@@ -13,6 +28,10 @@ export function FileDrop({ accept, hint, onFile }: { accept: string; hint: strin
     const ok = accept.split(',').some((ext) => file.name.toLowerCase().endsWith(ext.trim()));
     if (!ok) {
       setWrong(`Нужен файл ${accept}`);
+      return;
+    }
+    if (maxBytes && file.size > maxBytes) {
+      setWrong(`Файл слишком большой: ${fileSize(file.size)}, предел — ${fileSize(maxBytes)}`);
       return;
     }
     setWrong('');
@@ -47,7 +66,12 @@ export function FileDrop({ accept, hint, onFile }: { accept: string; hint: strin
           e.target.value = '';
         }}
       />
-      {wrong && <div className="file-drop-err">{wrong}</div>}
+      {maxBytes && !wrong && <span className="file-drop-limit">до {fileSize(maxBytes)}</span>}
+      {wrong && (
+        <div className="file-drop-err" role="alert">
+          {wrong}
+        </div>
+      )}
     </div>
   );
 }

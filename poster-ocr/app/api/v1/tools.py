@@ -43,7 +43,7 @@ async def design_scene(
     """16.1: содержимое любого .cdr для просмотра. Файл не сохраняется."""
     try:
         with tool_files.temp_dir() as folder:
-            path = await tool_files.save_upload(file, folder, (".cdr",))
+            path = await tool_files.save_upload(file, folder, (".cdr",), tool_files.MAX_VIEW_BYTES)
             size = path.stat().st_size
             result = await tool_files.limited(_scene, path)
     except tool_files.ToolFileError as exc:
@@ -105,7 +105,7 @@ async def impose_info(
     """16.5: страницы PDF — рамки и размеры, чтобы выбрать обрезной формат."""
     try:
         with tool_files.temp_dir() as folder:
-            path = await tool_files.save_upload(file, folder, (".pdf",))
+            path = await tool_files.save_upload(file, folder, (".pdf",), tool_files.MAX_PDF_BYTES)
             return await tool_files.limited(impose_pdf.pdf_info, path.read_bytes())
     except (tool_files.ToolFileError, impose_pdf.PdfError) as exc:
         raise HTTPException(422, str(exc)) from None
@@ -137,7 +137,7 @@ async def impose_pdf_sheet(
         raise HTTPException(422, "Параметры раскладки не разобраны: " + exc.errors()[0]["msg"]) from None
     try:
         with tool_files.temp_dir() as folder:
-            path = await tool_files.save_upload(file, folder, (".pdf",))
+            path = await tool_files.save_upload(file, folder, (".pdf",), tool_files.MAX_PDF_BYTES)
             size = path.stat().st_size
             request = impose_pdf.SheetRequest(**sheet.model_dump())
             pdf, layout = await tool_files.limited(impose_pdf.build, path.read_bytes(), request)

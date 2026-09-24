@@ -8629,6 +8629,50 @@ body.touch-dragging {
   font-size: 13px;
 }
 
+/* инструменты в разработке — плашка на разделе и на каждой утилите */
+.tools-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 22px;
+  padding: 14px 18px;
+  border: 1px solid rgba(229, 72, 77, 0.55);
+  border-left: 4px solid var(--red);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(229, 72, 77, 0.1), rgba(229, 72, 77, 0.03));
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.tools-notice b {
+  color: var(--red);
+  font-family: var(--font-ui);
+  font-size: 14.5px;
+}
+.tools-notice span {
+  color: var(--muted);
+}
+/* назад к списку утилит */
+.page-back {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 18px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  transition: color 0.16s;
+}
+.page-back:hover,
+.page-back:focus-visible {
+  color: var(--green);
+  outline: none;
+}
+.file-drop-limit {
+  font-size: 12px;
+  color: var(--muted-2);
+}
 /* ---------- раскладка под печать ---------- */
 .impose.page-inner {
   max-width: 1400px;
@@ -8690,36 +8734,15 @@ body.touch-dragging {
   flex-direction: column;
   gap: 12px;
 }
-.ip-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 13px;
-  color: var(--muted);
-}
-.ip-field input,
-.ip-field select,
-.ip-pair input {
-  background: var(--inset-bg);
-  border: 1px solid var(--line-strong);
-  border-radius: 9px;
-  padding: 8px 10px;
-  color: var(--text);
-  font: inherit;
-}
+/* поля формы — системные .field, .check и Select; своё здесь только
+   размещение двух полей своего размера в строку */
 .ip-pair {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
-.ip-pair input {
-  width: 100%;
-}
-.ip-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
+.ip-pair .field {
+  flex: 1 1 0;
+  min-width: 0;
 }
 .ip-paper {
   fill: #fff;
