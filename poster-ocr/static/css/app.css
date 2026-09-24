@@ -2657,6 +2657,28 @@ button.load-day:not(:disabled):hover {
   color: var(--green);
 }
 
+/* API-ключ в профиле: ключ целиком в одну строку, кнопки справа; на узком
+   окне кнопки уходят под ключ */
+.api-key-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.api-key-value {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--inset-bg);
+  color: var(--text);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 .gate-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));

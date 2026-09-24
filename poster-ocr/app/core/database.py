@@ -173,6 +173,9 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "access_mode": "VARCHAR(20) DEFAULT 'any'",
         "allowed_devices": "JSON",
         "mail_accounts": "JSON",
+        # индекс на api_key_hash дописывает _ensure_declared_indexes
+        "api_key_hash": "VARCHAR(64)",
+        "api_key_enc": "VARCHAR(300) DEFAULT ''",
     },
     "template_fields": {
         "unit": "VARCHAR(10) DEFAULT 'мм'",

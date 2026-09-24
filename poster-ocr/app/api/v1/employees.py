@@ -1,20 +1,24 @@
 """Управление профилями сотрудников. Доступно тем, у кого есть staff.manage.
 
 Пароли хранятся хешем: администратор может задать новый, но не увидеть текущий.
+API-ключ сотрудника (app/services/api_keys.py) видит и перевыпускает только
+администратор: ключ — готовый пропуск от имени сотрудника, и круг людей,
+которые могут его взять, должен быть самым узким.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.logs import log as applog
 from app.core.permissions import PERMISSIONS, default_permissions, groups, normalize
-from app.core.security import CurrentUser, current_user, hash_password, require_perm
+from app.core.security import CurrentUser, current_user, hash_password, require_admin, require_perm
 from app.models import Device, Employee
 from app.schemas.employees import EmployeeCreate, EmployeeOut, EmployeeUpdate
+from app.services import api_keys
 from app.services import mail_accounts as mail_accounts_logic
 
 router = APIRouter(
@@ -113,6 +117,7 @@ def create_employee(
         allowed_devices=allowed,
         mail_accounts=check_mail_accounts(db, list(payload.mail_accounts or [])),
     )
+    api_keys.issue(employee)  # ключ — сразу, в той же записи, что и профиль
     db.add(employee)
     db.commit()
     db.refresh(employee)
@@ -226,3 +231,48 @@ def delete_employee(
     applog.warning("Профиль удалён: «%s» · удалил %s", employee.name, user.name)
     db.delete(employee)
     db.commit()
+
+
+# ---------------------------------------------------------------- API-ключ
+def _key_response(response: Response, key: str) -> dict:
+    # ключ не должен оседать ни в кэше браузера, ни в кэше прокси
+    response.headers["Cache-Control"] = "no-store"
+    return {"api_key": key}
+
+
+@router.get("/{employee_id}/api-key")
+def show_api_key(
+    employee_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_admin),
+) -> dict:
+    """Ключ сотрудника — администратору, чтобы передать его в бот или программу."""
+    employee = db.get(Employee, employee_id)
+    if employee is None:
+        raise HTTPException(404, "Профиль не найден")
+    key = api_keys.reveal(employee)
+    if not key:
+        # ключа нет или его не расшифровать (сменили POSTER_SECRET_KEY)
+        raise HTTPException(409, "Ключ не прочитать — перевыпустите его")
+    # показ ключа — событие для разбора «кто и когда мог его взять»
+    applog.warning("API-ключ «%s» показан · %s", employee.name, user.name)
+    return _key_response(response, key)
+
+
+@router.post("/{employee_id}/api-key")
+def rotate_api_key(
+    employee_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_admin),
+) -> dict:
+    """Новый ключ вместо старого. Старый перестаёт работать сразу —
+    на случай, если он утёк или бот больше не нужен."""
+    employee = db.get(Employee, employee_id)
+    if employee is None:
+        raise HTTPException(404, "Профиль не найден")
+    key = api_keys.issue(employee)
+    db.commit()
+    applog.warning("API-ключ «%s» перевыпущен · %s", employee.name, user.name)
+    return _key_response(response, key)

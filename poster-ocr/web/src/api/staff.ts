@@ -23,6 +23,15 @@ export const updateEmployee = (
 export const deleteEmployee = (id: number): Promise<null> =>
   request<null>(`/employees/${id}`, { method: 'DELETE' });
 
+/* API-ключ сотрудника — пропуск для ботов и программ. Видит и перевыпускает
+ * только администратор; каждый показ записывается в журнал на сервере,
+ * поэтому ключ запрашиваем по нажатию, а не вместе с профилем. */
+export const fetchApiKey = (id: number): Promise<{ api_key: string }> =>
+  request<{ api_key: string }>(`/employees/${id}/api-key`);
+
+export const rotateApiKey = (id: number): Promise<{ api_key: string }> =>
+  request<{ api_key: string }>(`/employees/${id}/api-key`, { method: 'POST' });
+
 export function useEmployees(enabled = true) {
   return useQuery({ queryKey: qk.employees, queryFn: fetchEmployees, enabled });
 }

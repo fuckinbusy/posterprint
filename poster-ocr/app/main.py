@@ -63,6 +63,7 @@ async def lifespan(_app: FastAPI):
         logs.log.warning("Права на файлы: %s", problem)
     encrypt_secrets()
     migrate_mail()
+    issue_api_keys()
     if deploy.PUBLIC:
         warn_open_profiles()
 
@@ -215,6 +216,19 @@ def encrypt_secrets() -> None:
         db.close()
     if changed:
         logs.log.info("Настройки: зашифровано секретов, хранившихся открытым текстом: %s", changed)
+
+
+def issue_api_keys() -> None:
+    """Профилям, заведённым до появления API-ключей, — выдать ключи."""
+    from app.services import api_keys
+
+    db = SessionLocal()
+    try:
+        issued = api_keys.issue_missing(db)
+    finally:
+        db.close()
+    if issued:
+        logs.log.info("API-ключи выданы профилям, у которых их не было: %s", issued)
 
 
 def migrate_mail() -> None:

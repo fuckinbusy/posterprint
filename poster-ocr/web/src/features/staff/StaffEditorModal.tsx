@@ -11,6 +11,7 @@ import {
   usePermissionCatalog,
   useStaffMutation,
 } from '@/api/staff';
+import { useAuth } from '@/app/AuthProvider';
 import { ModalShell, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
 import { Empty, Field, Loading, Section } from '@/components/ui';
@@ -21,6 +22,8 @@ import type {
   Permission,
   PermissionCatalog,
 } from '@/types/api';
+
+import { ApiKeySection } from './ApiKeySection';
 
 /* Быстрые наборы прав под типовые роли в цехе. */
 const PRESETS: Record<string, { title: string; hint: string; keys: Permission[] }> = {
@@ -83,6 +86,7 @@ function StaffEditor({
 }) {
   const frame = useModalFrame();
   const { toast, toastError } = useToast();
+  const { isAdmin } = useAuth();
   const devices = useDevices();
 
   const isNew = !employee;
@@ -318,6 +322,10 @@ function StaffEditor({
           />
         </Field>
       </Section>
+
+      {/* ключ есть у каждого профиля с момента создания; видит его только
+          администратор — у тех, кто просто управляет сотрудниками, блока нет */}
+      {!isNew && isAdmin && <ApiKeySection employeeId={employee.id} name={employee.name} />}
 
       <Section title="Быстрый набор прав">
         <div className="perm-presets">

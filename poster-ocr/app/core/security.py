@@ -10,6 +10,10 @@ HTTP-ручек здесь нет — они в app/routers/auth.py. Этот м
    сотрудников удалили или забыли пароли.
 2. Сотрудник — профиль, созданный администратором на странице «Сотрудники»:
    имя, пароль и набор прав (см. app/permissions.py).
+3. Бот или программа — по API-ключу сотрудника (app/services/api_keys.py):
+   заголовок X-API-Key: pst_… или Authorization: Bearer pst_…. Работает от
+   имени этого сотрудника и с его правами, откуда угодно — привязка к
+   компьютерам для ключа не действует: у программы нет ключа браузера.
 
 Токен подписывается HMAC и хранит id профиля, но НЕ права. Права читаются из
 базы на каждый запрос — поэтому изменение прав действует сразу, без
@@ -298,11 +302,33 @@ def _token_from_headers(authorization: str | None, x_admin_token: str | None) ->
     return x_admin_token
 
 
+def _user_by_api_key(request: Request, db: Session, key: str) -> CurrentUser:
+    """Сотрудник по API-ключу.
+
+    Неверные ключи считаем по адресу, как неудачные входы: угадать ключ
+    нельзя (256 случайных бит), но и долбить сервер перебором незачем.
+    Устройство не отмечаем: у программы его нет, а список устройств — это
+    список компьютеров с браузером.
+    """
+    # здесь, а не наверху модуля: api_keys шифрует через crypto, а crypto
+    # берёт ключ шифрования из этого модуля
+    from app.services import api_keys
+
+    keys = throttle_keys(request, None, "api-key")
+    check_not_locked(keys)
+    employee = api_keys.find_employee(db, key)
+    if employee is None or not employee.active:
+        note_failure(keys)
+        return GUEST
+    return CurrentUser("employee", employee.name, list(employee.permissions or []), employee.id)
+
+
 def current_user(
     request: Request,
     authorization: str | None = Header(default=None),
     x_admin_token: str | None = Header(default=None),
     x_device_key: str | None = Header(default=None),
+    x_api_key: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> CurrentUser:
     """Мягкая проверка: не бросает ошибку, возвращает гостя, если токена нет.
@@ -311,6 +337,11 @@ def current_user(
     с которых работают в системе (экран входа отмечает их сам).
     """
     token = _token_from_headers(authorization, x_admin_token)
+    # API-ключ — в своём заголовке или вместо токена в Authorization
+    # (многие программы умеют только «Bearer …»); отличаем по приставке
+    api_key = x_api_key or (token if token and token.startswith("pst_") else None)
+    if api_key:
+        return _user_by_api_key(request, db, api_key)
     subject = verify_token(token)
     if subject is None:
         return GUEST

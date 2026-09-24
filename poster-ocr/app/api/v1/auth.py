@@ -24,6 +24,7 @@ from app.core.security import (
     make_token,
     note_failure,
     note_success,
+    require_login,
     throttle_keys,
 )
 from app.models import Employee
@@ -147,7 +148,7 @@ def me(user: CurrentUser = Depends(current_user)) -> dict:
 
 
 @router.get("/permissions")
-def permission_groups(_: CurrentUser = Depends(current_user)) -> dict:
+def permission_groups(_: CurrentUser = Depends(require_login)) -> dict:
     """Все права с названиями — страница профиля показывает по ним, что
     человеку разрешено. Это справочник, а не чьи-то права, поэтому доступен
     любому вошедшему."""

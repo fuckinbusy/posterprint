@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core import deploy
 from app.core.database import get_db
 from app.core.logs import log as applog
-from app.core.security import CurrentUser, make_scoped_token, require_perm, verify_scoped_token
+from app.core.security import CurrentUser, current_user, make_scoped_token, require_perm, verify_scoped_token
 from app.models import Order, OrderEvent
 from app.services import designs
 
@@ -89,16 +89,21 @@ def design_file(
     order_id: int,
     t: str | None = Query(default=None, description="одноразовый токен из /link"),
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(current_user),
 ) -> FileResponse:
     """Скачивание исходного CDR.
 
     Права проверяются либо токеном из /link (браузер идёт по ссылке сам и
-    заголовков не шлёт), либо обычным заголовком — для запросов из кода.
+    заголовков не шлёт), либо обычным заголовком — API-ключом или токеном
+    сессии, для запросов из кода. Права — до поиска заказа: иначе по ответу
+    «заказ не найден» без входа можно было бы перебрать номера заказов.
     """
-    order = _order(db, order_id)
-
     if not verify_scoped_token(t, f"design:{order_id}"):
-        raise HTTPException(401, "Ссылка устарела — обновите страницу")
+        if user.kind == "guest":
+            raise HTTPException(401, "Ссылка устарела — обновите страницу")
+        if not user.can("design.view"):
+            raise HTTPException(403, "Недостаточно прав для этого действия")
+    order = _order(db, order_id)
 
     path = designs.design_path(order.number)
     if not path.exists():

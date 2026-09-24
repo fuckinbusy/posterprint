@@ -17,6 +17,10 @@ class Employee(Base):
     Пароль хранится хешем (PBKDF2), в открытом виде нигде не сохраняется —
     администратор может только задать новый, но не подсмотреть текущий.
     Права лежат списком ключей из app/permissions.py.
+
+    API-ключ (для ботов и программ, app/services/api_keys.py) лежит дважды:
+    отпечатком SHA-256 — по нему сервер находит сотрудника — и зашифрованной
+    копией, чтобы администратор мог его посмотреть. Открытым текстом — нигде.
     """
 
     __tablename__ = "employees"
@@ -33,6 +37,11 @@ class Employee(Base):
     # номера почтовых ящиков (MailAccount), с которыми сотрудник работает; не больше двух
     mail_accounts: Mapped[list] = mapped_column(JSON, default=list)
     note: Mapped[str] = mapped_column(String(200), default="")
+
+    # NULL, а не пустая строка: уникальный индекс пропускает сколько угодно
+    # NULL, а две пустые строки счёл бы одинаковыми ключами
+    api_key_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
+    api_key_enc: Mapped[str] = mapped_column(String(300), default="")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
