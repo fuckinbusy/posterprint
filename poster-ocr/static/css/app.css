@@ -1009,8 +1009,27 @@ button.load-day:not(:disabled):hover {
   align-items: center;
   gap: 8px;
 }
+/* поле даты — как поля формы (.field input), только не на всю ширину:
+   стоит между стрелками «предыдущий/следующий день» */
 .cash-nav input[type="date"] {
   width: auto;
+  background: var(--field-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 9px 12px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color-scheme: dark;
+  transition: border-color 0.2s;
+}
+html[data-theme="light"] .cash-nav input[type="date"] {
+  color-scheme: light;
+}
+.cash-nav input[type="date"]:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-glow);
 }
 .cash-totals {
   display: flex;
@@ -2539,6 +2558,24 @@ button.load-day:not(:disabled):hover {
 .dv-main {
   flex: 1;
   min-width: 180px;
+}
+/* переименование — поле как везде (.field input), только компактнее:
+   стоит вместо названия в карточке */
+.dv-main input {
+  width: 100%;
+  background: var(--field-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 7px 10px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+.dv-main input:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-glow);
 }
 .dv-main b {
   display: block;
