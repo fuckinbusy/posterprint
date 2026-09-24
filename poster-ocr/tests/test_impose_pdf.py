@@ -146,3 +146,18 @@ def test_без_bleedbox_вылеты_по_странице():
     page = info["pages"][0]
     assert page["trim"] is not None
     assert page["bleed"] == page["media"]
+
+
+def test_оборот_на_альбомном_листе_по_длинной_стороне():
+    # лист 450×320 лежит длинной стороной горизонтально: перевернуть его по
+    # длинной стороне — значит сверху вниз, и оборот зеркалится по вертикали
+    def clips(page):
+        return [[float(v) for v in m.groups()] for m in re.finditer(rb"([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) re W n", _ops(page))]
+
+    pdf, _ = impose_pdf.build(make_pdf([CARD, CARD]), _req(back_page=2, gap=4, sheet_w=450.0, sheet_h=320.0))
+    reader = PdfReader(io.BytesIO(pdf))
+    front, back = clips(reader.pages[0]), clips(reader.pages[1])
+    sheet_h_pt = 320 * MM
+    for f, b in zip(front, back, strict=True):
+        assert b[0] == pytest.approx(f[0], abs=0.01)                      # по горизонтали — на месте
+        assert b[1] == pytest.approx(sheet_h_pt - f[1] - f[3], abs=0.01)  # по вертикали — зеркально

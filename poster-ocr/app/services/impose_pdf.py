@@ -134,30 +134,40 @@ def _form(page, writer: PdfWriter):
     return writer._add_object(form)
 
 
-def _mirror(p: Placement, flip: str, sheet_w: float, sheet_h: float) -> tuple[float, float, tuple[float, float, float, float]]:
-    """Место копии на обороте: лист переворачивают по длинной стороне
-    (слева направо) или по короткой (сверху вниз)."""
+def _mirror_axis(flip: str, sheet_w: float, sheet_h: float) -> str:
+    """Как зеркалится оборот: "x" — слева направо, "y" — сверху вниз.
+
+    Переворот «по длинной стороне» у книжного листа (высота больше ширины) —
+    слева направо, у альбомного — сверху вниз: длинные стороны там
+    горизонтальные. «По короткой» — наоборот."""
+    portrait = sheet_h >= sheet_w
+    return "x" if (flip == "long") == portrait else "y"
+
+
+def _mirror(p: Placement, axis: str, sheet_w: float, sheet_h: float) -> tuple[float, float, tuple[float, float, float, float]]:
+    """Место копии на обороте и её вылеты, отражённые вместе с ней."""
     left, top, right, bottom = p.clip
-    if flip == "short":
+    if axis == "y":
         return p.x, sheet_h - p.y - p.h, (left, bottom, right, top)
     return sheet_w - p.x - p.w, p.y, (right, top, left, bottom)
 
 
-def _back_theta(rotated: bool, flip: str) -> int:
+def _back_theta(rotated: bool, axis: str) -> int:
     """Поворот копии на обороте, чтобы её верх лёг к тому же краю листа, что
-    у лица. По длинной стороне: прямая — 0°, повёрнутая — 270°; по короткой:
-    прямая — 180°, повёрнутая — 90°."""
-    if flip == "short":
+    у лица. Зеркало слева направо: прямая — 0°, повёрнутая — 270°; сверху
+    вниз: прямая — 180°, повёрнутая — 90°."""
+    if axis == "y":
         return 90 if rotated else 180
     return 270 if rotated else 0
 
 
 def _sheet_ops(layout: Layout, req: SheetRequest, name: str, trim, page_rotate: int, back: bool) -> bytes:
     ops: list[bytes] = []
+    axis = _mirror_axis(req.flip, req.sheet_w, req.sheet_h)
     for p in layout.placements:
         if back:
-            x, y, clip = _mirror(p, req.flip, req.sheet_w, req.sheet_h)
-            theta = (_back_theta(p.rotated, req.flip) + page_rotate) % 360
+            x, y, clip = _mirror(p, axis, req.sheet_w, req.sheet_h)
+            theta = (_back_theta(p.rotated, axis) + page_rotate) % 360
         else:
             x, y, clip = p.x, p.y, p.clip
             theta = ((90 if p.rotated else 0) + page_rotate) % 360
@@ -172,10 +182,10 @@ def _sheet_ops(layout: Layout, req: SheetRequest, name: str, trim, page_rotate: 
         ops.append(f"q {MARK_WIDTH_PT} w 1 1 1 1 K".encode())
         for m in layout.marks:
             x1, x2 = m.x1, m.x2
-            if back and req.flip == "long":
+            if back and axis == "x":
                 x1, x2 = req.sheet_w - x1, req.sheet_w - x2
             y1, y2 = m.y1, m.y2
-            if back and req.flip == "short":
+            if back and axis == "y":
                 y1, y2 = req.sheet_h - y1, req.sheet_h - y2
             ops.append(f"{x1 * MM:.4f} {(req.sheet_h - y1) * MM:.4f} m {x2 * MM:.4f} {(req.sheet_h - y2) * MM:.4f} l S".encode())
         ops.append(b"Q")
