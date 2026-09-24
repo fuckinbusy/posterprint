@@ -64,6 +64,7 @@ async def lifespan(_app: FastAPI):
     encrypt_secrets()
     migrate_mail()
     issue_api_keys()
+    roll_out_permissions()
     if deploy.PUBLIC:
         warn_open_profiles()
 
@@ -230,6 +231,19 @@ def issue_api_keys() -> None:
         db.close()
     if issued:
         logs.log.info("API-ключи выданы профилям, у которых их не было: %s", issued)
+
+
+def roll_out_permissions() -> None:
+    """Новые права «для всех» — уже заведённым профилям, один раз."""
+    from app.services import perm_rollout
+
+    db = SessionLocal()
+    try:
+        changed = perm_rollout.grant_new(db)
+    finally:
+        db.close()
+    if changed:
+        logs.log.info("Права: новые возможности выданы существующим профилям: %s", changed)
 
 
 def migrate_mail() -> None:
