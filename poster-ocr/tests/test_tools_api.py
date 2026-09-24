@@ -171,3 +171,40 @@ def test_раскладка_без_права_нельзя(db, client):
     _, key = staff(db, "Кассир", ["orders.view"])
     assert client.post("/api/tools/impose/layout", headers={"X-API-Key": key},
                        json={"item_w": 90, "item_h": 50}).status_code == 403
+
+
+def test_третий_файл_ждет_не_блокируя_сервер(db, client, tmp_root, monkeypatch):
+    """Два места заняты, третий файл ждёт в очереди — а сервер тем временем
+    отвечает всем остальным. Ожидание места не должно держать цикл событий:
+    у сервера он один на всех, и заблокированный цикл — это зависшая CRM."""
+    import asyncio
+    import threading
+    import time
+
+    monkeypatch.setattr(tool_files, "_slots", threading.BoundedSemaphore(2))
+    monkeypatch.setattr(tool_files, "WAIT_SECONDS", 3)
+
+    def slow_scene(path, cache=None):
+        time.sleep(0.5)
+        return dict(SCENE)
+
+    monkeypatch.setattr(cdr_scene, "scene", slow_scene)
+    monkeypatch.setattr(cdr, "extract_preview", lambda path: (None, "нет эскиза"))
+    _, key = staff(db, "Приёмщик", ["tools.viewer"])
+    beats: list[float] = []
+
+    async def heartbeat():
+        start = time.monotonic()
+        while time.monotonic() - start < 1.6:
+            beats.append(time.monotonic())
+            await asyncio.sleep(0.05)
+
+    async def main():
+        files = {"file": ("a.cdr", b"xx", "application/octet-stream")}
+        uploads = [client.apost("/api/tools/design-scene", headers={"X-API-Key": key}, files=files) for _ in range(3)]
+        return await asyncio.gather(*uploads, heartbeat())
+
+    replies = asyncio.run(main())
+    assert [r.status_code for r in replies[:3]] == [200, 200, 200]
+    gaps = [b - a for a, b in zip(beats, beats[1:], strict=False)]
+    assert max(gaps) < 0.3, f"цикл событий стоял {max(gaps):.2f} с"

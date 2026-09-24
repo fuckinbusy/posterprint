@@ -60,6 +60,12 @@ class AsgiClient:
 
     def request(self, method: str, path: str, headers: dict[str, str] | None = None, json=None,
                 content: bytes | None = None, content_type: str | None = None) -> Reply:
+        return asyncio.run(self.arequest(method, path, headers, json, content, content_type))
+
+    async def arequest(self, method: str, path: str, headers: dict[str, str] | None = None, json=None,
+                       content: bytes | None = None, content_type: str | None = None) -> Reply:
+        """То же в уже идущем цикле событий — чтобы пустить несколько запросов
+        одновременно и увидеть, не держит ли один из них весь сервер."""
         path, _, query = path.partition("?")
         body = content if content is not None else (b"" if json is None else jsonlib.dumps(json).encode())
         raw_headers = [(b"host", b"testserver")]
@@ -94,7 +100,7 @@ class AsgiClient:
             elif message["type"] == "http.response.body":
                 chunks.append(message.get("body", b""))
 
-        asyncio.run(app(scope, receive, send))
+        await app(scope, receive, send)
         reply.text = b"".join(chunks).decode("utf-8", "replace")
         return reply
 
@@ -107,6 +113,12 @@ class AsgiClient:
             body, ctype = multipart(data, files)
             return self.request("POST", path, headers, content=body, content_type=ctype)
         return self.request("POST", path, headers, json)
+
+    async def apost(self, path: str, headers: dict[str, str] | None = None,
+                    files: dict[str, tuple[str, bytes, str]] | None = None,
+                    data: dict[str, str] | None = None) -> Reply:
+        body, ctype = multipart(data, files)
+        return await self.arequest("POST", path, headers, content=body, content_type=ctype)
 
     def patch(self, path: str, headers: dict[str, str] | None = None, json=None) -> Reply:
         return self.request("PATCH", path, headers, json)

@@ -14,17 +14,21 @@ from __future__ import annotations
 
 import tempfile
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any, TypeVar
 
 from fastapi import UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from app.services import cdr
 
 MAX_TOOL_BYTES = 100 * 1024 * 1024
 WAIT_SECONDS = 60
 _slots = threading.BoundedSemaphore(2)
+
+T = TypeVar("T")
 
 
 class ToolFileError(ValueError):
@@ -37,14 +41,22 @@ def temp_dir() -> Iterator[Path]:
         yield Path(name)
 
 
-@contextmanager
-def slot() -> Iterator[None]:
+def _in_slot(fn: Callable[..., T], *args: Any) -> T:
     if not _slots.acquire(timeout=WAIT_SECONDS):
         raise ToolFileError("Сервер занят другими файлами — повторите через минуту")
     try:
-        yield
+        return fn(*args)
     finally:
         _slots.release()
+
+
+async def limited(fn: Callable[..., T], *args: Any) -> T:
+    """Тяжёлая работа с файлом — в рабочем потоке и в очереди из двух мест.
+
+    Место ждём тоже в рабочем потоке, а не в обработчике запроса: цикл
+    событий у сервера один на всех, и если ждать места в нём, встаёт вся
+    CRM, а занятые места не могут освободиться — их задачам некуда вернуться."""
+    return await run_in_threadpool(_in_slot, fn, *args)
 
 
 async def save_upload(file: UploadFile, folder: Path, suffixes: tuple[str, ...]) -> Path:

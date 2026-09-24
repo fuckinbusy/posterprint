@@ -14,7 +14,6 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field, ValidationError
-from starlette.concurrency import run_in_threadpool
 
 from app.core.logs import log as applog
 from app.core.security import CurrentUser, require_perm
@@ -46,8 +45,7 @@ async def design_scene(
         with tool_files.temp_dir() as folder:
             path = await tool_files.save_upload(file, folder, (".cdr",))
             size = path.stat().st_size
-            with tool_files.slot():
-                result = await run_in_threadpool(_scene, path)
+            result = await tool_files.limited(_scene, path)
     except tool_files.ToolFileError as exc:
         raise HTTPException(422, str(exc)) from None
     applog.info("Инструменты: просмотр макета, %s КБ · %s", size // 1024, user.name)
@@ -108,8 +106,7 @@ async def impose_info(
     try:
         with tool_files.temp_dir() as folder:
             path = await tool_files.save_upload(file, folder, (".pdf",))
-            with tool_files.slot():
-                return await run_in_threadpool(impose_pdf.pdf_info, path.read_bytes())
+            return await tool_files.limited(impose_pdf.pdf_info, path.read_bytes())
     except (tool_files.ToolFileError, impose_pdf.PdfError) as exc:
         raise HTTPException(422, str(exc)) from None
 
@@ -143,8 +140,7 @@ async def impose_pdf_sheet(
             path = await tool_files.save_upload(file, folder, (".pdf",))
             size = path.stat().st_size
             request = impose_pdf.SheetRequest(**sheet.model_dump())
-            with tool_files.slot():
-                pdf, layout = await run_in_threadpool(impose_pdf.build, path.read_bytes(), request)
+            pdf, layout = await tool_files.limited(impose_pdf.build, path.read_bytes(), request)
     except (tool_files.ToolFileError, impose_pdf.PdfError) as exc:
         raise HTTPException(422, str(exc)) from None
     stem = cdr.safe_filename(file.filename or "макет").rsplit(".", 1)[0]
