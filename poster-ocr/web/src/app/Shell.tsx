@@ -5,7 +5,7 @@
    сама доска), поэтому держится на уровне раскладки и передаётся вниз
    свойствами: контекст ради трёх значений был бы лишним слоем. */
 
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
@@ -25,11 +25,16 @@ import { SettingsPage } from '@/features/settings/SettingsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
 import { TopBar } from '@/features/shell/TopBar';
 import { ToolsPage } from '@/features/tools/ToolsPage';
+import { toolByPath } from '@/features/tools/tools';
+import { ViewerTool } from '@/features/tools/ViewerTool';
 import { WorksPage } from '@/features/works/WorksPage';
 import type { Permission } from '@/types/api';
 
 import { useAuth, useCan } from './AuthProvider';
 import { viewByPath } from './views';
+
+// pdf.js тяжёлый — грузится, только когда открыли раскладку
+const ImposePage = lazy(() => import('@/features/tools/impose/ImposePage').then((m) => ({ default: m.ImposePage })));
 
 const SORT_STORAGE = 'poster.sort';
 
@@ -58,11 +63,14 @@ export function Shell() {
 
   useEffect(() => {
     const view = viewByPath(location.pathname);
+    const tool = toolByPath(location.pathname);
     document.title = view
       ? view.title
-      : location.pathname === '/profile'
-        ? 'ПОСТЕР · Профиль'
-        : 'ПОСТЕР · Заказы';
+      : tool
+        ? `ПОСТЕР · ${tool.title}`
+        : location.pathname === '/profile'
+          ? 'ПОСТЕР · Профиль'
+          : 'ПОСТЕР · Заказы';
   }, [location.pathname]);
 
   const changeSort = (value: BoardSort) => {
@@ -161,6 +169,30 @@ export function Shell() {
           }
         />
         <Route path="/tools" element={<ToolsPage />} />
+        <Route
+          path="/tools/viewer"
+          element={
+            <Guarded permission="tools.viewer">
+              <ViewerTool />
+            </Guarded>
+          }
+        />
+        <Route
+          path="/tools/impose"
+          element={
+            <Guarded permission="tools.impose">
+              <Suspense
+                fallback={
+                  <main className="page">
+                    <div className="mx-empty">Загружаю…</div>
+                  </main>
+                }
+              >
+                <ImposePage />
+              </Suspense>
+            </Guarded>
+          }
+        />
         {/* профиль доступен всем, кто вошёл — права не нужны */}
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/board" replace />} />

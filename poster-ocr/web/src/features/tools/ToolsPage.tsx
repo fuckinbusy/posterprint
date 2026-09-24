@@ -1,20 +1,37 @@
-/* Раздел «Инструменты»: утилиты для цеха, не привязанные к заказу, —
-   просмотр макета, раскладка под печать, конструктор для ЧПУ, калькулятор.
+/* Раздел «Инструменты»: утилиты для цеха, не привязанные к заказу.
+   Плитка показывается, если у профиля есть право на утилиту. План и
+   границы — TODO.md, раздел 16. */
 
-   Пока пустой: что и в каком порядке делаем, расписано в TODO.md, раздел 16. */
+import { Link } from 'react-router-dom';
 
+import { useAuth } from '@/app/AuthProvider';
 import { Empty, PageHead } from '@/components/ui';
 
+import { TOOLS } from './tools';
+
 export function ToolsPage() {
+  const { can } = useAuth();
+  const tools = TOOLS.filter((tool) => can(tool.permission));
   return (
     <main className="page scroll-page">
       <div className="page-inner">
         <PageHead
           eyebrow="Цех"
           title="Инструменты"
-          sub="Утилиты для работы с макетами и расчётов, которые не привязаны к конкретному заказу."
+          sub="Утилиты для работы с макетами. Файлы на сервере не сохраняются: открыли, поработали, ушли."
         />
-        <Empty>Скоро здесь будут утилиты.</Empty>
+        {tools.length === 0 ? (
+          <Empty>Для вашего профиля утилит нет — права выдаёт администратор.</Empty>
+        ) : (
+          <div className="tool-grid">
+            {tools.map((tool) => (
+              <Link className="tool-tile" to={tool.path} key={tool.key}>
+                <b>{tool.title}</b>
+                <span>{tool.hint}</span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );

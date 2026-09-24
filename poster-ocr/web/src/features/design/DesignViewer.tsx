@@ -15,9 +15,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { fetchDesignExport, fetchDesignScene, type DesignPage } from '@/api/designs';
+import { fetchDesignExport, fetchDesignScene, type DesignPage, type DesignScene } from '@/api/designs';
+import { loadToolScene } from '@/api/tools';
 import { useToast } from '@/app/ToastProvider';
 import { DownloadIcon } from '@/components/Icons';
+
+import { standaloneSvg } from './standaloneSvg';
 
 const MIN_FIT = 0.05;
 const MAX_ZOOM = 64; // во сколько раз можно приблизить относительно «вписать»
@@ -67,23 +70,33 @@ function colorText(value: string): string {
   return `#${[m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
 }
 
+/** Откуда сцена: макет заказа (хранится на сервере) или файл из «Инструментов»
+ *  (разбирается на лету и нигде не остаётся). */
+export type DesignSource = { kind: 'order'; orderId: number } | { kind: 'file'; file: File };
+
 export function DesignViewer({
-  orderId,
+  source,
   title,
   thumbnail,
   onClose,
 }: {
-  orderId: number;
+  source: DesignSource;
   title: string;
   thumbnail: string | null;
   onClose: () => void;
 }) {
   const { toast } = useToast();
-  const scene = useQuery({
-    queryKey: ['design-scene', orderId],
-    queryFn: () => fetchDesignScene(orderId),
+  const scene = useQuery<DesignScene & { thumbnail?: string | null }>({
+    queryKey:
+      source.kind === 'order'
+        ? ['design-scene', source.orderId]
+        : ['tool-scene', source.file.name, source.file.size, source.file.lastModified],
+    queryFn: () => (source.kind === 'order' ? fetchDesignScene(source.orderId) : loadToolScene(source.file)),
     staleTime: 5 * 60 * 1000,
+    // файл второй раз на сервер не шлём: разбор долгий, а ответ тот же
+    retry: source.kind === 'order' ? undefined : false,
   });
+  const thumb = thumbnail ?? scene.data?.thumbnail ?? null;
 
   const [pageIndex, setPageIndex] = useState(0);
   const pages = scene.data?.pages ?? [];
@@ -352,7 +365,12 @@ export function DesignViewer({
   const exportAs = async (format: 'svg' | 'pdf') => {
     setExporting(format);
     try {
-      const blob = await fetchDesignExport(orderId, format, (page?.index ?? 1));
+      const blob =
+        source.kind === 'order'
+          ? await fetchDesignExport(source.orderId, format, page?.index ?? 1)
+          : page && format === 'svg'
+            ? standaloneSvg(page)
+            : null;
       if (!blob) {
         toast(
           format === 'pdf'
@@ -427,8 +445,14 @@ export function DesignViewer({
           <button
             type="button"
             className="wide"
-            disabled={!data?.available || !data?.tools.can_pdf || Boolean(exporting)}
-            title={data?.tools.can_pdf ? 'PDF — для открытия в CorelDRAW X6' : 'Для PDF на сервере нужен Inkscape'}
+            disabled={source.kind === 'file' || !data?.available || !data?.tools.can_pdf || Boolean(exporting)}
+            title={
+              source.kind === 'file'
+                ? 'PDF — только для макета заказа. Для печати выгрузите PDF из CorelDRAW'
+                : data?.tools.can_pdf
+                  ? 'PDF — для открытия в CorelDRAW X6'
+                  : 'Для PDF на сервере нужен Inkscape'
+            }
             onClick={() => void exportAs('pdf')}
           >
             <DownloadIcon /> {exporting === 'pdf' ? 'Готовлю…' : 'PDF'}
@@ -455,7 +479,7 @@ export function DesignViewer({
             <div className="dv-msg">
               <b>Содержимое показать не получилось</b>
               <span>{data.reason}</span>
-              {thumbnail && <img src={thumbnail} alt="Эскиз из файла" />}
+              {thumb && <img src={thumb} alt="Эскиз из файла" />}
             </div>
           )}
           <div
@@ -616,10 +640,10 @@ export function DesignViewer({
             </section>
           )}
 
-          {thumbnail && data?.available && (
+          {thumb && data?.available && (
             <section>
               <h4>Эскиз из файла</h4>
-              <img className="dv-thumb" src={thumbnail} alt="Эскиз, сохранённый CorelDRAW" />
+              <img className="dv-thumb" src={thumb} alt="Эскиз, сохранённый CorelDRAW" />
               <p className="dv-hint">Так макет выглядит в самом CorelDRAW — сверяйтесь, если что-то отличается.</p>
             </section>
           )}

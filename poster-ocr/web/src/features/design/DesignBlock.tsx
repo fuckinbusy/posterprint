@@ -278,7 +278,7 @@ function DesignBody({ orderId, info }: { orderId: number; info: DesignInfo }) {
 
       {viewing && info.exists && (
         <DesignViewer
-          orderId={orderId}
+          source={{ kind: 'order', orderId }}
           title={info.filename}
           thumbnail={preview}
           onClose={() => setViewing(false)}
