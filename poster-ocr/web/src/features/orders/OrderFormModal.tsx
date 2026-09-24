@@ -16,7 +16,7 @@ import { useAuth } from '@/app/AuthProvider';
 import { useConfirm } from '@/app/ConfirmProvider';
 import { ModalShell, useModal, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
-import { Reg } from '@/components/Icons';
+import { Mark } from '@/components/Icons';
 import { Select } from '@/components/Select';
 import { Empty, Field, Section } from '@/components/ui';
 import { useMoveStatus } from '@/features/board/useMoveStatus';
@@ -531,7 +531,7 @@ function OrderForm({
 
         {form.clientId && linked.data && (
           <div className="client-linked">
-            <Reg />
+            <Mark />
             <span>Клиент из справочника · {linkedParts.join(' · ')}</span>
             {can('clients.history') && (
               <button type="button" onClick={openClientCard}>

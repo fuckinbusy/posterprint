@@ -24,6 +24,7 @@ import { PricesPage } from '@/features/prices/PricesPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
 import { TopBar } from '@/features/shell/TopBar';
+import { ToolsPage } from '@/features/tools/ToolsPage';
 import { WorksPage } from '@/features/works/WorksPage';
 import type { Permission } from '@/types/api';
 
@@ -159,6 +160,7 @@ export function Shell() {
             </Guarded>
           }
         />
+        <Route path="/tools" element={<ToolsPage />} />
         {/* профиль доступен всем, кто вошёл — права не нужны */}
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/board" replace />} />

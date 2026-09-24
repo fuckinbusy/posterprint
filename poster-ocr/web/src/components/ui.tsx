@@ -6,7 +6,7 @@
 import { Fragment, cloneElement, isValidElement, useId } from 'react';
 import type { ReactNode } from 'react';
 
-import { Reg } from './Icons';
+import { Mark } from './Icons';
 
 /** Пустое состояние и «загружаю…» — один и тот же вид. */
 export function Empty({ children }: { children: ReactNode }) {
@@ -22,7 +22,7 @@ export function Section({ title, children }: { title: ReactNode; children: React
   return (
     <div className="form-sec">
       <h3>
-        <Reg /> {title}
+        <Mark /> {title}
       </h3>
       {children}
     </div>
@@ -44,7 +44,7 @@ export function PageHead({
   return (
     <div className="page-head">
       <div className="page-eyebrow">
-        <Reg /> {eyebrow}
+        <Mark /> {eyebrow}
       </div>
       <h1>{title}</h1>
       {sub && <p className="sub">{sub}</p>}

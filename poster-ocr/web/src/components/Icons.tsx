@@ -253,12 +253,15 @@ export const NavBoardIcon = (p: IconProps) => (
   </svg>
 );
 
+/* Клиенты и сотрудники раньше были одним и тем же «двое людей» и путались
+   в меню. Клиент — рукопожатие (сделка), сотрудник — пропуск на ленте. */
 export const NavClientsIcon = (p: IconProps) => (
   <svg {...svg(p)}>
-    <circle cx="9" cy="8" r="3.4" />
-    <path d="M2.5 20c.7-3.6 3.6-5.4 6.5-5.4s5.8 1.8 6.5 5.4" />
-    <path d="M17 4.5a3.4 3.4 0 0 1 0 6.8" />
-    <path d="M21.5 20c-.3-1.6-.9-2.9-1.8-3.8" />
+    <path d="m11 17 2 2a1 1 0 1 0 3-3" />
+    <path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4" />
+    <path d="m21 3 1 11h-2" />
+    <path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3" />
+    <path d="M3 4h8" />
   </svg>
 );
 
@@ -278,9 +281,22 @@ export const NavWorksIcon = (p: IconProps) => (
 
 export const NavStaffIcon = (p: IconProps) => (
   <svg {...svg(p)}>
-    <circle cx="9" cy="8" r="3.2" />
-    <path d="M2.5 20c.6-3.2 3.2-4.8 6.5-4.8s5.9 1.6 6.5 4.8" />
-    <path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18.5 20c-.2-1.4-.7-2.6-1.5-3.5" />
+    <path d="M9 2.5 12 6l3-3.5" />
+    <rect x="5" y="6" width="14" height="15.5" rx="2.2" />
+    <circle cx="12" cy="11.6" r="2.4" />
+    <path d="M8.5 18.2c.6-1.6 1.9-2.4 3.5-2.4s2.9.8 3.5 2.4" />
+  </svg>
+);
+
+export const NavToolsIcon = (p: IconProps) => (
+  <svg {...svg(p)}>
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+  </svg>
+);
+
+export const MenuIcon = (p: IconProps) => (
+  <svg {...svg(p)}>
+    <path d="M4 6h16M4 12h16M4 18h16" />
   </svg>
 );
 
@@ -320,9 +336,5 @@ export function TemplateIcon({ name, ...rest }: IconProps & { name: string }) {
   return <Component {...rest} />;
 }
 
-/** Приводочный крест — фирменная метка в заголовках. */
-export const Reg = () => (
-  <span className="reg" aria-hidden="true">
-    <i />
-  </span>
-);
+/** Метка раздела в заголовках — зелёный кружок. */
+export const Mark = () => <span className="mark" aria-hidden="true" />;

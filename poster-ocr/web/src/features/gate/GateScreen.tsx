@@ -84,12 +84,7 @@ export function GateScreen() {
     <div className="gate">
       <div className="gate-box">
         <div className="gate-brand">
-          <span className="reg" aria-hidden="true">
-            <i />
-          </span>
-          <span>
-            ПОСТЕР<span className="dot">.</span>
-          </span>
+          ПОСТЕР<span className="dot">.</span>
         </div>
         <div className="spotbar" aria-hidden="true">
           <span />

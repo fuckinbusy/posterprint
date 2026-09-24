@@ -14,6 +14,7 @@ import {
 import { useAuth } from '@/app/AuthProvider';
 import { ModalShell, useModalFrame, useUnsavedGuard } from '@/app/ModalProvider';
 import { useToast } from '@/app/ToastProvider';
+import { Mark } from '@/components/Icons';
 import { Empty, Field, Loading, Section } from '@/components/ui';
 import type {
   AccessMode,
@@ -345,9 +346,7 @@ function StaffEditor({
       {catalog.groups.map((group) => (
         <div className="perm-group" key={group.title}>
           <h4>
-            <span className="reg">
-              <i />
-            </span>{' '}
+            <Mark />{' '}
             {group.title}
           </h4>
           {group.items.map((item) => (

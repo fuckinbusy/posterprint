@@ -1,9 +1,11 @@
-/* Шапка: бренд, разделы, счётчик денег в работе, профиль.
+/* Шапка: кнопка меню разделов, логотип по центру, счётчик денег в работе,
+   новый заказ, тема и профиль.
 
-   Поиска здесь больше нет — он переехал в полосу фильтров доски. В шапке
-   он делил место с разделами, и на средних экранах кнопки справа уезжали
-   за край, приходилось скроллить. */
+   Разделы переехали в выдвижную панель слева (NavDrawer): иконками в шапке
+   их набралось столько, что на средних экранах они теснили кнопки справа.
+   Поиска здесь тоже нет — он в полосе фильтров доски. */
 
+import { useCallback, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 
 import { useMailStore } from '@/api/mail';
@@ -12,11 +14,12 @@ import type { OrdersFilter } from '@/api/keys';
 import { useAuth } from '@/app/AuthProvider';
 import { toggleTheme, useTheme } from '@/app/theme';
 import { useModal } from '@/app/ModalProvider';
-import { VIEWS } from '@/app/views';
-import { MoonIcon, PlusIcon, SunIcon } from '@/components/Icons';
+import { MenuIcon, MoonIcon, PlusIcon, SunIcon } from '@/components/Icons';
 import { CashModal } from '@/features/cash/CashModal';
 import { useNewOrder } from '@/features/orders/useNewOrder';
 import { moneyOrZero } from '@/lib/format';
+
+import { NavDrawer } from './NavDrawer';
 
 interface TopBarProps {
   filter: OrdersFilter;
@@ -29,83 +32,80 @@ export function TopBar({ filter, onBoard }: TopBarProps) {
   const newOrder = useNewOrder();
   const mail = useMailStore();
   const theme = useTheme();
-  // вкладка показывается, только если у профиля есть право на раздел
-  const views = VIEWS.filter((view) => !view.permission || can(view.permission));
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   return (
-    <header className="topbar">
-      <div className="tb-left">
-        <div className="brand">
-          <span className="reg" aria-hidden="true">
-            <i />
-          </span>
-          <span>
-            ПОСТЕР<span className="dot">.</span>
-            <small>ЦЕХ · ЗАКАЗЫ</small>
-          </span>
-        </div>
-        <div className="spotbar" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-          <span />
-        </div>
-      </div>
-
-      {/* Разделы — иконками; при наведении кнопка раскрывается вправо и
-          показывает название. Так они помещаются на любой ширине, и ничего
-          не нужно скроллить. */}
-      <nav className="tb-nav" aria-label="Разделы">
-        {views.map((view) => (
-          <NavLink
-            className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}
-            to={view.path}
-            key={view.key}
+    <>
+      <header className="topbar">
+        <div className="tb-left">
+          <button
+            ref={menuButton}
+            className="icon-btn menu-btn"
+            type="button"
+            title="Разделы"
+            aria-label="Открыть меню разделов"
+            aria-expanded={menuOpen}
+            aria-controls="nav-drawer"
+            onClick={() => setMenuOpen(true)}
           >
-            <view.icon />
-            <span>{view.label}</span>
-            {/* непрочитанные письма — красная точка с числом на иконке почты */}
-            {view.key === 'mail' && mail.unseen > 0 && (
+            <MenuIcon />
+            {/* непрочитанные письма видно и при закрытом меню */}
+            {mail.unseen > 0 && (
               <i className="nav-badge" aria-label={`${mail.unseen} непрочитанных`}>
                 {mail.unseen > 99 ? '99+' : mail.unseen}
               </i>
             )}
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="tb-right">
-        {can('finance.totals') && <ActiveCounter filter={filter} cash={can('finance.cash')} />}
-        {onBoard && can('orders.create') && (
-          <button className="btn btn-green" type="button" onClick={newOrder}>
-            <PlusIcon />
-            Новый заказ
           </button>
-        )}
-        {/* тема — свойство экрана, не профиля: хранится в браузере */}
-        <button
-          className="icon-btn theme-toggle"
-          type="button"
-          title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-          aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
-          onClick={(e) => toggleTheme({ x: e.clientX, y: e.clientY })}
-        >
-          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-        </button>
-        {/* имя ведёт на страницу профиля: там смена профиля, настройки
-            этого рабочего места и что разрешено */}
-        <NavLink
-          className={({ isActive }) =>
-            ['profile-chip', session?.kind === 'admin' ? 'admin' : '', isActive ? 'active' : ''].filter(Boolean).join(' ')
-          }
-          to="/profile"
-          title="Профиль и настройки этого рабочего места"
-        >
-          <span className="pc-dot" />
-          <span>{session?.name || 'Профиль'}</span>
-        </NavLink>
-      </div>
-    </header>
+          <div className="spotbar" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+        </div>
+
+        <div className="brand">
+          ПОСТЕР<span className="dot">.</span>
+        </div>
+
+        <div className="tb-right">
+          {can('finance.totals') && <ActiveCounter filter={filter} cash={can('finance.cash')} />}
+          {onBoard && can('orders.create') && (
+            <button className="btn btn-green" type="button" onClick={newOrder}>
+              <PlusIcon />
+              <span className="btn-label">Новый заказ</span>
+            </button>
+          )}
+          {/* тема — свойство экрана, не профиля: хранится в браузере */}
+          <button
+            className="icon-btn theme-toggle"
+            type="button"
+            title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+            aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
+            onClick={(e) => toggleTheme({ x: e.clientX, y: e.clientY })}
+          >
+            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          </button>
+          {/* имя ведёт на страницу профиля: там смена профиля, настройки
+              этого рабочего места и что разрешено */}
+          <NavLink
+            className={({ isActive }) =>
+              ['profile-chip', session?.kind === 'admin' ? 'admin' : '', isActive ? 'active' : ''].filter(Boolean).join(' ')
+            }
+            to="/profile"
+            title="Профиль и настройки этого рабочего места"
+          >
+            <span className="pc-dot" />
+            <span>{session?.name || 'Профиль'}</span>
+          </NavLink>
+        </div>
+      </header>
+      {/* вне шапки: у неё свой z-index, внутри него панель не встала бы
+          поверх доски и уведомлений */}
+      <NavDrawer open={menuOpen} onClose={closeMenu} trigger={menuButton} />
+    </>
   );
 }
 

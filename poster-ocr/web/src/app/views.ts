@@ -1,5 +1,5 @@
 /* Разделы системы: адрес, подпись, иконка и право, без которого раздел
-   не показывается. Один список — по нему строится и навигация в шапке,
+   не показывается. Один список — по нему строится и боковое меню,
    и защита маршрутов. */
 
 import type { JSX } from 'react';
@@ -13,6 +13,7 @@ import {
   NavPricesIcon,
   NavSettingsIcon,
   NavStaffIcon,
+  NavToolsIcon,
   NavWorksIcon,
 } from '@/components/Icons';
 import type { Permission } from '@/types/api';
@@ -100,6 +101,16 @@ export const VIEWS: ViewConfig[] = [
     title: 'ПОСТЕР · Настройки',
     icon: NavSettingsIcon,
     permission: 'staff.manage',
+  },
+  {
+    // утилиты для цеха (план — TODO.md, раздел 16); права по каждой
+    // появятся вместе с самими утилитами
+    key: 'tools',
+    path: '/tools',
+    label: 'Инструменты',
+    title: 'ПОСТЕР · Инструменты',
+    icon: NavToolsIcon,
+    permission: null,
   },
 ];
 
