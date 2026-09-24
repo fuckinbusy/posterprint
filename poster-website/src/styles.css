@@ -517,44 +517,100 @@ p {
   color: var(--muted);
 }
 
-/* Услуги: строки фото + текст, стороны чередуются */
-.services {
+/* Услуги: список по группам слева, выбранная услуга справа.
+   На узком экране — раскрывающийся список (правила внизу файла). */
+.svc {
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 64px);
+  align-items: start;
+}
+.svc-nav {
+  position: sticky;
+  top: calc(var(--topbar-h) + 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.svc-cat {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.svc-nav ul {
   list-style: none;
   padding: 0;
   margin: 0;
-}
-.service {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: clamp(32px, 5vw, 72px);
-  align-items: center;
-  padding: clamp(40px, 5vw, 64px) 0;
-  border-top: 1px solid var(--line);
-}
-.service:nth-child(even) .service-photo {
-  order: 2;
-}
-.service-photo {
-  aspect-ratio: 4 / 3;
-}
-.service-copy {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  border-left: 1px solid var(--line);
+}
+.svc-nav button {
+  width: 100%;
+  margin-left: -1px;
+  padding: 8px 14px;
+  border: none;
+  border-left: 2px solid transparent;
+  background: none;
+  color: var(--text-2);
+  font: 500 15px/1.35 var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 0.16s,
+    border-color 0.16s,
+    background 0.16s;
+}
+.svc-nav button:hover {
+  color: var(--text);
+  background: rgba(var(--fg-rgb), 0.04);
+}
+.svc-nav button.current {
+  color: var(--green);
+  border-left-color: var(--green);
+  font-weight: 600;
+}
+.svc-panels .svc-cat,
+.svc-toggle {
+  display: none;
+}
+.svc-item:not(.current) {
+  display: none;
+}
+.svc-body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+  gap: clamp(24px, 3vw, 40px);
+  align-items: start;
+}
+.svc-item.current .svc-body {
+  animation: rise 0.45s var(--ease) both;
+}
+.svc-photo {
+  aspect-ratio: 4 / 5;
+}
+.svc-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   color: var(--text-2);
 }
-.service-num {
-  font-size: 13px;
+.svc-num {
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--green);
 }
-.service-copy h3 {
-  font-size: clamp(26px, 2.8vw, 36px);
+.svc-copy h3 {
+  font-size: clamp(26px, 2.6vw, 36px);
   font-weight: 700;
   color: var(--text);
 }
-.service-copy .btn {
+.svc-copy .btn {
   align-self: flex-start;
   margin-top: 8px;
 }
@@ -596,8 +652,6 @@ p {
 }
 .sheet {
   position: relative;
-  max-width: 920px;
-  margin: 0 auto;
   padding: clamp(32px, 6vw, 72px);
   background: var(--paper);
   color: var(--paper-text);
@@ -642,43 +696,117 @@ p {
   border-bottom-width: 1.5px;
   border-right-width: 1.5px;
 }
-.req-block + .req-block {
-  margin-top: 40px;
-  padding-top: 36px;
-  border-top: 1px solid rgba(17, 20, 17, 0.12);
-}
-.req-block h3 {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 22px;
-}
-.req-groups {
+/* форматы файлов — плашки в строку, вылеты — таблица рядом */
+.req-top {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 28px 40px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 64px);
+  padding-bottom: 36px;
+  border-bottom: 1px solid rgba(17, 20, 17, 0.12);
 }
-.req-group h4 {
-  font-size: 12.5px;
+.sheet h3 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+.sheet h4 {
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--paper-muted);
-  margin-bottom: 10px;
 }
-.req-group ul {
+.req-format-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.req-format-row + .req-format-row {
+  margin-top: 14px;
+}
+.req-format-row h4 {
+  flex: 0 0 100px;
+}
+.req-format-row ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.req-format-row li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid rgba(17, 20, 17, 0.14);
+  border-radius: 8px;
+  background: #fff;
+}
+.req-format-row b {
+  font-size: 15px;
+  color: var(--green-on-paper);
+}
+.req-format-row span {
+  font-size: 13.5px;
+  color: var(--paper-muted);
+}
+.req-bleeds table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.req-bleeds th {
+  padding: 10px 16px 10px 0;
+  font-weight: 600;
+  text-align: left;
+  line-height: 1.35;
+}
+.req-bleeds th span {
+  display: block;
+  font-weight: 400;
+  font-size: 13.5px;
+  color: var(--paper-muted);
+}
+.req-bleeds td {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--green-on-paper);
+  text-align: right;
+  white-space: nowrap;
+}
+.req-bleeds tr + tr > * {
+  border-top: 1px solid rgba(17, 20, 17, 0.12);
+}
+.req-subhead {
+  margin-top: 36px;
+}
+/* колонки правил сами решают, сколько их влезает: три на широком листе,
+   две на планшете, одна на телефоне */
+.req-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 28px 40px;
+}
+.req-col h4 {
+  margin-bottom: 12px;
+}
+.req-list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
 }
-.req-group li {
+.req-list li {
   position: relative;
   padding-left: 18px;
+  font-size: 15px;
   line-height: 1.5;
 }
-.req-group li::before {
+.req-list li::before {
   content: '';
   position: absolute;
   left: 0;
@@ -934,12 +1062,86 @@ p {
     font-size: 14px;
   }
   .about,
-  .service,
-  .contacts {
+  .contacts,
+  .req-top {
     grid-template-columns: 1fr;
   }
-  .service:nth-child(even) .service-photo {
-    order: 0;
+  /* услуги: вместо списка слева — раскрывающиеся карточки */
+  .svc {
+    grid-template-columns: 1fr;
+  }
+  .svc-nav {
+    display: none;
+  }
+  .svc-panels .svc-cat {
+    display: block;
+    margin: 32px 0 4px;
+  }
+  .svc-group:first-child .svc-cat {
+    margin-top: 0;
+  }
+  .svc-item,
+  .svc-item:not(.current) {
+    display: block;
+    border-bottom: 1px solid var(--line);
+  }
+  .svc-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+    padding: 18px 0;
+    border: none;
+    background: none;
+    color: var(--text);
+    font: 600 18px/1.3 var(--font-ui);
+    text-align: left;
+    cursor: pointer;
+  }
+  .svc-item.open .svc-toggle {
+    color: var(--green);
+  }
+  .svc-plus {
+    position: relative;
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    transition: transform 0.25s var(--ease);
+  }
+  .svc-plus::before,
+  .svc-plus::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 100%;
+    height: 2px;
+    margin-top: -1px;
+    background: currentColor;
+  }
+  .svc-plus::after {
+    transform: rotate(90deg);
+  }
+  .svc-item.open .svc-plus {
+    transform: rotate(45deg);
+  }
+  .svc-body,
+  .svc-item.current .svc-body {
+    display: none;
+  }
+  .svc-item.open .svc-body {
+    display: grid;
+    grid-template-columns: 1fr;
+    padding-bottom: 28px;
+    animation: rise 0.35s var(--ease) both;
+  }
+  .svc-photo {
+    aspect-ratio: 16 / 10;
+  }
+  /* название уже в заголовке-кнопке */
+  .svc-copy h3 {
+    display: none;
   }
   .works {
     grid-template-columns: repeat(2, 1fr);
@@ -984,8 +1186,9 @@ p {
   .works {
     grid-template-columns: 1fr;
   }
-  .req-groups {
-    grid-template-columns: 1fr;
+  .req-format-row {
+    flex-direction: column;
+    gap: 8px;
   }
   .crop {
     display: none;
