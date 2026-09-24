@@ -6,11 +6,13 @@
 
 from __future__ import annotations
 
+import json as jsonlib
 import os
 import tempfile
 
 import pytest
 from api_helpers import staff
+from pdf_helpers import MM, make_pdf
 
 from app.core.permissions import PERMISSIONS_BY_KEY, default_permissions
 from app.services import cdr, cdr_scene, tool_files
@@ -105,3 +107,67 @@ def test_просмотр_без_права_нельзя(db, client):
     reply = client.post("/api/tools/design-scene", headers={"X-API-Key": key},
                         files={"file": ("a.cdr", b"xx", "application/octet-stream")})
     assert reply.status_code == 403
+
+
+CARD_PDF = {"w": 94, "h": 54, "bleed": 2}
+SHEET = {"page": 1, "trim": [2 * MM, 2 * MM, 92 * MM, 52 * MM], "bleed": 2, "sheet_w": 320, "sheet_h": 450,
+         "margin": 5, "gap": 0, "rotate": True, "marks": True}
+
+
+def test_раскладка_сведения_о_pdf(db, client, tmp_root):
+    _, key = staff(db, "Печатник", ["tools.impose"])
+    reply = client.post("/api/tools/impose/info", headers={"X-API-Key": key},
+                        files={"file": ("визитка.pdf", make_pdf([CARD_PDF]), "application/pdf")})
+    assert reply.status_code == 200, reply.text
+    assert reply.json()["pages"][0]["trim"] is not None
+    assert _left(tmp_root) == []
+
+
+def test_раскладка_схема(db, client):
+    _, key = staff(db, "Печатник", ["tools.impose"])
+    reply = client.post("/api/tools/impose/layout", headers={"X-API-Key": key},
+                        json={"item_w": 90, "item_h": 50})
+    assert reply.status_code == 200
+    data = reply.json()
+    assert data["count"] == 24 and len(data["placements"]) == 24
+    assert data["marks"] and data["cuts"]
+
+
+def test_раскладка_схема_ошибка_параметров(db, client):
+    _, key = staff(db, "Печатник", ["tools.impose"])
+    reply = client.post("/api/tools/impose/layout", headers={"X-API-Key": key},
+                        json={"item_w": 297, "item_h": 420, "sheet_w": 210, "sheet_h": 297})
+    assert reply.status_code == 422
+    assert "не помещается" in reply.json()["detail"]
+
+
+def test_раскладка_pdf(db, client, tmp_root):
+    _, key = staff(db, "Печатник", ["tools.impose"])
+    reply = client.post("/api/tools/impose/pdf", headers={"X-API-Key": key},
+                        files={"file": ("визитка.pdf", make_pdf([CARD_PDF]), "application/pdf")},
+                        data={"params": jsonlib.dumps(SHEET)})
+    assert reply.status_code == 200
+    assert reply.headers["content-type"] == "application/pdf"
+    assert reply.headers["x-impose-count"] == "24"
+    assert "attachment" in reply.headers["content-disposition"]
+    assert _left(tmp_root) == []
+
+
+def test_раскладка_pdf_ошибка_и_папка_удалена(db, client, tmp_root):
+    _, key = staff(db, "Печатник", ["tools.impose"])
+    reply = client.post("/api/tools/impose/pdf", headers={"X-API-Key": key},
+                        files={"file": ("макет.pdf", b"RIFF-not-a-pdf", "application/pdf")},
+                        data={"params": jsonlib.dumps(SHEET)})
+    assert reply.status_code == 422
+    assert "не PDF" in reply.json()["detail"]
+    assert _left(tmp_root) == []
+    bad = client.post("/api/tools/impose/pdf", headers={"X-API-Key": key},
+                      files={"file": ("a.pdf", make_pdf([CARD_PDF]), "application/pdf")},
+                      data={"params": "{не json"})
+    assert bad.status_code == 422
+
+
+def test_раскладка_без_права_нельзя(db, client):
+    _, key = staff(db, "Кассир", ["orders.view"])
+    assert client.post("/api/tools/impose/layout", headers={"X-API-Key": key},
+                       json={"item_w": 90, "item_h": 50}).status_code == 403

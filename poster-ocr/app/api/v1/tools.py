@@ -7,14 +7,19 @@ app/services/tool_files.py. План и границы — TODO.md, раздел
 from __future__ import annotations
 
 import base64
+from dataclasses import asdict
 from pathlib import Path
+from typing import Literal
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from pydantic import BaseModel, Field, ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from app.core.logs import log as applog
 from app.core.security import CurrentUser, require_perm
-from app.services import cdr, cdr_scene, tool_files
+from app.services import cdr, cdr_scene, impose_pdf, tool_files
+from app.services import impose as impose_engine
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
 
@@ -47,3 +52,110 @@ async def design_scene(
         raise HTTPException(422, str(exc)) from None
     applog.info("Инструменты: просмотр макета, %s КБ · %s", size // 1024, user.name)
     return result
+
+
+class LayoutIn(BaseModel):
+    """Параметры раскладки в мм — то же, что impose.Job."""
+
+    item_w: float = Field(gt=0, le=5000)
+    item_h: float = Field(gt=0, le=5000)
+    bleed: float = Field(default=2.0, ge=0, le=20)
+    sheet_w: float = Field(default=320.0, gt=0, le=5000)
+    sheet_h: float = Field(default=450.0, gt=0, le=5000)
+    margin: float = Field(default=5.0, ge=0, le=100)
+    gap: float = Field(default=0.0, ge=0, le=100)
+    rotate: bool = True
+    marks: bool = True
+    mark_offset: float = Field(default=2.5, ge=0, le=50)
+    mark_length: float = Field(default=3.0, ge=0, le=50)
+
+
+class SheetIn(BaseModel):
+    """Сборка листа из PDF: страница, рамка обрезного формата (пункты PDF), параметры."""
+
+    page: int = Field(default=1, ge=1)
+    back_page: int | None = Field(default=None, ge=1)
+    flip: Literal["long", "short"] = "long"
+    trim: tuple[float, float, float, float]
+    bleed: float = Field(default=2.0, ge=0, le=20)
+    sheet_w: float = Field(default=320.0, gt=0, le=5000)
+    sheet_h: float = Field(default=450.0, gt=0, le=5000)
+    margin: float = Field(default=5.0, ge=0, le=100)
+    gap: float = Field(default=0.0, ge=0, le=100)
+    rotate: bool = True
+    marks: bool = True
+    mark_offset: float = Field(default=2.5, ge=0, le=50)
+    mark_length: float = Field(default=3.0, ge=0, le=50)
+
+
+def _layout_json(layout: impose_engine.Layout) -> dict:
+    return {
+        "count": layout.count,
+        "sheet_w": layout.job.sheet_w,
+        "sheet_h": layout.job.sheet_h,
+        "placements": [asdict(p) for p in layout.placements],
+        "cuts": [asdict(c) for c in layout.cuts],
+        "marks": [asdict(m) for m in layout.marks],
+    }
+
+
+@router.post("/impose/info")
+async def impose_info(
+    file: UploadFile = File(...),
+    user: CurrentUser = Depends(require_perm("tools.impose")),
+) -> dict:
+    """16.5: страницы PDF — рамки и размеры, чтобы выбрать обрезной формат."""
+    try:
+        with tool_files.temp_dir() as folder:
+            path = await tool_files.save_upload(file, folder, (".pdf",))
+            with tool_files.slot():
+                return await run_in_threadpool(impose_pdf.pdf_info, path.read_bytes())
+    except (tool_files.ToolFileError, impose_pdf.PdfError) as exc:
+        raise HTTPException(422, str(exc)) from None
+
+
+@router.post("/impose/layout")
+def impose_layout(
+    body: LayoutIn,
+    user: CurrentUser = Depends(require_perm("tools.impose")),
+) -> dict:
+    """16.5: сколько встанет и как — для превью, без файла."""
+    try:
+        layout = impose_engine.impose(impose_engine.Job(**body.model_dump()))
+    except impose_engine.ImposeError as exc:
+        raise HTTPException(422, str(exc)) from None
+    return _layout_json(layout)
+
+
+@router.post("/impose/pdf")
+async def impose_pdf_sheet(
+    file: UploadFile = File(...),
+    params: str = Form(...),
+    user: CurrentUser = Depends(require_perm("tools.impose")),
+) -> Response:
+    """16.5: готовый лист PDF для печати. Файл не сохраняется."""
+    try:
+        sheet = SheetIn.model_validate_json(params)
+    except ValidationError as exc:
+        raise HTTPException(422, "Параметры раскладки не разобраны: " + exc.errors()[0]["msg"]) from None
+    try:
+        with tool_files.temp_dir() as folder:
+            path = await tool_files.save_upload(file, folder, (".pdf",))
+            size = path.stat().st_size
+            request = impose_pdf.SheetRequest(**sheet.model_dump())
+            with tool_files.slot():
+                pdf, layout = await run_in_threadpool(impose_pdf.build, path.read_bytes(), request)
+    except (tool_files.ToolFileError, impose_pdf.PdfError) as exc:
+        raise HTTPException(422, str(exc)) from None
+    stem = cdr.safe_filename(file.filename or "макет").rsplit(".", 1)[0]
+    name = f"{stem}-раскладка-{layout.count}шт.pdf"
+    applog.info("Инструменты: раскладка %s шт., лист %s×%s, %s КБ · %s",
+                layout.count, sheet.sheet_w, sheet.sheet_h, size // 1024, user.name)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}",
+            "X-Impose-Count": str(layout.count),
+        },
+    )
