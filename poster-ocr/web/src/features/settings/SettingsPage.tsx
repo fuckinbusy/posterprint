@@ -290,20 +290,25 @@ function ContactsEditor({
     <div className="contacts-editor">
       {list.map((c, i) => (
         <div className="contacts-row" key={i}>
-          <input
-            type="text"
-            value={c.name}
-            placeholder="Директор"
-            aria-label="Имя адресата"
-            onChange={(e) => update(i, { name: e.target.value })}
-          />
-          <input
-            type="email"
-            value={c.email}
-            placeholder="director@example.com"
-            aria-label="Адрес"
-            onChange={(e) => update(i, { email: e.target.value })}
-          />
+          {/* Field без подписи — ради стилей поля, подпись заменяет placeholder */}
+          <Field>
+            <input
+              type="text"
+              value={c.name}
+              placeholder="Директор"
+              aria-label="Имя адресата"
+              onChange={(e) => update(i, { name: e.target.value })}
+            />
+          </Field>
+          <Field>
+            <input
+              type="email"
+              value={c.email}
+              placeholder="director@example.com"
+              aria-label="Адрес"
+              onChange={(e) => update(i, { email: e.target.value })}
+            />
+          </Field>
           <button
             className="icon-btn"
             type="button"

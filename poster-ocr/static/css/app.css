@@ -7368,6 +7368,7 @@ body.touch-dragging {
   display: grid;
   grid-template-columns: minmax(140px, 1fr) minmax(200px, 1.6fr) auto;
   gap: 8px;
+  align-items: center;
   width: 100%;
   max-width: 640px;
 }
