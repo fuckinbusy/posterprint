@@ -92,6 +92,10 @@ def test_тело_обычного_запроса_ограничено():
 
 def test_загрузка_макета_не_режется_общим_лимитом():
     assert not deploy.body_too_large("/api/orders/17/design", str(200 * 1024 * 1024))
+    # загрузки инструментов идут мимо общего лимита — у них свой, 100 МБ
+    for path in ("/api/tools/design-scene", "/api/tools/impose/info", "/api/tools/impose/pdf"):
+        assert not deploy.body_too_large(path, str(90 * 1024 * 1024))
+    assert deploy.body_too_large("/api/tools/impose/layout", str(deploy.MAX_BODY_BYTES + 1))
     # но соседние ручки макета — режутся
     assert deploy.body_too_large("/api/orders/17/design/preview", str(10 * 1024 * 1024))
 

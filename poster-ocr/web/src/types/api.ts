@@ -34,6 +34,8 @@ export type Permission =
   | 'metrics.view'
   | 'prices.view'
   | 'prices.edit'
+  | 'tools.viewer'
+  | 'tools.impose'
   | 'staff.manage';
 
 export interface PermissionItem {

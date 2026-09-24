@@ -29,7 +29,8 @@ MIN_SECRET = 32
 # настройки с логотипом (400 КБ картинки в base64). Макеты грузятся своей
 # ручкой со своим лимитом и в этот не упираются.
 MAX_BODY_BYTES = 2 * 1024 * 1024
-UPLOAD_PATH = re.compile(r"^/api/orders/\d+/design$")
+# загрузки, которые режутся своим лимитом в своей ручке: макет заказа и файлы инструментов
+UPLOAD_PATH = re.compile(r"^/api/(orders/\d+/design|tools/(design-scene|impose/(info|pdf)))$")
 
 
 def _flag(value: str | None) -> bool:

@@ -30,6 +30,25 @@ class Reply:
         return jsonlib.loads(self.text)
 
 
+def multipart(data: dict[str, str] | None, files: dict[str, tuple[str, bytes, str]] | None) -> tuple[bytes, str]:
+    """Тело multipart/form-data — как его шлёт браузер из <input type=file>."""
+    boundary = "poster-test-boundary"
+    parts: list[bytes] = []
+    for name, value in (data or {}).items():
+        parts.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n'.encode()
+            + value.encode() + b"\r\n"
+        )
+    for name, (filename, payload, ctype) in (files or {}).items():
+        parts.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
+            f"Content-Type: {ctype}\r\n\r\n".encode()
+            + payload + b"\r\n"
+        )
+    parts.append(f"--{boundary}--\r\n".encode())
+    return b"".join(parts), f"multipart/form-data; boundary={boundary}"
+
+
 class AsgiClient:
     """Запрос прямо в приложение по протоколу ASGI.
 
@@ -39,13 +58,18 @@ class AsgiClient:
     пути — как в адресной строке.
     """
 
-    def request(self, method: str, path: str, headers: dict[str, str] | None = None, json=None) -> Reply:
+    def request(self, method: str, path: str, headers: dict[str, str] | None = None, json=None,
+                content: bytes | None = None, content_type: str | None = None) -> Reply:
         path, _, query = path.partition("?")
-        body = b"" if json is None else jsonlib.dumps(json).encode()
+        body = content if content is not None else (b"" if json is None else jsonlib.dumps(json).encode())
         raw_headers = [(b"host", b"testserver")]
         if json is not None:
             raw_headers.append((b"content-type", b"application/json"))
-        raw_headers += [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()]
+        if content_type is not None:
+            raw_headers.append((b"content-type", content_type.encode()))
+        if body:
+            raw_headers.append((b"content-length", str(len(body)).encode()))
+        raw_headers +=[(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()]
         scope = {
             "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
             "method": method, "scheme": "http", "path": path, "raw_path": path.encode(),
@@ -77,7 +101,11 @@ class AsgiClient:
     def get(self, path: str, headers: dict[str, str] | None = None) -> Reply:
         return self.request("GET", path, headers)
 
-    def post(self, path: str, headers: dict[str, str] | None = None, json=None) -> Reply:
+    def post(self, path: str, headers: dict[str, str] | None = None, json=None,
+             files: dict[str, tuple[str, bytes, str]] | None = None, data: dict[str, str] | None = None) -> Reply:
+        if files is not None or data is not None:
+            body, ctype = multipart(data, files)
+            return self.request("POST", path, headers, content=body, content_type=ctype)
         return self.request("POST", path, headers, json)
 
     def patch(self, path: str, headers: dict[str, str] | None = None, json=None) -> Reply:
