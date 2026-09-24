@@ -19,13 +19,7 @@ export default defineConfig({
     // 5173 занят интерфейсом системы (poster-ocr/web), чтобы оба dev-сервера
     // могли работать одновременно
     port: 5174,
-    // локальная система для ссылки «Вход для сотрудников» в разработке
-    proxy: {
-      '/poster-crm': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/poster-crm/, ''),
-      },
-    },
+    // прокси на CRM здесь нет намеренно: ссылка «Вход для сотрудников» в
+    // разработке ведёт прямо на http://localhost:8000/ (Footer.tsx)
   },
 });

@@ -350,8 +350,8 @@ VITE_CRM_URL=https://crm.xn--e1agpbecgbfkg.xn--p1ai/ npm run build   # без VI
   собранный сайт (`npm run build` + `vite preview`). Зависимости
   (`npm ci`) поставятся сами при первом запуске; нужен Node.js 20+.
 - Порты: CRM — `POSTER_PORT` (8000), сайт — `POSTER_SITE_PORT` (5174).
-  Ссылка «Вход для сотрудников» на сайте в разработке ведёт на
-  `/poster-crm/`, vite проксирует её на CRM на 8000.
+  Ссылка «Вход для сотрудников» на сайте в разработке ведёт прямо на CRM,
+  `http://localhost:8000/` — она должна быть запущена (`run all` поднимает обе).
 
 ---
 
