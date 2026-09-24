@@ -13,7 +13,7 @@ CMYK_CONTENT = b"0 0 0 1 k 0 0 1000 1000 re f 0.6 0 1 0 k 20 20 100 40 re f"
 
 
 def make_pdf(pages: list[dict], password: str | None = None) -> bytes:
-    """pages: [{"w": мм, "h": мм, "bleed": мм или None (нет TrimBox), "rotate": 0}]"""
+    """pages: [{"w": мм, "h": мм, "bleed": мм или None (нет TrimBox), "rotate": 0, "bleedbox": True}]"""
     writer = PdfWriter()
     for spec in pages:
         w, h = spec["w"] * MM, spec["h"] * MM
@@ -25,7 +25,8 @@ def make_pdf(pages: list[dict], password: str | None = None) -> bytes:
         if bleed is not None:
             b = bleed * MM
             page.trimbox = RectangleObject([b, b, w - b, h - b])
-            page.bleedbox = RectangleObject([0, 0, w, h])
+            if spec.get("bleedbox", True):  # False — как у экспортёров, что пишут только TrimBox
+                page.bleedbox = RectangleObject([0, 0, w, h])
         if spec.get("rotate"):
             page[NameObject("/Rotate")] = NumberObject(spec["rotate"])
     if password:

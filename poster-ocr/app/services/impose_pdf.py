@@ -87,7 +87,9 @@ def pdf_info(data: bytes) -> dict:
             "rotate": rotate,
             "media": media,
             "trim": _box(page["/TrimBox"]) if "/TrimBox" in page else None,
-            "bleed": _box(page["/BleedBox"]) if "/BleedBox" in page else None,
+            # рамка вылетов по умолчанию — CropBox, а без него вся страница (так
+            # по стандарту PDF): многие программы пишут только TrimBox
+            "bleed": _box(page[next((k for k in ("/BleedBox", "/CropBox") if k in page), "/MediaBox")]),
             "width_mm": round(w, 2),
             "height_mm": round(h, 2),
         })

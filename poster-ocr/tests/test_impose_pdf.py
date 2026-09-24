@@ -136,3 +136,13 @@ def test_раскладка_совпадает_с_движком():
 def test_лицо_и_оборот_разного_формата():
     with pytest.raises(PdfError, match="разного формата"):
         impose_pdf.build(make_pdf([CARD, {"w": 210, "h": 297, "bleed": 2}]), _req(back_page=2))
+
+
+def test_без_bleedbox_вылеты_по_странице():
+    # многие программы пишут только TrimBox, а вылеты — это просто страница
+    # больше обрезного формата. По стандарту PDF рамка вылетов тогда — CropBox,
+    # а без него — вся страница; «вылетов нет» здесь было бы неправдой
+    info = impose_pdf.pdf_info(make_pdf([{"w": 96, "h": 56, "bleed": 3, "bleedbox": False}]))
+    page = info["pages"][0]
+    assert page["trim"] is not None
+    assert page["bleed"] == page["media"]
