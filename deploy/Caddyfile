@@ -38,6 +38,16 @@
 	# ---- сайт-визитка: всё остальное. Свой Caddy внутри контейнера отдаёт
 	# собранный React и знает про адреса без файлов (маршруты приложения)
 	handle {
+		# система ставит свои заголовки безопасности сама; сайту — здесь.
+		# HSTS тот же, что у системы: полгода браузер не пойдёт по http.
+		# Без CSP: на сайте карта Яндекса во фрейме, строгая политика её бы
+		# сломала, а своих форм и входа на сайте нет
+		header {
+			Strict-Transport-Security "max-age=15552000"
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "strict-origin-when-cross-origin"
+			X-Frame-Options "SAMEORIGIN"
+		}
 		reverse_proxy site:80
 	}
 

@@ -314,10 +314,14 @@ def _user_by_api_key(request: Request, db: Session, key: str) -> CurrentUser:
     # берёт ключ шифрования из этого модуля
     from app.services import api_keys
 
-    keys = throttle_keys(request, None, "api-key")
-    check_not_locked(keys)
+    # Верный ключ пропускаем и с заблокированного адреса: офис за NAT
+    # приходит с одного IP, и чужой перебор или бот с опечаткой в ключе
+    # иначе останавливали бы всех рабочих ботов. Подбирающему это ничего
+    # не даёт — его ключи неверные, и лимит срабатывает на них.
     employee = api_keys.find_employee(db, key)
     if employee is None or not employee.active:
+        keys = throttle_keys(request, None, "api-key")
+        check_not_locked(keys)
         note_failure(keys)
         return GUEST
     return CurrentUser("employee", employee.name, list(employee.permissions or []), employee.id)

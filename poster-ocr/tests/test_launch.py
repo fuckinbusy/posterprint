@@ -29,21 +29,35 @@ def test_set_password_заменяет_открытый_пароль_на_хэш
     text = "POSTER_SHOP_NAME=ПОСТЕР\nPOSTER_ADMIN_PASSWORD=секрет\nPOSTER_LOG_LEVEL=INFO\n"
     out = rewrite_env(text, "pbkdf2$s$d")
     assert "POSTER_ADMIN_PASSWORD=" not in out.replace("POSTER_ADMIN_PASSWORD_HASH", "")
-    assert "POSTER_ADMIN_PASSWORD_HASH=pbkdf2$s$d\n" in out
+    assert "POSTER_ADMIN_PASSWORD_HASH='pbkdf2$s$d'\n" in out
     # на том же месте, остальное не тронуто
-    assert out.splitlines()[1] == "POSTER_ADMIN_PASSWORD_HASH=pbkdf2$s$d"
+    assert out.splitlines()[1] == "POSTER_ADMIN_PASSWORD_HASH='pbkdf2$s$d'"
     assert out.startswith("POSTER_SHOP_NAME=ПОСТЕР\n") and out.endswith("POSTER_LOG_LEVEL=INFO\n")
 
 
 def test_set_password_дописывает_если_строки_не_было():
     out = rewrite_env("POSTER_SHOP_NAME=X\n", "pbkdf2$s$d")
-    assert out.endswith("POSTER_ADMIN_PASSWORD_HASH=pbkdf2$s$d\n")
+    assert out.endswith("POSTER_ADMIN_PASSWORD_HASH='pbkdf2$s$d'\n")
     assert out.count("POSTER_ADMIN_PASSWORD_HASH=") == 1
 
 
 def test_set_password_не_плодит_хэши_при_повторе():
     out = rewrite_env("POSTER_ADMIN_PASSWORD_HASH=старый\nPOSTER_ADMIN_PASSWORD=x\n", "новый")
-    assert out == "POSTER_ADMIN_PASSWORD_HASH=новый\n"
+    assert out == "POSTER_ADMIN_PASSWORD_HASH='новый'\n"
+
+
+def test_хэш_в_кавычках_читается_обратно_без_потерь():
+    """В хэше есть «$»: Docker Compose в env_file подставил бы на место
+    «$abc…» пустую переменную, и сервер не стартовал бы с «не похож на хэш».
+    В одинарных кавычках значение берётся буквально — и Compose, и
+    python-dotenv, которым .env читает сервер без Docker."""
+    import io
+
+    from dotenv import dotenv_values
+
+    digest = "pbkdf2$ab12cd$ef34"  # буквы сразу после «$» — худший случай
+    out = rewrite_env("", digest)
+    assert dotenv_values(stream=io.StringIO(out))["POSTER_ADMIN_PASSWORD_HASH"] == digest
 
 
 # ---------------------------------------------------------------- шифрование секретов
@@ -95,3 +109,12 @@ def test_относительные_папки_данных_считаются_�
     absolute = tmp_path / "elsewhere"
     monkeypatch.setenv("POSTER_LOG_DIR", str(absolute))
     assert paths.data_dir("POSTER_LOG_DIR", "logs") == absolute
+
+
+def test_пароль_администратора_проверяется_до_хэша():
+    from scripts.set_password import password_problem
+
+    assert password_problem("короткий")
+    assert password_problem("admin")
+    assert password_problem("Admin")
+    assert password_problem("длинный-пароль-цеха") == ""

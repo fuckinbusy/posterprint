@@ -1,0 +1,9 @@
+# Файлы, которые читают на Linux-сервере, — всегда с концами строк LF.
+# С CRLF из Windows bash спотыкается о «\r» в каждой строке (deploy/setup.sh),
+# а Caddy и Docker читают лишний символ как часть значения.
+*.sh text eol=lf
+Caddyfile text eol=lf
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+docker-compose.yml text eol=lf
+.env.example text eol=lf

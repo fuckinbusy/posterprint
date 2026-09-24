@@ -268,6 +268,17 @@ def test_перебор_ключей_упирается_в_лимит(client, db
     assert codes[-1] == 429
 
 
+def test_перебор_с_адреса_не_блокирует_верный_ключ_с_того_же_адреса(client, db):
+    """Офис за NAT приходит с одного адреса: чужой перебор (или бот с
+    опечаткой в ключе) не должен останавливать рабочих ботов с верным
+    ключом. Подбирающему это ничего не даёт — у него ключи неверные."""
+    _, key = staff(db, "Бот", ["orders.view"])
+    for i in range(security.IP_FAIL_LIMIT + 1):
+        client.get("/api/orders", headers={"X-API-Key": f"pst_guess{i}"})
+    assert client.get("/api/orders", headers={"X-API-Key": "pst_guess-ещё"}).status_code == 429
+    assert client.get("/api/orders", headers={"X-API-Key": key}).status_code == 200
+
+
 def test_макет_по_ключу_скачивается_без_одноразовой_ссылки(client, db):
     _, key = staff(db, "Бот", ["design.view"])
     _, weak = staff(db, "Без прав", [])

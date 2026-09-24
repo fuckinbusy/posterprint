@@ -33,6 +33,17 @@ from app.core.security import hash_password
 ENV_FILE = BASE_DIR / ".env"
 
 
+def env_line(password_hash: str) -> str:
+    """Строка для .env — значение в одинарных кавычках.
+
+    В хэше есть «$» (pbkdf2$соль$хэш). Docker Compose в env_file подставляет
+    переменные в значения без кавычек, и «$ab12…» превращалось бы в пустоту —
+    сервер отказывался стартовать с «не похож на хэш». В одинарных кавычках
+    значение берётся буквально и Compose, и python-dotenv (им .env читает
+    сервер без Docker)."""
+    return f"POSTER_ADMIN_PASSWORD_HASH='{password_hash}'"
+
+
 def rewrite_env(text: str, password_hash: str) -> str:
     """Чистая функция над текстом .env — её проверяют тесты.
 
@@ -48,7 +59,7 @@ def rewrite_env(text: str, password_hash: str) -> str:
         key = line.split("=", 1)[0].strip()
         if key in ("POSTER_ADMIN_PASSWORD", "POSTER_ADMIN_PASSWORD_HASH"):
             if not placed:
-                out.append(f"POSTER_ADMIN_PASSWORD_HASH={password_hash}")
+                out.append(env_line(password_hash))
                 placed = True
             continue
         out.append(line)
@@ -56,7 +67,7 @@ def rewrite_env(text: str, password_hash: str) -> str:
         if out and out[-1].strip():
             out.append("")
         out.append("# пароль администратора хэшем — задаётся командой python -m scripts.set_password")
-        out.append(f"POSTER_ADMIN_PASSWORD_HASH={password_hash}")
+        out.append(env_line(password_hash))
     return "\n".join(out) + "\n"
 
 
@@ -68,12 +79,20 @@ def protect(path: Path) -> str:
     return "Права на .env: только владелец (600)."
 
 
+def password_problem(password: str) -> str:
+    """Чем плох пароль; пусто — годится. Отдельно от ввода — её проверяют тесты."""
+    if len(password) < MIN_ADMIN_PASSWORD:
+        return f"Короче {MIN_ADMIN_PASSWORD} знаков — такой подбирается по словарю. Придумайте длиннее."
+    if password.lower() == "admin":
+        return "«admin» — это пароль по умолчанию, его знают все."
+    return ""
+
+
 def ask_password() -> str:
     first = getpass.getpass("Новый пароль администратора: ")
-    if len(first) < MIN_ADMIN_PASSWORD:
-        sys.exit(f"Короче {MIN_ADMIN_PASSWORD} знаков — такой подбирается по словарю. Придумайте длиннее.")
-    if first.lower() == "admin":
-        sys.exit("«admin» — это пароль по умолчанию, его знают все.")
+    problem = password_problem(first)
+    if problem:
+        sys.exit(problem)
     second = getpass.getpass("Ещё раз: ")
     if first != second:
         sys.exit("Пароли не совпали, ничего не изменено.")
@@ -83,13 +102,22 @@ def ask_password() -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Пароль администратора ПОСТЕР — хэшем в .env")
     parser.add_argument("--print", action="store_true", help="напечатать хэш и выйти, .env не трогать")
+    # для установочного скрипта (deploy/setup.sh): пароль приходит одной строкой
+    # по трубе — внутри `docker compose run` без терминала getpass ненадёжен
+    parser.add_argument("--stdin", action="store_true", help="прочитать пароль одной строкой со стандартного ввода")
     args = parser.parse_args()
 
-    password = ask_password()
+    if args.stdin:
+        password = sys.stdin.readline().rstrip("\r\n")
+        problem = password_problem(password)
+        if problem:
+            sys.exit(problem)
+    else:
+        password = ask_password()
     digest = hash_password(password)
 
     if args.print:
-        print(f"\nPOSTER_ADMIN_PASSWORD_HASH={digest}")
+        print("\n" + env_line(digest))
         return
 
     if not ENV_FILE.exists():

@@ -8,12 +8,23 @@
 # Настройки: корневой .env (домен, путь) + poster-ocr/.env (сама система).
 # Запуск:   docker compose up -d
 # Обновить: git pull && docker compose up -d --build
-# Подробно — README в корне.
+# Подробно — README в корне. Первый запуск — скрипт deploy/setup.sh.
+
+# Журналы контейнеров Docker по умолчанию растут без предела и однажды
+# занимают весь диск. Три файла по 10 МБ на контейнер — с запасом на
+# разбор проблем за последние дни. (Журнал самой системы — в data/logs,
+# у него своя ротация.)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   app:
     build: ./poster-ocr
     restart: unless-stopped
+    logging: *logging
     env_file: ./poster-ocr/.env
     environment:
       # снаружи — всегда строгий режим; отключить можно только сознательно,
@@ -46,12 +57,14 @@ services:
     # отдаётся своим маленьким Caddy (poster-website/Dockerfile)
     build: ./poster-website
     restart: unless-stopped
+    logging: *logging
     expose:
       - "80"
 
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *logging
     depends_on:
       - app
       - site

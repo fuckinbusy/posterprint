@@ -4,14 +4,18 @@
 
 :80 {
 	root * /srv
-	# адреса без файла (/uslugi, /kontakty) — это маршруты React Router:
-	# отдаём index.html, дальше разбирается приложение
+	# адреса без файла — маршруты React Router (страница 404 и будущие
+	# отдельные страницы): отдаём index.html, дальше разбирается приложение
 	try_files {path} /index.html
 	file_server
 
-	# сборка с хэшами в именах кэшируется надолго, сама страница — нет:
-	# после обновления сайта посетитель должен получить новую
+	# сборка с хэшами в именах кэшируется надолго, всё остальное — нет:
+	# после обновления посетитель должен получить новую страницу, иначе она
+	# сослалась бы на файлы сборки, которых в новом образе уже нет.
+	# «Всё, кроме /assets/», а не «/index.html»: заголовки проставляются до
+	# try_files, и запрос «/» под правило «/index.html» не попадал
 	@assets path /assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
-	header /index.html Cache-Control "no-cache"
+	@page not path /assets/*
+	header @page Cache-Control "no-cache"
 }
