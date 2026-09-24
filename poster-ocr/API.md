@@ -335,6 +335,36 @@ curl -H "X-API-Key: $KEY" -o макет.pdf "$API/orders/42/design/export?format
 
 Есть ли макет и какого размера — `GET /api/orders/{id}/design`.
 
+### Инструменты: просмотр .cdr и раскладка PDF
+
+Файлы уходят на сервер на время запроса и не хранятся. Предел — 100 МБ,
+одновременно обрабатываются два файла, остальные ждут до минуты.
+
+```bash
+# содержимое любого .cdr (как /design/scene у заказа, плюс thumbnail — data:-PNG)
+curl -H "X-API-Key: $KEY" -F "file=@макет.cdr" "$API/tools/design-scene"
+
+# страницы PDF: рамки MediaBox/TrimBox/BleedBox (пункты PDF), /Rotate, размер в мм
+curl -H "X-API-Key: $KEY" -F "file=@визитка.pdf" "$API/tools/impose/info"
+
+# схема раскладки без файла: сколько встанет, где копии, резы и метки (мм)
+curl -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"item_w": 90, "item_h": 50, "sheet_w": 320, "sheet_h": 450}' "$API/tools/impose/layout"
+
+# готовый лист PDF: trim — рамка обрезного формата в пунктах PDF (из /impose/info)
+curl -H "X-API-Key: $KEY" -F "file=@визитка.pdf" \
+     -F 'params={"page": 1, "back_page": 2, "trim": [5.67, 5.67, 260.79, 147.4]}' \
+     -o лист.pdf "$API/tools/impose/pdf"
+```
+
+Параметры раскладки (мм, кроме `trim`): `bleed` вылет (2), `sheet_w`/`sheet_h`
+лист (SRA3 320×450), `margin` непечатное поле (5), `gap` зазор: 0 — рез
+встык (0), `rotate` можно поворачивать (true), `marks` метки реза (true),
+`mark_offset`/`mark_length` (2,5 / 3). Для листа ещё `page`, `back_page`
+(оборот, null — без него), `flip`: `long` | `short` — как переворачивают лист.
+Число копий — в заголовке ответа `X-Impose-Count`. Страница вставляется в
+лист как есть: цвета CMYK и плашки остаются как в файле.
+
 ### Касса и выгрузки
 
 ```bash
@@ -441,6 +471,15 @@ active_count, last_order_at, total_sum}` — `total_sum` только с
 | POST | `/api/orders/{id}/design` | `design.upload` | загрузить `.cdr` (multipart, поле `file`) |
 | DELETE | `/api/orders/{id}/design` | `design.upload` | удалить макет |
 | GET | `/api/orders/{id}/design/inspect` | `design.upload` | диагностика файла |
+
+### Инструменты
+
+| Метод | Путь | Право | Что делает |
+|---|---|---|---|
+| POST | `/api/tools/design-scene` | `tools.viewer` | содержимое любого `.cdr` (multipart, поле `file`), файл не хранится |
+| POST | `/api/tools/impose/info` | `tools.impose` | страницы PDF: рамки, поворот, размеры |
+| POST | `/api/tools/impose/layout` | `tools.impose` | схема раскладки по размерам, без файла (JSON) |
+| POST | `/api/tools/impose/pdf` | `tools.impose` | готовый лист PDF (multipart: `file` + `params` — JSON) |
 
 ### Клиенты
 
