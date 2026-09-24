@@ -6,7 +6,7 @@ export function Portfolio() {
   return (
     <section id="portfolio" className="sec" aria-labelledby="portfolio-title">
       <div className="wrap">
-        <SectionHead num="03" label="Портфолио" title="Наши работы" id="portfolio-title" />
+        <SectionHead label="Портфолио" title="Наши работы" id="portfolio-title" />
         <ul className="works">
           {PORTFOLIO.map((work) => (
             <li key={work}>

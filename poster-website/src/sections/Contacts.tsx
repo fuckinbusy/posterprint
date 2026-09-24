@@ -42,9 +42,12 @@ function Row({ icon, children }: { icon: ReactNode; children: ReactNode }) {
 export function Contacts() {
   return (
     <section id="kontakty" className="sec contacts-sec" aria-labelledby="kontakty-title">
+      {/* заголовок над колонками, а не в левой: крупный он в половину ширины не влезает */}
+      <div className="wrap contacts-head">
+        <SectionHead label="Контакты" title="Приходите или напишите" id="kontakty-title" />
+      </div>
       <div className="wrap contacts">
         <div>
-          <SectionHead num="06" label="Контакты" title="Приходите или напишите" id="kontakty-title" />
           <a className="contact-phone" href={CONTACTS.phoneHref}>
             {CONTACTS.phone}
           </a>

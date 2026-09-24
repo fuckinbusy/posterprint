@@ -16,7 +16,7 @@ export function About() {
   return (
     <section id="o-nas" className="sec" aria-labelledby="o-nas-title">
       <div className="wrap">
-        <SectionHead num="01" label="О нас" title="Реклама и полиграфия полного цикла" id="o-nas-title" />
+        <SectionHead label="О нас" title="Реклама и полиграфия полного цикла" id="o-nas-title" />
         <div className="about">
           <p className="about-lead">{lead}</p>
           <div className="about-text">

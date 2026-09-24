@@ -1,13 +1,5 @@
-/* Знак «ПОСТЕР.» — тот же, что в шапке системы: приводочный крест и
-   зелёная точка. Настоящий логотип заменит его, когда будет файл. */
-
-export function RegMark() {
-  return (
-    <span className="reg" aria-hidden="true">
-      <i />
-    </span>
-  );
-}
+/* Знак «ПОСТЕР.» с зелёной точкой — как в шапке системы. Настоящий
+   логотип заменит его, когда будет файл. */
 
 export function SpotBar() {
   return (
@@ -23,7 +15,6 @@ export function SpotBar() {
 export function Brand({ href = '/#top' }: { href?: string }) {
   return (
     <a className="brand" href={href} aria-label="ПОСТЕР — наверх">
-      <RegMark />
       <span>
         ПОСТЕР<span className="dot">.</span>
         <small>реклама &amp; полиграфия</small>

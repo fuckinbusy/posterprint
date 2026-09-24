@@ -14,7 +14,7 @@ export function Services() {
   return (
     <section id="uslugi" className="sec sec-panel" aria-labelledby="uslugi-title">
       <div className="wrap">
-        <SectionHead num="02" label="Услуги" title="Наши услуги" lead={SERVICES_LEAD} id="uslugi-title" />
+        <SectionHead label="Услуги" title="Наши услуги" lead={SERVICES_LEAD} id="uslugi-title" />
         <ol className="services">
           {SERVICES.map((service, i) => (
             <li key={service.title} className="service">

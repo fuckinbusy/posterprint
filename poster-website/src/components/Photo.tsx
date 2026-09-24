@@ -2,8 +2,6 @@
    а подпись `note` — его alt. Пока подпись видна: по ней понятно, какой
    снимок сюда нужен. */
 
-import { RegMark } from './Brand';
-
 type Props = {
   note?: string;
   className?: string;
@@ -12,10 +10,7 @@ type Props = {
 export function Photo({ note, className = '' }: Props) {
   return (
     <div className={`ph ${className}`} role="img" aria-label={note ? `Фото: ${note}` : 'Фото'}>
-      <span className="ph-mark">
-        <RegMark />
-        PHOTO HERE
-      </span>
+      <span className="ph-mark">PHOTO HERE</span>
       {note && <span className="ph-note">{note}</span>}
     </div>
   );

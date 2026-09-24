@@ -38,7 +38,7 @@ export function Clients() {
   return (
     <section id="klienty" className="sec sec-panel" aria-labelledby="klienty-title">
       <div className="wrap">
-        <SectionHead num="05" label="Клиенты" title="Нам доверяют" id="klienty-title" />
+        <SectionHead label="Клиенты" title="Нам доверяют" id="klienty-title" />
       </div>
       <div className="marquee" style={style}>
         <Group />

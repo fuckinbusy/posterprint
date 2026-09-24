@@ -16,7 +16,7 @@ export function Requirements() {
           <span className="crop tr" aria-hidden="true" />
           <span className="crop bl" aria-hidden="true" />
           <span className="crop br" aria-hidden="true" />
-          <SectionHead num="04" label="Для дизайнеров" title="Требования к макетам" id="trebovaniya-title" />
+          <SectionHead label="Для дизайнеров" title="Требования к макетам" id="trebovaniya-title" />
           {REQUIREMENTS.map((block) => (
             <div key={block.heading} className="req-block">
               <h3>{block.heading}</h3>
