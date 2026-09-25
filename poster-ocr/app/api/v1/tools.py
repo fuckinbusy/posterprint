@@ -14,10 +14,11 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field, ValidationError
+from starlette.concurrency import run_in_threadpool
 
 from app.core.logs import log as applog
 from app.core.security import CurrentUser, current_user, require_perm
-from app.services import cdr, cdr_scene, fonts_catalog, impose_pdf, rates, tool_files
+from app.services import cdr, cdr_scene, fonts_catalog, fonts_download, impose_pdf, rates, tool_files
 from app.services import impose as impose_engine
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
@@ -61,6 +62,31 @@ def fonts_search(
         "families": fonts_catalog.search(q, cyrillic, category, limit),
         "total": fonts_catalog.count(q, cyrillic, category),
     }
+
+
+@router.get("/fonts/download")
+async def fonts_download_zip(
+    family: str,
+    styles: str = "400,700",
+    user: CurrentUser = Depends(require_perm("tools.fonts")),
+) -> Response:
+    """Zip с TTF выбранных начертаний, установить.cmd и лицензией. Файлы кэшируются."""
+    item = fonts_catalog.family(family)
+    if item is None:
+        raise HTTPException(404, f"«{family}» нет в каталоге Google Fonts")
+    wanted = [s.strip() for s in styles.split(",") if s.strip()]
+    try:
+        payload = await run_in_threadpool(fonts_download.build_zip, item["family"], wanted)
+    except fonts_download.FontsError as exc:
+        text = str(exc)
+        raise HTTPException(502 if "недоступен" in text or "не отдал" in text else 422, text) from None
+    applog.info("Инструменты: шрифт %s (%s) · %s", item["family"], ",".join(wanted), user.name)
+    name = f"{item['family']}.zip"
+    return Response(
+        content=payload,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"},
+    )
 
 
 @router.get("/rates")

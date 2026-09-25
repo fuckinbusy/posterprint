@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import io
+import zipfile
+
+import pytest
 from api_helpers import staff
 
-from app.services import fonts_catalog
+from app.services import fonts_catalog, fonts_download
 
 
 def test_каталог_в_репозитории_полный():
@@ -49,13 +53,6 @@ def test_ручка_каталога(db, client):
 
 
 # ---------------------------------------------------------------- скачивание
-
-import io
-import zipfile
-
-import pytest
-
-from app.services import fonts_download
 
 CSS_SAMPLE = """/* latin */
 @font-face {
