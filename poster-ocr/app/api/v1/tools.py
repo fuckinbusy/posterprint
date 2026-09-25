@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.core.logs import log as applog
 from app.core.security import CurrentUser, current_user, require_perm
-from app.services import cdr, cdr_scene, impose_pdf, rates, tool_files
+from app.services import cdr, cdr_scene, fonts_catalog, impose_pdf, rates, tool_files
 from app.services import impose as impose_engine
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
@@ -45,6 +45,22 @@ def availability(user: CurrentUser = Depends(tools_user)) -> dict:
         viewer["reason"] = "на этом сервере нет разборщика .cdr (libcdr-tools или Inkscape)"
     always = {"available": True, "reason": ""}
     return {"tools": {"viewer": viewer, "impose": dict(always), "fonts": dict(always), "calc": dict(always)}}
+
+
+@router.get("/fonts")
+def fonts_search(
+    q: str = "",
+    cyrillic: bool = True,
+    category: str = "",
+    limit: int = 60,
+    user: CurrentUser = Depends(require_perm("tools.fonts")),
+) -> dict:
+    """Поиск по снимку каталога Google Fonts — без интернета, по популярности."""
+    limit = max(1, min(limit, 300))
+    return {
+        "families": fonts_catalog.search(q, cyrillic, category, limit),
+        "total": fonts_catalog.count(q, cyrillic, category),
+    }
 
 
 @router.get("/rates")

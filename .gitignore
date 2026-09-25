@@ -46,3 +46,6 @@ poster-website/dist/
 # Сайт, запущенный ./poster.sh start site: pid и журнал процесса
 poster-website/.site.pid
 poster-website/site.log*
+# снимок каталога Google Fonts — это код, а не данные пользователя
+!poster-ocr/app/data/
+!poster-ocr/app/data/google_fonts.json
