@@ -23,15 +23,20 @@ from app.services import impose as impose_engine
 router = APIRouter(prefix="/api/tools", tags=["tools"])
 
 
-def signed_in(user: CurrentUser = Depends(current_user)) -> CurrentUser:
-    """Любой вошедший: право на конкретную утилиту проверяет её ручка."""
+TOOL_PERMISSIONS = ("tools.viewer", "tools.impose", "tools.fonts", "tools.calc")
+
+
+def tools_user(user: CurrentUser = Depends(current_user)) -> CurrentUser:
+    """Вошедший с правом хотя бы на одну утилиту; право на конкретную проверяет её ручка."""
     if user.kind == "guest":
         raise HTTPException(401, "Нужно войти в систему")
+    if not any(user.can(key) for key in TOOL_PERMISSIONS):
+        raise HTTPException(403, "Недостаточно прав для этого действия")
     return user
 
 
 @router.get("")
-def availability(user: CurrentUser = Depends(signed_in)) -> dict:
+def availability(user: CurrentUser = Depends(tools_user)) -> dict:
     """Какие утилиты работают на этом сервере. Просмотр .cdr требует разборщика
     (libcdr-tools или Inkscape) — на NAS его обычно нет; остальное — чистый Python."""
     scene_tools = cdr_scene.tools()
