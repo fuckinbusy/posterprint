@@ -18,7 +18,16 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core.logs import log as applog
 from app.core.security import CurrentUser, current_user, require_perm
-from app.services import cdr, cdr_scene, fonts_catalog, fonts_download, impose_pdf, rates, tool_files
+from app.services import (
+    cdr,
+    cdr_fonts,
+    cdr_scene,
+    fonts_catalog,
+    fonts_download,
+    impose_pdf,
+    rates,
+    tool_files,
+)
 from app.services import impose as impose_engine
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
@@ -87,6 +96,24 @@ async def fonts_download_zip(
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"},
     )
+
+
+@router.post("/fonts/from-cdr")
+async def fonts_from_cdr(
+    file: UploadFile = File(...),
+    user: CurrentUser = Depends(require_perm("tools.fonts")),
+) -> dict:
+    """Какие шрифты нужны макету .cdr — без libcdr, файл не хранится."""
+    try:
+        with tool_files.temp_dir() as folder:
+            path = await tool_files.save_upload(file, folder, (".cdr",), tool_files.MAX_VIEW_BYTES)
+            names = await run_in_threadpool(cdr_fonts.families, path)
+            version = cdr_scene.version(path)
+    except tool_files.ToolFileError as exc:
+        raise HTTPException(422, str(exc)) from None
+    applog.info("Инструменты: шрифты из .cdr — %s · %s", ", ".join(names) or "не найдены", user.name)
+    note = "" if names else "Шрифтов в файле не найдено: текст переведён в кривые или это старая версия CorelDRAW"
+    return {"fonts": cdr_fonts.classify(names), "version": version, "note": note}
 
 
 @router.get("/rates")
