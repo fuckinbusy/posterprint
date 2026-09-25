@@ -33,11 +33,12 @@ export function ToolsPage() {
               const state = availability.get(tool.key);
               if (!state.available) {
                 return (
-                  <div className="tool-tile off" key={tool.key} aria-disabled="true">
-                    <span className="tool-badge">В разработке</span>
-                    <b>{tool.title}</b>
+                  <div className="tool-tile off" key={tool.key} aria-disabled="true" title={state.reason}>
+                    <div className="tool-tile-head">
+                      <b>{tool.title}</b>
+                      <span className="tool-badge">В разработке</span>
+                    </div>
                     <span>{tool.hint}</span>
-                    <em>{state.reason}</em>
                   </div>
                 );
               }

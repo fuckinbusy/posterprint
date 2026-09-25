@@ -8821,8 +8821,7 @@ body.touch-dragging {
 /* ---------- инструменты: недоступные плитки, шрифты, калькулятор ---------- */
 /* утилита, которая на этом сервере не работает: серая, без перехода, с плашкой */
 .tool-tile.off {
-  position: relative;
-  opacity: 0.55;
+  opacity: 0.6;
   cursor: not-allowed;
   border-style: dashed;
 }
@@ -8830,15 +8829,20 @@ body.touch-dragging {
   transform: none;
   border-color: var(--line-strong);
 }
-.tool-tile.off em {
-  font-style: normal;
-  font-size: 12.5px;
-  color: var(--red);
+/* заголовок и плашка в один ряд: плашка справа, не наезжает на название */
+.tool-tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.tool-tile-head b {
+  flex: 1 0 auto;
 }
 .tool-badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  flex: 0 0 auto;
+  white-space: nowrap;
   padding: 3px 9px;
   border-radius: 999px;
   border: 1px solid rgba(229, 72, 77, 0.55);
