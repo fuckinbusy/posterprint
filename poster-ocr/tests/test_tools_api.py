@@ -218,3 +218,74 @@ def test_третий_файл_ждет_не_блокируя_сервер(db, c
     assert [r.status_code for r in replies[:3]] == [200, 200, 200]
     gaps = [b - a for a, b in itertools.pairwise(beats)]
     assert max(gaps) < 0.3, f"цикл событий стоял {max(gaps):.2f} с"
+
+
+# ---------------------------------------------------------------- доступность, курсы, права новых утилит
+
+def test_права_шрифтов_и_калькулятора_есть_и_раздаются_старым_профилям(db):
+    from app.models import Employee
+    from app.services import perm_rollout
+
+    for key in ("tools.fonts", "tools.calc"):
+        assert key in PERMISSIONS_BY_KEY and key in default_permissions()
+        assert key in perm_rollout.FOR_EVERYONE
+    old = Employee(name="Старый", permissions=["orders.view"])
+    db.add(old)
+    db.commit()
+    perm_rollout.grant_new(db)
+    db.refresh(old)
+    assert "tools.fonts" in old.permissions and "tools.calc" in old.permissions
+
+
+def test_доступность_инструментов(db, client, monkeypatch):
+    # просмотр .cdr зависит от разборщика на сервере; остальное работает всегда
+    monkeypatch.setattr(cdr_scene, "tools", lambda: {"libcdr": "", "inkscape": "", "can_view": False, "can_pdf": False})
+    _, key = staff(db, "Приёмщик", ["tools.viewer"])
+    reply = client.get("/api/tools", headers={"X-API-Key": key})
+    assert reply.status_code == 200
+    tools = reply.json()["tools"]
+    assert tools["viewer"]["available"] is False and "libcdr" in tools["viewer"]["reason"]
+    assert tools["impose"]["available"] and tools["fonts"]["available"] and tools["calc"]["available"]
+    assert client.get("/api/tools").status_code == 401
+
+
+SAMPLE_CBR = {
+    "Date": "2026-09-25T11:30:00+03:00",
+    "Valute": {
+        "USD": {"Nominal": 1, "Value": 84.9057, "Name": "Доллар США"},
+        "EUR": {"Nominal": 1, "Value": 96.8859, "Name": "Евро"},
+        "CNY": {"Nominal": 1, "Value": 12.65, "Name": "Юань"},
+        "JPY": {"Nominal": 100, "Value": 55.5, "Name": "Иен"},
+    },
+}
+
+
+def test_курсы_цб_с_кэшем_и_без_сети(db, client, tmp_path, monkeypatch):
+    from app.services import rates
+
+    monkeypatch.setattr(rates, "CACHE_FILE", tmp_path / "rates.json")
+    calls = []
+
+    def fake_download():
+        calls.append(1)
+        return SAMPLE_CBR
+
+    monkeypatch.setattr(rates, "_download", fake_download)
+    _, key = staff(db, "Приёмщик", ["tools.calc"])
+    first = client.get("/api/tools/rates", headers={"X-API-Key": key})
+    assert first.status_code == 200, first.text
+    data = first.json()
+    assert data["date"] == "2026-09-25" and data["stale"] is False
+    assert data["rates"]["USD"]["value"] == 84.9057 and data["rates"]["JPY"]["value"] == 0.555  # за 1 единицу
+    # второй запрос — из кэша, в сеть не ходим
+    client.get("/api/tools/rates", headers={"X-API-Key": key})
+    assert len(calls) == 1
+    # сеть пропала, кэш устарел — отдаём кэш с пометкой stale
+    monkeypatch.setattr(rates, "_download", lambda: (_ for _ in ()).throw(OSError("нет сети")))
+    monkeypatch.setattr(rates, "TTL_SECONDS", 0)
+    stale = client.get("/api/tools/rates", headers={"X-API-Key": key}).json()
+    assert stale["stale"] is True and stale["rates"]["USD"]["value"] == 84.9057
+    # ни сети, ни кэша — понятный отказ
+    (tmp_path / "rates.json").unlink()
+    gone = client.get("/api/tools/rates", headers={"X-API-Key": key})
+    assert gone.status_code == 503 and "ЦБ" in gone.json()["detail"]

@@ -16,11 +16,39 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from pydantic import BaseModel, Field, ValidationError
 
 from app.core.logs import log as applog
-from app.core.security import CurrentUser, require_perm
-from app.services import cdr, cdr_scene, impose_pdf, tool_files
+from app.core.security import CurrentUser, current_user, require_perm
+from app.services import cdr, cdr_scene, impose_pdf, rates, tool_files
 from app.services import impose as impose_engine
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
+
+
+def signed_in(user: CurrentUser = Depends(current_user)) -> CurrentUser:
+    """Любой вошедший: право на конкретную утилиту проверяет её ручка."""
+    if user.kind == "guest":
+        raise HTTPException(401, "Нужно войти в систему")
+    return user
+
+
+@router.get("")
+def availability(user: CurrentUser = Depends(signed_in)) -> dict:
+    """Какие утилиты работают на этом сервере. Просмотр .cdr требует разборщика
+    (libcdr-tools или Inkscape) — на NAS его обычно нет; остальное — чистый Python."""
+    scene_tools = cdr_scene.tools()
+    viewer = {"available": bool(scene_tools.get("can_view")), "reason": ""}
+    if not viewer["available"]:
+        viewer["reason"] = "на этом сервере нет разборщика .cdr (libcdr-tools или Inkscape)"
+    always = {"available": True, "reason": ""}
+    return {"tools": {"viewer": viewer, "impose": dict(always), "fonts": dict(always), "calc": dict(always)}}
+
+
+@router.get("/rates")
+def currency_rates(user: CurrentUser = Depends(require_perm("tools.calc"))) -> dict:
+    """Курсы ЦБ за единицу валюты в рублях; без сети — последний сохранённый (stale)."""
+    try:
+        return rates.get()
+    except rates.RatesError as exc:
+        raise HTTPException(503, str(exc)) from None
 
 
 def _scene(path: Path) -> dict:

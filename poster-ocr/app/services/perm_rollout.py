@@ -21,7 +21,7 @@ from app.models import Employee, Setting
 
 # права, которые при появлении выдаются всем уже заведённым профилям;
 # новое такое право — дописать сюда (решение владельца, TODO.md, раздел 16)
-FOR_EVERYONE = ["tools.viewer", "tools.impose"]
+FOR_EVERYONE = ["tools.viewer", "tools.impose", "tools.fonts", "tools.calc"]
 STATE_KEY = "perm_rollout"
 
 

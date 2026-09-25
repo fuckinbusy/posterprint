@@ -36,6 +36,8 @@ export type Permission =
   | 'prices.edit'
   | 'tools.viewer'
   | 'tools.impose'
+  | 'tools.fonts'
+  | 'tools.calc'
   | 'staff.manage';
 
 export interface PermissionItem {

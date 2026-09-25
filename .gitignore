@@ -13,6 +13,9 @@ poster.db-shm
 backups/
 designs/
 logs/
+# кэши инструментов CRM: курсы ЦБ и скачанные шрифты — пересоздаются сами
+cache/
+fonts_cache/
 # данные контейнеров (docker-compose.yml монтирует сюда базу, копии, макеты, логи)
 data/
 
