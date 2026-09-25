@@ -7,6 +7,7 @@ app/services/tool_files.py. План и границы — TODO.md, раздел
 from __future__ import annotations
 
 import base64
+import os
 from dataclasses import asdict
 from pathlib import Path
 from typing import Literal
@@ -54,7 +55,13 @@ def availability(user: CurrentUser = Depends(tools_user)) -> dict:
     if not viewer["available"]:
         viewer["reason"] = "на этом сервере нет разборщика .cdr (libcdr-tools или Inkscape)"
     always = {"available": True, "reason": ""}
-    return {"tools": {"viewer": viewer, "impose": dict(always), "fonts": dict(always), "calc": dict(always)}}
+    tools = {"viewer": viewer, "impose": dict(always), "fonts": dict(always), "calc": dict(always)}
+    # владелец может пометить утилиту «В разработке» на любом сервере — даже там,
+    # где технически всё есть: POSTER_TOOLS_OFF=viewer,calc в .env
+    for key in (s.strip() for s in os.getenv("POSTER_TOOLS_OFF", "").split(",")):
+        if key in tools:
+            tools[key] = {"available": False, "reason": "выключено в настройках сервера (POSTER_TOOLS_OFF в .env)"}
+    return {"tools": tools}
 
 
 @router.get("/fonts")

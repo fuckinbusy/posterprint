@@ -289,3 +289,15 @@ def test_курсы_цб_с_кэшем_и_без_сети(db, client, tmp_path, 
     (tmp_path / "rates.json").unlink()
     gone = client.get("/api/tools/rates", headers={"X-API-Key": key})
     assert gone.status_code == 503 and "ЦБ" in gone.json()["detail"]
+
+
+def test_утилиту_можно_выключить_настройкой(db, client, monkeypatch):
+    # на компьютере разработчика разборщик есть, но владелец хочет пометить
+    # утилиту «В разработке» везде — POSTER_TOOLS_OFF в .env
+    monkeypatch.setattr(cdr_scene, "tools", lambda: {"libcdr": "x", "inkscape": "", "can_view": True, "can_pdf": False})
+    monkeypatch.setenv("POSTER_TOOLS_OFF", "viewer, calc")
+    _, key = staff(db, "Приёмщик", ["tools.viewer"])
+    tools = client.get("/api/tools", headers={"X-API-Key": key}).json()["tools"]
+    assert tools["viewer"]["available"] is False and "POSTER_TOOLS_OFF" in tools["viewer"]["reason"]
+    assert tools["calc"]["available"] is False
+    assert tools["fonts"]["available"] and tools["impose"]["available"]
