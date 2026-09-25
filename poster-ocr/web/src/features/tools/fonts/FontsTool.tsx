@@ -117,13 +117,19 @@ export function FontsTool() {
   const [debounced, setDebounced] = useState('');
   const [cyrillic, setCyrillic] = useState(true);
   const [category, setCategory] = useState('');
+  const [tab, setTab] = useState<'search' | 'cdr'>('search');
+  // по пустому запросу — 20 популярных, дальше по кнопке; иначе список уезжает вниз
+  const [limit, setLimit] = useState(20);
+  useEffect(() => {
+    setLimit(20);
+  }, [debounced, cyrillic, category]);
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(q.trim()), 250);
     return () => window.clearTimeout(t);
   }, [q]);
   const result = useQuery({
-    queryKey: ['fonts', debounced, cyrillic, category],
-    queryFn: () => fontsSearch(debounced, cyrillic, category),
+    queryKey: ['fonts', debounced, cyrillic, category, limit],
+    queryFn: () => fontsSearch(debounced, cyrillic, category, limit),
     placeholderData: (prev) => prev,
   });
 
@@ -158,7 +164,16 @@ export function FontsTool() {
           sub="Google Fonts — открытые лицензии, можно печатать и продавать. В архиве — TTF, установщик для Windows и заметка о лицензии."
         />
         <ToolsNotice />
+        <div className="tool-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === 'search'} className={tab === 'search' ? 'tool-tab active' : 'tool-tab'} onClick={() => setTab('search')}>
+            Найти шрифт
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'cdr'} className={tab === 'cdr' ? 'tool-tab active' : 'tool-tab'} onClick={() => setTab('cdr')}>
+            Из макета .cdr
+          </button>
+        </div>
 
+        {tab === 'search' && (
         <Section title="Найти в Google Fonts">
           <div className="fonts-search">
             <Field label="Название">
@@ -177,7 +192,7 @@ export function FontsTool() {
             <>
               <p className="hint">
                 Показано {result.data.families.length} из {result.data.total}
-                {result.data.total > result.data.families.length ? ' — уточните название' : ''}.
+                {result.data.total > result.data.families.length ? ' — уточните название или откройте ещё' : ''}.
               </p>
               {result.data.families.length === 0 ? (
                 <Empty>В Google Fonts такого нет.</Empty>
@@ -188,6 +203,11 @@ export function FontsTool() {
                   ))}
                 </div>
               )}
+              {result.data.total > result.data.families.length && (
+                <button className="btn btn-ghost" type="button" onClick={() => setLimit((n) => Math.min(n + 40, 300))}>
+                  Показать ещё
+                </button>
+              )}
             </>
           )}
           <div className="page-actions">
@@ -197,7 +217,9 @@ export function FontsTool() {
             <span className="hint">Оттуда скачивайте сами: сайт запрещает качать программой.</span>
           </div>
         </Section>
+        )}
 
+        {tab === 'cdr' && (
         <Section title="Шрифты из макета .cdr">
           <p className="hint">Загрузите макет — покажем, какие шрифты в нём используются и где их взять. Файл на сервере не остаётся.</p>
           <FileDrop accept=".cdr" hint="Перетащите сюда файл .cdr или выберите его" maxBytes={MAX_CDR_BYTES} onFile={setCdrFile} />
@@ -238,6 +260,7 @@ export function FontsTool() {
             </>
           )}
         </Section>
+        )}
       </div>
     </main>
   );

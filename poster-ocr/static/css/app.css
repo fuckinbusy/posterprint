@@ -8920,13 +8920,13 @@ body.touch-dragging {
   font-size: 13px;
 }
 /* калькулятор */
-.calc-tabs {
+.tool-tabs {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   margin-bottom: 18px;
 }
-.calc-tab {
+.tool-tab {
   padding: 9px 16px;
   border-radius: 999px;
   border: 1px solid var(--line-strong);
@@ -8941,11 +8941,11 @@ body.touch-dragging {
     border-color 0.16s,
     background 0.16s;
 }
-.calc-tab:hover {
+.tool-tab:hover {
   color: var(--text);
   border-color: var(--green);
 }
-.calc-tab.active {
+.tool-tab.active {
   color: var(--green);
   background: rgba(60, 199, 7, 0.1);
   border-color: rgba(60, 199, 7, 0.28);

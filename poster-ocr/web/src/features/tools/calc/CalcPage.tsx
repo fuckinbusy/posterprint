@@ -335,14 +335,14 @@ export function CalcPage() {
         </Link>
         <PageHead eyebrow="Инструменты" title="Калькулятор" sub="Деньги, метраж, размеры для дизайна и единицы — считается сразу при вводе." />
         <ToolsNotice />
-        <div className="calc-tabs" role="tablist">
+        <div className="tool-tabs" role="tablist">
           {TABS.map((t) => (
             <button
               key={t.key}
               type="button"
               role="tab"
               aria-selected={tab === t.key}
-              className={tab === t.key ? 'calc-tab active' : 'calc-tab'}
+              className={tab === t.key ? 'tool-tab active' : 'tool-tab'}
               onClick={() => setTab(t.key)}
             >
               {t.label}
