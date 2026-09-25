@@ -27,6 +27,8 @@ import { TopBar } from '@/features/shell/TopBar';
 import { ToolsPage } from '@/features/tools/ToolsPage';
 import { toolByPath } from '@/features/tools/tools';
 import { ViewerTool } from '@/features/tools/ViewerTool';
+import { FontsTool } from '@/features/tools/fonts/FontsTool';
+import { CalcPage } from '@/features/tools/calc/CalcPage';
 import { WorksPage } from '@/features/works/WorksPage';
 import type { Permission } from '@/types/api';
 
@@ -174,6 +176,22 @@ export function Shell() {
           element={
             <Guarded permission="tools.viewer">
               <ViewerTool />
+            </Guarded>
+          }
+        />
+        <Route
+          path="/tools/fonts"
+          element={
+            <Guarded permission="tools.fonts">
+              <FontsTool />
+            </Guarded>
+          }
+        />
+        <Route
+          path="/tools/calc"
+          element={
+            <Guarded permission="tools.calc">
+              <CalcPage />
             </Guarded>
           }
         />

@@ -365,6 +365,25 @@ curl -H "X-API-Key: $KEY" -F "file=@визитка.pdf" \
 (оборот, null — без него), `flip`: `long` | `short` — как переворачивают лист
 (по длинной или короткой стороне — с учётом того, книжный лист или альбомный).
 Больше 1000 копий на лист — отказ «изделие слишком мелкое». Число копий — в заголовке ответа `X-Impose-Count`. Страница вставляется в
+
+### Шрифты и курсы
+
+```bash
+# поиск: кириллические семейства с «mont» в названии
+curl -H "X-API-Key: $KEY" "$API/tools/fonts?q=mont&cyrillic=1"
+# zip с обычным и жирным Montserrat (файлы кэшируются на сервере в fonts_cache/)
+curl -H "X-API-Key: $KEY" -o Montserrat.zip "$API/tools/fonts/download?family=Montserrat&styles=400,700"
+# какие шрифты нужны макету (файл не хранится)
+curl -H "X-API-Key: $KEY" -F "file=@макет.cdr" "$API/tools/fonts/from-cdr"
+# курсы ЦБ: USD, EUR, CNY и остальные, за 1 единицу в рублях
+curl -H "X-API-Key: $KEY" "$API/tools/rates"
+```
+
+Каталог шрифтов — снимок в `app/data/google_fonts.json` (обновляется
+`python -m scripts.refresh_fonts_catalog`), поиск работает без интернета;
+для скачивания серверу нужен доступ к fonts.googleapis.com и fonts.gstatic.com
+(таймаут 60 с, иначе 502). Курсы берутся с cbr-xml-daily.ru раз в 12 часов,
+кэш в `cache/rates.json`.
 лист как есть: цвета CMYK и плашки остаются как в файле.
 
 ### Касса и выгрузки
@@ -482,6 +501,11 @@ active_count, last_order_at, total_sum}` — `total_sum` только с
 | POST | `/api/tools/impose/info` | `tools.impose` | страницы PDF: рамки, поворот, размеры |
 | POST | `/api/tools/impose/layout` | `tools.impose` | схема раскладки по размерам, без файла (JSON) |
 | POST | `/api/tools/impose/pdf` | `tools.impose` | готовый лист PDF (multipart: `file` + `params` — JSON) |
+| GET | `/api/tools` | любое `tools.*` | какие утилиты работают на этом сервере (`viewer` — только с разборщиком .cdr) |
+| GET | `/api/tools/fonts` | `tools.fonts` | поиск по снимку каталога Google Fonts: `q`, `cyrillic` (по умолчанию 1), `category`, `limit` |
+| GET | `/api/tools/fonts/download` | `tools.fonts` | zip: TTF начертаний `styles=400,700,400i` семейства `family`, установить.cmd, лицензия |
+| POST | `/api/tools/fonts/from-cdr` | `tools.fonts` | какие шрифты нужны макету .cdr (multipart `file`), без libcdr; статус system / google / unknown |
+| GET | `/api/tools/rates` | `tools.calc` | курсы ЦБ за единицу валюты в рублях; `stale: true` — сети нет, показан последний сохранённый |
 
 ### Клиенты
 

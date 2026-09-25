@@ -1,7 +1,7 @@
 /* Инструменты: файлы уходят на сервер на время запроса и там не хранятся. */
 
 import type { DesignScene } from './designs';
-import { request, requestFormBlob } from './client';
+import { request, requestBlob, requestFormBlob } from './client';
 
 export interface ToolScene extends DesignScene {
   /** эскиз, сохранённый CorelDRAW, — data:-адрес PNG или null */
@@ -83,3 +83,49 @@ export async function imposePdf(file: File, params: SheetParams): Promise<{ blob
   const { blob, headers } = await requestFormBlob('/tools/impose/pdf', form);
   return { blob, count: Number(headers.get('X-Impose-Count') ?? 0) };
 }
+
+/* ---------------------------------------------------------------- доступность, шрифты, курсы */
+
+export interface ToolAvailability {
+  available: boolean;
+  /** почему недоступно на этом сервере */
+  reason: string;
+}
+
+export const fetchToolsAvailability = (): Promise<{ tools: Record<string, ToolAvailability> }> => request('/tools');
+
+export interface FontFamily {
+  family: string;
+  category: string;
+  subsets: string[];
+  /** «400», «700i» … */
+  variants: string[];
+  axes: string[];
+  popularity: number;
+}
+
+export const fontsSearch = (q: string, cyrillic: boolean, category: string, limit = 60): Promise<{ families: FontFamily[]; total: number }> =>
+  request(`/tools/fonts?q=${encodeURIComponent(q)}&cyrillic=${cyrillic}&category=${encodeURIComponent(category)}&limit=${limit}`);
+
+export const fontsDownload = (family: string, styles: string[]): Promise<Blob | null> =>
+  requestBlob(`/tools/fonts/download?family=${encodeURIComponent(family)}&styles=${styles.join(',')}`);
+
+export interface CdrFont {
+  name: string;
+  status: 'system' | 'google' | 'unknown';
+  google: FontFamily | null;
+}
+
+export function fontsFromCdr(file: File): Promise<{ fonts: CdrFont[]; version: { number: number; name: string; label: string } | null; note: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  return request('/tools/fonts/from-cdr', { method: 'POST', body: form });
+}
+
+export interface Rates {
+  date: string;
+  stale: boolean;
+  rates: Record<string, { value: number; name: string }>;
+}
+
+export const fetchRates = (): Promise<Rates> => request('/tools/rates');

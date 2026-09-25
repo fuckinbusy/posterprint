@@ -1,6 +1,7 @@
 /* Раздел «Инструменты»: утилиты для цеха, не привязанные к заказу.
-   Плитка показывается, если у профиля есть право на утилиту. План и
-   границы — TODO.md, раздел 16. */
+   Плитка показывается, если у профиля есть право на утилиту. Утилита, которая
+   на этом сервере не работает (нет разборщика .cdr), остаётся на месте, но
+   серая, без перехода и с плашкой «В разработке» — и причиной под ней. */
 
 import { Link } from 'react-router-dom';
 
@@ -9,9 +10,11 @@ import { Empty, PageHead } from '@/components/ui';
 
 import { TOOLS } from './tools';
 import { ToolsNotice } from './ToolsNotice';
+import { useAvailability } from './useAvailability';
 
 export function ToolsPage() {
   const { can } = useAuth();
+  const availability = useAvailability();
   const tools = TOOLS.filter((tool) => can(tool.permission));
   return (
     <main className="page scroll-page">
@@ -26,12 +29,25 @@ export function ToolsPage() {
           <Empty>Для вашего профиля утилит нет — права выдаёт администратор.</Empty>
         ) : (
           <div className="tool-grid">
-            {tools.map((tool) => (
-              <Link className="tool-tile" to={tool.path} key={tool.key}>
-                <b>{tool.title}</b>
-                <span>{tool.hint}</span>
-              </Link>
-            ))}
+            {tools.map((tool) => {
+              const state = availability.get(tool.key);
+              if (!state.available) {
+                return (
+                  <div className="tool-tile off" key={tool.key} aria-disabled="true">
+                    <span className="tool-badge">В разработке</span>
+                    <b>{tool.title}</b>
+                    <span>{tool.hint}</span>
+                    <em>{state.reason}</em>
+                  </div>
+                );
+              }
+              return (
+                <Link className="tool-tile" to={tool.path} key={tool.key}>
+                  <b>{tool.title}</b>
+                  <span>{tool.hint}</span>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

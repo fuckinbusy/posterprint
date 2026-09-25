@@ -12,6 +12,10 @@ export interface ToolConfig {
   permission: Permission;
 }
 
+/** Ссылка на поиск fonts-online.ru — туда, где шрифта нет в Google Fonts.
+ *  Только ссылка: их правила запрещают качать программой. */
+export const fontsOnlineSearch = (name: string): string => `https://fonts-online.ru/search?q=${encodeURIComponent(name)}`;
+
 export const TOOLS: ToolConfig[] = [
   {
     key: 'viewer',
@@ -26,6 +30,20 @@ export const TOOLS: ToolConfig[] = [
     title: 'Раскладка под печать',
     hint: 'PDF-макет на лист SRA3, A3 или A4 с метками реза. Цвета CMYK — как в файле.',
     permission: 'tools.impose',
+  },
+  {
+    key: 'fonts',
+    path: '/tools/fonts',
+    title: 'Шрифты',
+    hint: 'Найти и скачать шрифт из Google Fonts (есть кириллица), узнать, какие шрифты нужны макету .cdr.',
+    permission: 'tools.fonts',
+  },
+  {
+    key: 'calc',
+    path: '/tools/calc',
+    title: 'Калькулятор',
+    hint: 'Деньги с НДС и курсы ЦБ, метраж и рулоны, размеры и DPI для дизайна, перевод единиц.',
+    permission: 'tools.calc',
   },
 ];
 

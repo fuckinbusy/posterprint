@@ -8817,3 +8817,172 @@ body.touch-dragging {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- инструменты: недоступные плитки, шрифты, калькулятор ---------- */
+/* утилита, которая на этом сервере не работает: серая, без перехода, с плашкой */
+.tool-tile.off {
+  position: relative;
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+.tool-tile.off:hover {
+  transform: none;
+  border-color: var(--line-strong);
+}
+.tool-tile.off em {
+  font-style: normal;
+  font-size: 12.5px;
+  color: var(--red);
+}
+.tool-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(229, 72, 77, 0.55);
+  background: rgba(229, 72, 77, 0.12);
+  color: var(--red);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+/* шрифты */
+.fonts-search {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 12px 14px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+.fonts-search .check {
+  grid-column: 1 / -1;
+}
+.font-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.font-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(var(--fg-rgb), 0.02);
+}
+.font-main {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.font-main b {
+  font-family: var(--font-ui);
+  font-size: 16px;
+}
+.font-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.font-tags span {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+}
+.font-tags span.on {
+  color: var(--green);
+  border-color: rgba(60, 199, 7, 0.4);
+}
+.font-tags span.bad {
+  color: var(--red);
+  border-color: rgba(229, 72, 77, 0.45);
+}
+.font-styles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 4px;
+}
+.font-styles .check {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+/* калькулятор */
+.calc-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.calc-tab {
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    color 0.16s,
+    border-color 0.16s,
+    background 0.16s;
+}
+.calc-tab:hover {
+  color: var(--text);
+  border-color: var(--green);
+}
+.calc-tab.active {
+  color: var(--green);
+  background: rgba(60, 199, 7, 0.1);
+  border-color: rgba(60, 199, 7, 0.28);
+}
+.calc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.calc-grid .form-sec {
+  margin: 0;
+  padding: 14px 16px 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(var(--fg-rgb), 0.02);
+}
+.calc-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.calc-result span {
+  flex: 1 1 auto;
+  color: var(--muted);
+  font-size: 13px;
+}
+.calc-result b {
+  font-family: var(--font-ui);
+  font-size: 17px;
+  white-space: nowrap;
+}
+.calc-result .icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+@media (max-width: 720px) {
+  .fonts-search {
+    grid-template-columns: 1fr;
+  }
+}
