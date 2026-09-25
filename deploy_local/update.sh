@@ -46,8 +46,11 @@ main() {
 
     # ------------------------------------------------------------ 2. скачать
     step 2 $total download "Скачиваю архив ветки $BRANCH"
-    local tmp; tmp="$(mktemp -d "${TMPDIR:-/tmp}/poster-update.XXXXXX")" || die "не создаётся временная папка"
-    trap 'rm -rf "$tmp"' EXIT
+    # не local: обработчик EXIT срабатывает уже после выхода из main, когда
+    # локальных переменных нет, — временная папка оставалась бы в /tmp
+    TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/poster-update.XXXXXX")" || die "не создаётся временная папка"
+    trap 'rm -rf "$TMP_DIR"' EXIT
+    local tmp="$TMP_DIR"
     note "$ARCHIVE_URL"
     run curl -fsSL -o "$tmp/poster.tar.gz" "$ARCHIVE_URL" \
         || die "архив не скачался (нет интернета, или GitHub недоступен). Адрес: $ARCHIVE_URL"

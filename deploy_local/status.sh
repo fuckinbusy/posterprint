@@ -4,7 +4,7 @@
 
 . "$(dirname "$0")/common.sh"
 
-say status "ПОСТЕР CRM · $(date '+%d.%m.%Y %H:%M:%S') · $BASE"
+say info "ПОСТЕР CRM · $(date '+%d.%m.%Y %H:%M:%S') · $BASE"
 m="$(mode)"
 case "$m" in
     systemd)

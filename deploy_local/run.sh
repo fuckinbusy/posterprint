@@ -77,7 +77,7 @@ WantedBy=multi-user.target"
     fi
     if wait_health; then
         ok "служба запущена: http://${HOST}:${PORT}/ · автозапуск включён"
-        note "журнал: $SUDO journalctl -u $SERVICE -n 50 · статус: bash $HERE/status.sh"
+        note "журнал: ${SUDO:+$SUDO }journalctl -u $SERVICE -n 50 · статус: bash $HERE/status.sh"
     else
         run $SUDO systemctl status "$SERVICE" --no-pager -n 20 || true
         die "служба не ответила на $HEALTH за 40 с — смотрите журнал выше"
