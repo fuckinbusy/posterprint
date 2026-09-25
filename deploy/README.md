@@ -14,6 +14,7 @@ deploy/
   mode.sh                  сменить режим: all | crm | site
   Caddyfile, caddy/        https и какой домен кому: правила для режимов all / crm / site
   crm/                     CRM без Docker: install.sh, poster.sh, служба, Windows, LINUX.md
+  ../deploy_local/         CRM на своём сервере или NAS без Docker и git (см. её README.md)
 ```
 
 - [Какой способ выбрать](#какой-способ-выбрать)
@@ -260,6 +261,11 @@ CRM не стартует без пароля администратора, кл
 ---
 
 ## CRM без Docker: мастерская, NAS, Windows
+
+**Сервер или NAS без git** (TerraMaster TOS, Python 3.10, обновления архивом
+через curl) — отдельный набор скриптов в [../deploy_local/README.md](../deploy_local/README.md):
+`setup.sh`, `run.sh`, `stop.sh`, `status.sh`, `update.sh`, `backup.sh`,
+каждый печатает всё, что делает, и пишет лог. Ниже — вариант с git.
 
 ### Linux
 

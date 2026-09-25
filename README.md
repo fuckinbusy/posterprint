@@ -33,6 +33,10 @@
 запускать (всё, только CRM или только сайт), домены и пароль, остальное
 сделает сам. **Мастерская без Docker** — служба systemd или планировщик
 Windows. Всё это — в [deploy/README.md](deploy/README.md).
+**Свой сервер или NAS в локальной сети, без Docker и git** (TerraMaster TOS,
+Python 3.10) — скрипты `setup / run / stop / status / update / backup` в
+[deploy_local/README.md](deploy_local/README.md): обновление приходит архивом
+с GitHub через curl, сайт-визитка на такой сервер не ставится.
 
 ## CRM (poster-ocr)
 
